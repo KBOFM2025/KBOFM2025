@@ -111,3 +111,13 @@ KBO-FM-2025/
 - 외부 코드에서는 가능하면 `app.windows`를 직접 참조하지 말고 `app.application`을 사용하세요.
 - 화면 코드가 다시 커지면 `NewGameWizard`, `StartWindow`, `MainWindow`를 각각 별도 모듈로 분리하세요.
 - DB 스키마를 변경할 때는 기존 세이브 파일과의 호환성을 먼저 확인하세요.
+
+## 실행 화면 (감독 스타일 추천)
+<img width="1191" height="761" alt="image" src="https://github.com/user-attachments/assets/59633bc0-be87-40d7-bbb3-d120c3f8a494" />
+
+## 실행 화면 (감독 능력치 선택)
+<img width="1170" height="736" alt="image" src="https://github.com/user-attachments/assets/cd4fa125-54cc-4f19-960f-0eac272aba51" />
+
+## 실행 화면 (구단 선택)
+<img width="1888" height="968" alt="image" src="https://github.com/user-attachments/assets/f0934777-3295-41a3-bb6f-b1aefacd8c38" />
+
