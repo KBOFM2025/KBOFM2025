@@ -1,0 +1,1633 @@
+﻿
+
+<!DOCTYPE html>
+<html lang="ko">
+<head><title>
+	타자 | 선수기록 | 기록실 | 퓨처스리그 | KBO
+</title><meta http-equiv="Content-Type" content="text/html; charset=utf-8" /><meta http-equiv="Content-Script-Type" content="text/javascript" /><meta http-equiv="Content-Style-Type" content="text/css" /><meta http-equiv="X-UA-Compatible" content="IE=edge, Chrome" /><meta name="title" content="KBO" /><meta name="author" content="스포츠투아이" /><meta name="keywords" content="KBO, 한국야구위원회, 프로야구, KBO 리그, 퓨처스리그, 프로야구순위, 프로야구 일정" /><meta name="viewport" content="width=1200" />
+    <!-- OG -->
+    <meta property="og:type" content="website" /><meta property="og:title" content="KBO 홈페이지" /><meta property="og:description" content="KBO, 한국야구위원회, 프로야구, KBO 리그, 퓨처스리그, 프로야구순위, 프로야구 일정" /><meta property="og:image" content="https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/images/common/open_graph_kbo_2022.png" /><meta property="og:url" content="https://www.koreabaseball.com/" />
+
+	<link rel="shortcut icon" type="image/x-icon" href="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/images/common/favicon.ico" />
+    <link rel="stylesheet" type="text/css" href="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/css/font.min.css?version=20260702" crossorigin="anonymous"/>
+	<link rel="stylesheet" type="text/css" href="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/css/reset.min.css?version=20260702" />
+	<link rel="stylesheet" type="text/css" href="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/css/common.min.css?version=20260702" />
+	<link rel="stylesheet" type="text/css" href="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/css/layout.min.css?version=20260702" />
+	<link rel="stylesheet" type="text/css" href="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/css/contents.min.css?version=20260702" />
+    <link rel="stylesheet" type="text/css" href="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/css/jquery-ui.min.css?version=20260702" />
+    <link rel="stylesheet" type="text/css" href="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/css/jquery-ui-theme.min.css?version=20260702" />
+	<link rel="stylesheet" type="text/css" href="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/css/jquery.bxslider.min.css?version=20260702" />
+
+	<script type="text/javascript" charset="utf-8" src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/jquery-1.12.4.min.js?version=20260714"></script>
+    <script type="text/javascript" charset="utf-8" src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/jquery-migrate-1.1.1.min.js?version=20260714"></script>
+    <script type="text/javascript" charset="utf-8" src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/jquery-ui.min.js?version=20260714"></script>
+	<script type="text/javascript" charset="utf-8" src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/jquery.bxslider.min.js?version=20260714"></script>
+    <script type="text/javascript" charset="utf-8" src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/jquery.ui.datepicker-ko.min.js?version=20260714"></script>
+    <script type="text/javascript" charset="utf-8" src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/S2i.Common-1.0.1.min.js?version=20260714"></script>
+    <script type="text/javascript" charset="utf-8" src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/S2i.Paging-1.0.8.min.js?version=20260714"></script>
+	<script type="text/javascript" charset="utf-8" src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/common.min.js?version=20260714"></script>
+    <script type="text/javascript" charset="utf-8" src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/S2i.MakeTable-1.0.3.min.js?version=20260714"></script>
+    <script type="text/javascript" charset="utf-8" src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/bTogether.min.js?version=20260714"></script>
+    
+	<!—[if lt IE 9]>
+		<script src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/html5shiv.min.js?version=20260714"></script>
+	<![endif]—>
+	<!-- Google Tag Manager -->
+	<script>
+        $.ajaxSetup({
+            timeout: 10000 // 전역 타임아웃 설정
+        });
+
+        $(document).ajaxError(function (event, jqxhr, settings, thrownError) {
+			// 호출 지연 10초
+            if (thrownError === 'timeout') {
+                console.warn(`timeout: ${settings.url}`);
+				if(settings.url == "https://www.kborc.com/getKboRCList.ajax"){
+					$("#KBOMovie").remove();
+				}
+				if(settings.url == "https://www.kborc.com/getKboRCList2.ajax"){
+					$("#KBOCheckedSwing").remove();
+				}
+
+            } 
+			// 호출 오류
+			else {
+                console.warn(`error: ${settings.url}`, thrownError);
+				if(settings.url == "https://www.kborc.com/getKboRCList.ajax"){
+					$("#KBOMovie").remove();
+				}
+				if(settings.url == "https://www.kborc.com/getKboRCList2.ajax"){
+					$("#KBOCheckedSwing").remove();
+				}
+            }
+        });
+
+
+		(function (w, d, s, l, i) {
+			w[l] = w[l] || []; w[l].push({
+				'gtm.start':
+					new Date().getTime(), event: 'gtm.js'
+			}); var f = d.getElementsByTagName(s)[0],
+				j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+					'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+		})(window, document, 'script', 'dataLayer', 'GTM-K3BL64Q');
+
+        $(document).ready(function () {
+            var jbOffset = $('.lnb-wrap').offset();
+            $(window).scroll(function () {
+                if ($(document).scrollTop() > jbOffset.top) {
+                    $('.lnb-wrap').addClass('fixed');
+                }
+                else {
+                    $('.lnb-wrap').removeClass('fixed');
+                }
+            });
+        });
+    </script>
+	<!-- End Google Tag Manager -->
+    
+    <link rel="stylesheet" type="text/css" href="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/css/sub.min.css?version=20260702" />
+    
+    <link type="text/css" rel="stylesheet" href="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/css/futures.min.css?version=20260702"/>
+    <script type="text/javascript" charset="utf-8" src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/S2i.GameList-1.0.0.min.js?version=20260714"></script>
+    
+    <script type="text/javascript" charset="utf-8" src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/S2i.AjaxHtml-1.0.0.min.js?version=20260714"></script>
+    <script type="text/javascript" charset="utf-8" src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/min/js/futures-ui.min.js?version=20260714"></script>
+    
+    
+
+
+</head>
+<body>
+	<!-- Google Tag Manager (noscript) -->
+	<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-K3BL64Q"
+	height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+	<!-- End Google Tag Manager (noscript) -->
+    <form method="post" action="./Hitter.aspx" id="mainForm">
+<div class="aspNetHidden">
+<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="" />
+<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="" />
+<input type="hidden" name="__LASTFOCUS" id="__LASTFOCUS" value="" />
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="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" />
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+var theForm = document.forms['mainForm'];
+if (!theForm) {
+    theForm = document.mainForm;
+}
+function __doPostBack(eventTarget, eventArgument) {
+    if (!theForm.onsubmit || (theForm.onsubmit() != false)) {
+        theForm.__EVENTTARGET.value = eventTarget;
+        theForm.__EVENTARGUMENT.value = eventArgument;
+        theForm.submit();
+    }
+}
+//]]>
+</script>
+
+
+<script src="/WebResource.axd?d=5KoJyrNbh4-p9tjYPJ83ET2sHjB2ExWgK-oijpK8notAYA26Z3QlRr0B2gU9jVlYN3ii4eIjdVBKCHht-BRmFjwdanE1&amp;t=638901860248157332" type="text/javascript"></script>
+
+
+<script src="/ScriptResource.axd?d=iej2pRcWWjh9MWqxasC2Q8UgUhGlATGMxRb9fHqysn_U5MTe_5-y_XKBb102LjlPeN-F8puc2aSk3nf8D5VIE3UG4yJZu0ekjQ8pt_WCL-9_0JJ5jwuwTFmqZhHsXkPyOG4hLo_RSUzpYMWfSVeuabitpRB_tCHJQi_HOT8MO3A1tC4H0&amp;t=5c0e0825" type="text/javascript"></script>
+<script type="text/javascript">
+//<![CDATA[
+if (typeof(Sys) === 'undefined') throw new Error('ASP.NET Ajax 클라이언트 쪽 프레임워크를 로드하지 못했습니다.');
+//]]>
+</script>
+
+<script src="/ScriptResource.axd?d=wlfbDt0NNT9i3Cs27Jnzd1M4etbiAbAaqyUTImcLfnjzeeWUUE0uZqQTuJv8OYDczb57a5OZDGN_c1DsmWIvm9EZri3GqrCO-AduyOY_TuLHb7oQ2rcPCYSUtlpP_QGMzNxgoyAm-menkzrkO4mWcgCNuSSJBgPhkru4lxcnGs4_XclXgv6_LNBvKQsO2JqLDxl3jQ2&amp;t=5c0e0825" type="text/javascript"></script>
+<div class="aspNetHidden">
+
+	<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="542596EB" />
+	<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="/wEdADDEsmMBh+t2vPipmx+F9eFdMzj2o/Kl3exwtkWJg3O5wXgObrI9pqD6B2iczr4vXyVmZt5/F5xuDeTrjSLHS2kmSWJAJ3sPxSmjawXcICPozS2uAdfWu0dEMbTA/K3CMil70JZQP4cRmMPEXI31TKsn87JdGpNmuYrg+3E4Vq2G5bbjKpl4LwHxHjdrNKBwqC45d4B4y5gubEiB1Q4MTx+MrT/fEQ3jZH33aRa47EJLIJ+za89w8ku4BFmFEPY+w4V/GXCKD8pdrIwhlObcqD5oPYPjpb5fKm2KSAjeocG1WZ6D1cNg0vy8T7QTt8gPNe5DI8VzPujKiWYRUYJ2AJEV/yIuWyctgBdKrYKQS68MCW4zqWkznBmKSegKz5Skn7FXN8Ba4QSHtWqpXsAWzoGFZSWoBIATQCG1BfmYSx/5elNIhbKNIIP3fb/oXmfymrigDVy7bsHgzoQbTgTdMfjZu17Aw/rIjKjZRGDRKWGbUENgeBSbNKLKcKTg82HGZ5NVZUXxd/uiJhLNEa+9XxmniVx6kVF0VGZJQWZrhVqbDXQgPm7fZa70OwZ7d7Dp1WD6RDwCo8sThGuE7pkUKp4EJY/ImRWG9e44Fizmqo6gKd6Lqt4AwW1ocLVtDOnxFfosVPJEqMmnsPvHB9dIJGpfARvz39yO+Qt6yl/MVbRMKKuMptg8kI77SbU4++55lNnmFdUWslBO5btpZyMqdhF4rs/Mpg0cmfWLHjUb0iE5C77L0um2OS1feJtPhKAkUYdfk8/g5053ihgiVWBrAfi8lMQ44crGiAzvrGqenAxeWOZ8mDbKjELLdoHfvhada9FXshlYN2OBm4eu9GhEnuohLrud7FiNq0L8BkCezMoQiiIEsp38v5tQJGTakYgKU9G0SJOG5m8osNqJPC8AHwhgdJZD6dJppL8i5D2fQRoVAalCuvpkbHcYZzQgPlhttdq2O7zjuwnvixFYHJG7bT/PNAwKMgzpZ1p+YZVq5mUASU4PBdGSDK7UxaYcQc23SDkrZQZsWuZqCKe5uJml88SIeGFPsw==" />
+</div>
+	    <!-- wrap -->
+	    <div id="wrap">
+		    <!-- header -->
+		    <header>	
+			    <div id="gnb" class="bgf3">
+				    <div class="gnb-wrap">
+						
+						
+					    <ul class="menu">
+                            
+						    <li><a href="/Member/Login.aspx">로그인</a></li>
+                            <li><a href="/Member/Join/Accessterms.aspx">회원가입</a></li>
+                            
+						    <li><a href="http://eng.koreabaseball.com/">ENGLISH</a></li>						
+					    </ul>
+					    <div class="search-area">
+						    <div class="search-box">
+							    <input class="ipt-search" type="text" id="txtTopPlayerWord" placeholder="선수 검색하기" />
+							    <a href="#none;" id="btnTopPlayerSearch" class="btn-search"><img src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/images/common/btn_search.png" alt="검색" /></a>
+						    </div>
+						    <div id="player_search_area" class="search-result">
+							    <!-- <p class="null">검색 결과가 없습니다.</p> -->
+							    
+						    </div>
+					    </div>
+				    </div>
+			    </div>
+			    <div class="wrapping lnb-wrap">
+                    <div class="lnb-box">
+						<h1 class="logo"><a href="/Default.aspx"><img src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/images/common/h1_logo.png" alt="" /></a></h1>
+						<nav>
+					    <ul id="lnb">
+						    <li>
+							    <a href="/Schedule/Schedule.aspx">일정・결과</a>
+							    <div class="lnb-sub">
+								    <ul class="lnb01">
+                                        <li><a href="/Schedule/Schedule.aspx">경기일정・결과</a></li>
+									    
+									    <li><a href="/Schedule/GameCenter/Main.aspx">게임센터</a></li>
+									    <li><a href="/Schedule/ScoreBoard.aspx">스코어보드</a></li>
+                                        <li><a href="/Schedule/Allstar/Game/Main2026.aspx">올스타전</a></li>
+									    <li><a href="/Schedule/International/Wbc/Main2026.aspx">국제대회</a></li>
+                                        <li><a href="/Schedule/Weather.aspx">야구장 날씨</a></li>
+								    </ul>
+							    </div>
+						    </li>
+						    <li>
+							    <a href="/Record/Player/HitterBasic/Basic1.aspx?sort=HRA_RT">기록・순위</a>
+							    <div class="lnb-sub">
+								    <ul class="lnb02">
+									    <li><a href="/Record/Player/HitterBasic/Basic1.aspx?sort=HRA_RT">기록실</a></li>
+									    <li><a href="/Record/TeamRank/TeamRankDaily.aspx">팀 순위</a></li>
+									    <li><a href="/Record/Ranking/Top5.aspx">선수 순위</a></li>
+									    <li><a href="/Record/History/Top/Hitter.aspx">역대 기록</a></li>
+                                        <li><a href="/Record/Expectation/WeekList.aspx">예상 달성 기록</a></li>
+										<li><a href="/Record/RecordCorrect/RecordCorrect.aspx">기록 정정 현황</a></li>
+										<li><a href="/Record/Crowd/GraphTeam.aspx">관중 현황</a></li>
+			                            
+								    </ul>
+							    </div>
+						    </li>
+						    <li>
+							    <a href="/Player/Search.aspx">선수</a>
+							    <div class="lnb-sub">
+								    <ul class="lnb04">
+									    <li><a href="/Player/Search.aspx">선수 조회</a></li>
+									    <li><a href="/Player/Register.aspx">선수 등록 현황</a></li>
+										<li><a href="/Player/Trade.aspx">선수 이동 현황</a></li>
+										<li><a href="/Player/Awards/PlayerPrize.aspx">수상 현황</a></li>
+										<li><a href="/Player/Legend40.aspx">레전드 40</a></li>
+									    <li><a href="/Player/CareerCertificate.aspx">경력증명서 신청</a></li>
+
+									    
+										
+										
+								    </ul>
+							    </div>
+						    </li>						    
+						    <li>
+							    <a href="/MediaNews/Highlight/List.aspx">미디어・뉴스</a>
+							    <div class="lnb-sub">
+								    <ul class="lnb05">
+										<li><a href="/MediaNews/Highlight/List.aspx">하이라이트</a></li>
+										<li><a href="/MediaNews/News/BreakingNews/List.aspx">뉴스</a></li>
+										<li><a href="/MediaNews/Notice/List.aspx">KBO 보도자료</a></li>
+										
+										<li><a href="/MediaNews/UbivMarketer/VideoList.aspx">Z-CREW</a></li>
+										
+										
+										
+                                        
+									</ul>
+							    </div>
+						    </li>
+						    <li>
+							    <a href="javascript:;">KBO</a>
+							    <div class="lnb-sub lnb-style-all">
+								    <div class="wrapping lnb-all-wrap" style="width:713px;">
+									    <h3>KBO</h3>
+									    <div class="lnb-all kbo01">
+										    <h4>KBO 리그</h4>
+										    <ul>
+											    <li><a href="/Kbo/League/GameManage2026.aspx">2026 주요 규정∙규칙</a></li>
+											    <li><a href="/Kbo/League/GameManageRule/GameManage.aspx">경기운영제도</a></li>
+												<li><a href="/Kbo/League/TeamInfo.aspx">구단 소개</a></li>
+											    <li><a href="/Kbo/League/TeamHistory.aspx">구단 변천사</a></li>
+												<li><a href="/Kbo/League/Map.aspx">티켓 안내</a></li>
+										    </ul>
+									    </div>
+									    <div class="lnb-all kbo02">
+										    <h4>게시판</h4>
+										    <ul>
+											    <li><a href="/Kbo/Board/Notice/List.aspx">NOTICE</a></li>
+											    <li><a href="/Kbo/Board/Faqs/List.aspx">자주 하는 질문</a></li>
+												<li><a href="/Kbo/Board/Ebook/EbookPublication.aspx">규정・자료실</a></li>
+
+											    
+											    
+											    
+												
+												
+												
+												
+												
+												
+											    
+											    
+											    
+											    
+											    
+										    </ul>
+									    </div>	
+									    <div class="lnb-all kbo03">
+										    <h4>ABOUT KBO</h4>
+										    <ul>
+												<li><a href="/Kbo/AboutKbo/GroupAndActivity.aspx">조직・활동</a></li>
+												<li><a href="/Kbo/AboutKbo/Logo/Logo.aspx">KBO 로고</a></li>
+												<li><a href="/Kbo/AboutKbo/Committee/OrganizationChart.aspx">기록위원회</a></li>
+												<li><a href="/Kbo/AboutKbo/MedicalCommittee/MedicalOrganization.aspx">의무위원회</a></li>
+                                                
+											    
+                                                
+										    </ul>
+									    </div>	
+									    <div class="lnb-all kbo04">
+										    <h4>주요 사업・행사</h4>
+										    <ul>
+												
+												<li data-tab="MvpApplication"><a href="/Kbo/BusinessAndEvent/Mvp.aspx">2025 KBO 시상식</a></li>
+												<li data-tab="DraftApplication"><a href="/Kbo/BusinessAndEvent/Draft.aspx">2026 신인 드래프트</a></li>
+												<li class="lnbMedia"><a href="/Kbo/BusinessAndEvent/MediaDay.aspx">미디어데이&팬페스트</a></li>
+												<li><a href="/Kbo/BusinessAndEvent/RecordClass/LessonInfo.aspx">기록강습회 수강신청</a></li>
+												 
+												<li><a href="/Kbo/BusinessAndEvent/SafeGuide.aspx">KBO 경기장 안전정책</a></li>
+												<li><a href="/Kbo/BusinessAndEvent/KboArchive/PurchaseGuide.aspx">KBO 리그 영상 구매</a></li>
+												<li><a href="/Kbo/BusinessAndEvent/OnSiteViewingSupport.aspx">시각장애인 관람 지원</a></li>
+												 
+											                                                    
+											    
+											    
+												
+
+												
+				                                
+				                                
+										    </ul>
+									    </div>	
+									    	
+									    
+								    </div>
+								    
+							    </div>
+						    </li>
+							<li class="futures">
+							    <a href="/Futures/Main.aspx">퓨처스리그</a>
+							    <div class="lnb-sub">
+								    <ul class="lnb06">
+									    <li><a href="/Futures/Schedule/GameList.aspx">경기일정・결과</a></li>
+									    <li><a href="/Futures/TeamRank/North.aspx">팀 순위</a></li>
+									    <li><a href="/Futures/Top/Main.aspx">TOP5</a></li>
+									    <li><a href="/Futures/Player/Hitter.aspx">기록실</a></li>
+										<li><a href="/Futures/Player/Register.aspx">선수 등록 현황</a></li>
+									    
+                                        
+                                        
+									    
+									    										
+								    </ul>
+							    </div>					
+						    </li>
+							<li id="market" class="market"><a href="https://www.kbomarket.com/" target="_blank">KBO 마켓</a></li>
+							
+							<li id="" class="kbofont" data-tab="KboFont"><a href="/Reference/etc/KboFont.aspx">KBO 폰트</a></li>
+						    <li id="lnbAll">
+							    <a href="javascript:;">전체 메뉴</a>
+							    <div class="lnb-sub lnb-style-all">
+								    <div class="wrapping lnb-all-wrap">
+									    <div class="line line01">
+										    <h3>전체 메뉴</h3>
+										    <div class="lnb-all menu01">
+											    <h4>일정・결과</h4>
+											    <ul>
+												    <li><a href="/Schedule/Schedule.aspx">경기일정・결과</a></li>
+													
+													<li><a href="/Schedule/GameCenter/Main.aspx">게임센터</a></li>
+													<li><a href="/Schedule/ScoreBoard.aspx">스코어보드</a></li>
+													<li><a href="/Schedule/Allstar/Game/Main2026.aspx">올스타전</a></li>
+													<li><a href="/Schedule/International/Wbc/Main2026.aspx">국제대회</a></li>
+													<li><a href="/Schedule/Weather.aspx">야구장 날씨</a></li>
+											    </ul>
+										    </div>
+										    <div class="lnb-all menu02">
+											    <h4>기록・순위</h4>
+											    <ul>
+													<li><a href="/Record/Player/HitterBasic/BasicOld.aspx?sort=HRA_RT">기록실</a></li>
+													<li><a href="/Record/TeamRank/TeamRankDaily.aspx">팀 순위</a></li>
+													<li><a href="/Record/Ranking/Top5.aspx">선수 순위</a></li>
+													<li><a href="/Record/History/Top/Hitter.aspx">역대 기록</a></li>
+													<li><a href="/Record/Expectation/WeekList.aspx">예상 달성 기록</a></li>
+													<li><a href="/Record/RecordCorrect/RecordCorrect.aspx">기록 정정 현황</a></li>
+													<li><a href="/Record/Crowd/GraphTeam.aspx">관중 현황</a></li>
+													
+											    </ul>
+										    </div>	
+										    <div class="lnb-all menu03">
+											    <h4>선수</h4>
+											    <ul>
+													<li><a href="/Player/Search.aspx">선수 조회</a></li>
+													<li><a href="/Player/Register.aspx">선수 등록 현황</a></li>
+													<li><a href="/Player/Trade.aspx">선수 이동 현황</a></li>
+													<li><a href="/Player/Awards/PlayerPrize.aspx">수상 현황</a></li>
+													<li><a href="/Player/Legend40.aspx">레전드 40</a></li>
+													<li><a href="/Player/CareerCertificate.aspx">경력증명서 신청</a></li>
+											    </ul>
+										    </div>	
+										    <div class="lnb-all menu04">
+											    <h4>미디어・뉴스</h4>
+											    <ul>
+												    <li><a href="/MediaNews/Highlight/List.aspx">하이라이트</a></li>
+													<li><a href="/MediaNews/News/BreakingNews/List.aspx">뉴스</a></li>
+													<li><a href="/MediaNews/Notice/List.aspx">KBO 보도자료</a></li>
+													
+													<li><a href="/MediaNews/UbivMarketer/VideoList.aspx">Z-CREW</a></li>
+													
+													
+													
+													
+											    </ul>
+										    </div>	
+										    <div class="lnb-all menu05">
+											    <h4>퓨처스리그</h4>
+											    <ul>
+												    <li><a href="/Futures/Schedule/GameList.aspx">경기일정・결과</a></li>
+												    <li><a href="/Futures/TeamRank/North.aspx">팀 순위</a></li>
+												    <li><a href="/Futures/Top/Main.aspx">TOP5</a></li>
+												    <li><a href="/Futures/Player/Hitter.aspx">기록실</a></li>
+													<li><a href="/Futures/Player/Register.aspx">선수 등록 현황</a></li>
+												    												
+											    </ul>
+										    </div>
+									    </div>
+									    <div class="line line02">
+										    <h3>KBO</h3>
+										    <div class="lnb-all menu07">
+											    <h4>KBO 리그</h4>
+											    <ul>
+													<li><a href="/Kbo/League/GameManage2026.aspx">2026 주요 규정∙규칙</a></li>
+                                                    <li><a href="/Kbo/League/GameManageRule/GameManage.aspx">경기운영제도</a></li>
+													<li><a href="/Kbo/League/TeamInfo.aspx">구단 소개</a></li>
+													<li><a href="/Kbo/League/TeamHistory.aspx">구단 변천사</a></li>
+													<li><a href="/Kbo/League/Map.aspx">티켓 안내</a></li>
+											    </ul>
+										    </div>
+										    <div class="lnb-all menu08">
+											    <h4>게시판</h4>
+											    <ul>
+												    <li><a href="/Kbo/Board/Notice/List.aspx">NOTICE</a></li>
+													<li><a href="/Kbo/Board/Faqs/List.aspx">자주 하는 질문</a></li>
+													<li><a href="/Kbo/Board/Ebook/EbookPublication.aspx">규정・자료실</a></li>
+													
+													
+													
+													
+													
+													
+													
+													
+													
+													
+													
+													
+													
+													
+													
+											    </ul>
+										    </div>	
+										    <div class="lnb-all menu09">
+											    <h4>ABOUT KBO</h4>
+											    <ul>
+													<li><a href="/Kbo/AboutKbo/GroupAndActivity.aspx">조직・활동</a></li>
+													<li><a href="/Kbo/AboutKbo/Logo/Logo.aspx">KBO 로고</a></li>
+													<li><a href="/Kbo/AboutKbo/Committee/OrganizationChart.aspx">기록위원회</a></li>
+													<li><a href="/Kbo/AboutKbo/MedicalCommittee/MedicalOrganization.aspx">의무위원회</a></li>
+													
+													
+													
+											    </ul>
+										    </div>	
+										    <div class="lnb-all menu10 ">
+											    <h4>주요 사업・행사</h4>
+											    <ul>
+												    <li data-tab="MvpApplication"><a href="/Kbo/BusinessAndEvent/Mvp.aspx">2025 KBO 시상식</a></li>
+													<li data-tab="DraftApplication"><a href="/Kbo/BusinessAndEvent/Draft.aspx">2026 신인 드래프트</a></li>
+													<li class="lnbMedia"><a href="/Kbo/BusinessAndEvent/MediaDay.aspx">미디어데이&팬페스트</a></li>
+													<li><a href="/Kbo/BusinessAndEvent/RecordClass/LessonInfo.aspx">기록강습회 수강신청</a></li>
+												    
+												    
+													<li><a href="/Kbo/BusinessAndEvent/SafeGuide.aspx">KBO 경기장 안전정책</a></li>
+													<li><a href="/Kbo/BusinessAndEvent/KboArchive/PurchaseGuide.aspx">KBO 리그 영상 구매</a></li>
+													<li><a href="/Kbo/BusinessAndEvent/OnSiteViewingSupport.aspx">시각장애인 관람 지원</a></li>
+													 
+													
+											    </ul>
+										    </div>
+									    </div>
+								    </div>
+								    <div class="btn-close">
+									    <a href="javascript:;">
+										    <img src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/images/common/btn_close_fff.png" alt="" />
+										    <span>닫기</span>
+									    </a>									
+								    </div>
+							    </div>
+						    </li>
+					    </ul>
+				    </nav>
+					</div>
+			    </div>
+		    </header>
+		    <!-- // header -->
+		    <hr />
+		    <!-- container -->
+		    
+    
+<section id="container">
+	
+    <div id="futures" class="wrapping container-wrap">
+	    
+<div class="fb-wrap">
+<ul class="futures-banner">
+	
+	<!-- <li><a href="javascript:;"><img src="/resources/images/sub/img_futures_bsample.jpg" alt="" /></a></li>
+	<li><a href="javascript:;"><img src="/resources/images/sub/img_futures_bsample.jpg" alt="" /></a></li>
+	<li><a href="javascript:;"><img src="/resources/images/sub/img_futures_bsample.jpg" alt="" /></a></li> -->
+</ul>
+</div>
+ <script type="text/javascript">
+	$(document).ready(function(){
+		//$(".futures-banner").bxSlider();
+        getFuturesBanner();
+	});
+
+</script> 
+        
+<script type="text/javascript">
+//<![CDATA[
+Sys.WebForms.PageRequestManager._initialize('ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ScriptManager', 'mainForm', ['tctl00$ctl00$ctl00$cphContents$cphContents$cphContents$udpRecord','cphContents_cphContents_cphContents_udpRecord'], ['ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$lbtnOrderBy','cphContents_cphContents_cphContents_lbtnOrderBy','ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ddlSeason','cphContents_cphContents_cphContents_ddlSeason','ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ddlGroup','cphContents_cphContents_cphContents_ddlGroup','ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ddlPos','cphContents_cphContents_cphContents_ddlPos'], [], 90, 'ctl00$ctl00$ctl00');
+//]]>
+</script>
+
+
+<div id="contents" class="futures-sub">
+	
+	
+
+<ul id="snb">
+	<li><a href="/Futures/Schedule/GameList.aspx"  id="lnb01">경기일정・결과</a></li>
+	<li><a href="/Futures/TeamRank/North.aspx"  id="lnb02">팀 순위</a></li>
+	<li><a href="/Futures/Top/Main.aspx"  id="lnb03">TOP5</a></li>
+	<li><a href="/Futures/Player/Hitter.aspx"  id="lnb04">기록실</a></li>
+	<li><a href="/Futures/Player/Register.aspx"  id="lnb10">선수 등록 현황</a></li>
+    
+</ul>
+
+	<h4 class="tit-page">기록실</h4>	
+	<div class="sub-content">	
+		<div class="tab-depth1">
+			<ul class="tab">
+				<li class="on"><a href="/Futures/Player/Hitter.aspx">선수 기록</a></li>
+				<li><a href="/Futures/Team/Hitter.aspx">팀 기록</a></li>
+                <li><a href="/Futures/Record/Police/Hitter.aspx">경찰 야구단(2019)</a></li>
+				<li><a href="/Futures/Record/EduLeague/Hitter.aspx">KBO Fall League</a></li>
+			</ul>
+		</div>
+		<div class="tab-depth2">
+			<ul class="tab">
+				<li class="on"> <a href="/Futures/Player/Hitter.aspx">타자</a></li>
+				<li> <a href="/Futures/Player/Pitcher.aspx">투수</a></li>
+			</ul>
+
+			<span class="record_words"><a href="#"><img src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/images/record/btn_record_words.png" alt="기록용어" /></a></span>
+			<div class="words" id="words"></div>
+		</div>
+
+		<div id="cphContents_cphContents_cphContents_udpRecord">
+	
+				<div class="compare mt25">
+					<select name="ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ddlSeason$ddlSeason" onchange="javascript:setTimeout(&#39;__doPostBack(\&#39;ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ddlSeason$ddlSeason\&#39;,\&#39;\&#39;)&#39;, 0)" id="cphContents_cphContents_cphContents_ddlSeason_ddlSeason" class="select02">
+		<option value="2010">2010</option>
+		<option value="2011">2011</option>
+		<option value="2012">2012</option>
+		<option value="2013">2013</option>
+		<option value="2014">2014</option>
+		<option value="2015">2015</option>
+		<option value="2016">2016</option>
+		<option value="2017">2017</option>
+		<option value="2018">2018</option>
+		<option value="2019">2019</option>
+		<option value="2020">2020</option>
+		<option value="2021">2021</option>
+		<option value="2022">2022</option>
+		<option value="2023">2023</option>
+		<option value="2024">2024</option>
+		<option value="2025">2025</option>
+		<option selected="selected" value="2026">2026</option>
+
+	</select>
+					<span class="bar">|</span>
+					
+<div class="styled-select03 mt5">
+    <select name="ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ddlGroup$ddlGroup" onchange="javascript:setTimeout(&#39;__doPostBack(\&#39;ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ddlGroup$ddlGroup\&#39;,\&#39;\&#39;)&#39;, 0)" id="cphContents_cphContents_cphContents_ddlGroup_ddlGroup" class="select02">
+		<option selected="selected" value="">리그 선택</option>
+		<option value="NORTH">북부리그</option>
+		<option value="SOUTH">남부리그</option>
+		<option value="CHAMPION">챔피언결정전</option>
+
+	</select>
+</div>
+					
+                    <div class="styled-select03 mt5">
+                        <select name="ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ddlTeam" onchange="javascript:setTimeout(&#39;__doPostBack(\&#39;ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ddlTeam\&#39;,\&#39;\&#39;)&#39;, 0)" id="cphContents_cphContents_cphContents_ddlTeam" class="select02">
+		<option selected="selected" value="">팀 선택</option>
+		<option value="HH">한화</option>
+		<option value="LG">LG</option>
+		<option value="WO">고양</option>
+		<option value="OB">두산</option>
+		<option value="SK">SSG</option>
+		<option value="SM">상무</option>
+		<option value="LT">롯데</option>
+		<option value="NC">NC</option>
+		<option value="HT">KIA</option>
+		<option value="SS">삼성</option>
+		<option value="KT">KT</option>
+		<option value="UL">울산</option>
+
+	</select>
+                    </div>
+					<div class="styled-select03 mt5">
+						<select name="ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ddlPos$ddlPos" onchange="javascript:setTimeout(&#39;__doPostBack(\&#39;ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ddlPos$ddlPos\&#39;,\&#39;\&#39;)&#39;, 0)" id="cphContents_cphContents_cphContents_ddlPos_ddlPos" class="select02">
+		<option selected="selected" value="">포지션 선택</option>
+		<option value="2">포수</option>
+		<option value="3,4,5,6">내야수</option>
+		<option value="7,8,9">외야수</option>
+
+	</select>
+					</div>
+				</div>
+			
+				<h6> 타자기록</h6>
+				
+				<div class="tbl-futures01">				
+					<table class="tbl tt mb30" cellspacing="0" cellpadding="0" summary="선수 기본기록으로 경기,타석,타수,득점,안타,2루타, 3루타 등을 표시합니다">
+						<colgroup>
+							<col width="35" />
+							<col width="70" />
+							<col width="50" />
+							<col width="50" />
+							<col width="35" />
+							<col width="35" />
+							<col width="35" />
+							<col width="35" />
+							<col width="35" />
+							<col width="35" />
+							<col width="35" />
+							<col width="35" />
+							<col width="35" />
+							<col width="35" />
+							<col width="35" />
+							<col width="35" />
+							<col width="35" />
+							<col width="45" />
+							<col width="45" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th>순위</th>
+								<th>선수명</th>
+								<th>팀명</th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('HRA_RT');" title="타율">AVG</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('GAME_CN');" title="경기">G</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('PA_CN');" title="타석">PA</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('AB_CN');" title="타수">AB</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('RUN_CN');" title="득점">R</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('HIT_CN');" title="안타">H</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('H2_CN');" title="2루타">2B</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('H3_CN');" title="3루타">3B</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('HR_CN');" title="홈런">HR</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('RBI_CN');" title="타점">RBI</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('SB_CN');" title="도루">SB</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('BB_CN');" title="볼넷">BB</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('HP_CN');" title="사구">HBP</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('KK_CN');" title="삼진">SO</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('SLG_RT');" title="장타율">SLG</a></th>
+								<th><a  onmouseenter="tooltip(this)" onmouseout="hideTip()" href="javascript:sort('OBP_RT');" title="출루율">OBP</a></th>
+							</tr>
+						</thead>
+						<tbody>
+							
+								<tr>
+									<td>1</td>
+									<td><a href="HitterDetail.aspx?playerId=54156">손용준</a></td>
+									<td>LG</td>
+									<td data-id="HRA_RT">0.362</td>
+									<td data-id="GAME_CN">56</td>
+									<td data-id="PA_CN">239</td>
+									<td data-id="AB_CN">207</td>
+									<td data-id="RUN_CN">41</td>
+									<td data-id="HIT_CN">75</td>
+									<td data-id="H2_CN">8</td>
+									<td data-id="H3_CN">1</td>
+									<td data-id="HR_CN">3</td>
+									<td data-id="RBI_CN">28</td>
+									<td data-id="SB_CN">9</td>
+									<td data-id="BB_CN">22</td>
+									<td data-id="HP_CN">8</td>
+									<td data-id="KK_CN">17</td>
+									<td data-id="SLG_RT">0.454</td>
+									<td data-id="OBP_RT">0.441</td>
+								</tr>
+							
+								<tr>
+									<td>2</td>
+									<td><a href="HitterDetail.aspx?playerId=52105">김성우</a></td>
+									<td>상무</td>
+									<td data-id="HRA_RT">0.347</td>
+									<td data-id="GAME_CN">59</td>
+									<td data-id="PA_CN">236</td>
+									<td data-id="AB_CN">190</td>
+									<td data-id="RUN_CN">46</td>
+									<td data-id="HIT_CN">66</td>
+									<td data-id="H2_CN">10</td>
+									<td data-id="H3_CN">0</td>
+									<td data-id="HR_CN">4</td>
+									<td data-id="RBI_CN">40</td>
+									<td data-id="SB_CN">1</td>
+									<td data-id="BB_CN">27</td>
+									<td data-id="HP_CN">14</td>
+									<td data-id="KK_CN">22</td>
+									<td data-id="SLG_RT">0.463</td>
+									<td data-id="OBP_RT">0.455</td>
+								</tr>
+							
+								<tr>
+									<td>3</td>
+									<td><a href="HitterDetail.aspx?playerId=50820">전의산</a></td>
+									<td>SSG</td>
+									<td data-id="HRA_RT">0.344</td>
+									<td data-id="GAME_CN">45</td>
+									<td data-id="PA_CN">189</td>
+									<td data-id="AB_CN">157</td>
+									<td data-id="RUN_CN">29</td>
+									<td data-id="HIT_CN">54</td>
+									<td data-id="H2_CN">8</td>
+									<td data-id="H3_CN">1</td>
+									<td data-id="HR_CN">9</td>
+									<td data-id="RBI_CN">47</td>
+									<td data-id="SB_CN">0</td>
+									<td data-id="BB_CN">28</td>
+									<td data-id="HP_CN">2</td>
+									<td data-id="KK_CN">49</td>
+									<td data-id="SLG_RT">0.580</td>
+									<td data-id="OBP_RT">0.444</td>
+								</tr>
+							
+								<tr>
+									<td>4</td>
+									<td><a href="HitterDetail.aspx?playerId=51407">이창용</a></td>
+									<td>삼성</td>
+									<td data-id="HRA_RT">0.342</td>
+									<td data-id="GAME_CN">66</td>
+									<td data-id="PA_CN">281</td>
+									<td data-id="AB_CN">257</td>
+									<td data-id="RUN_CN">36</td>
+									<td data-id="HIT_CN">88</td>
+									<td data-id="H2_CN">15</td>
+									<td data-id="H3_CN">2</td>
+									<td data-id="HR_CN">9</td>
+									<td data-id="RBI_CN">50</td>
+									<td data-id="SB_CN">7</td>
+									<td data-id="BB_CN">17</td>
+									<td data-id="HP_CN">2</td>
+									<td data-id="KK_CN">42</td>
+									<td data-id="SLG_RT">0.521</td>
+									<td data-id="OBP_RT">0.382</td>
+								</tr>
+							
+								<tr>
+									<td>5</td>
+									<td><a href="HitterDetail.aspx?playerId=55534">조민영</a></td>
+									<td>롯데</td>
+									<td data-id="HRA_RT">0.340</td>
+									<td data-id="GAME_CN">58</td>
+									<td data-id="PA_CN">241</td>
+									<td data-id="AB_CN">215</td>
+									<td data-id="RUN_CN">40</td>
+									<td data-id="HIT_CN">73</td>
+									<td data-id="H2_CN">20</td>
+									<td data-id="H3_CN">2</td>
+									<td data-id="HR_CN">5</td>
+									<td data-id="RBI_CN">35</td>
+									<td data-id="SB_CN">2</td>
+									<td data-id="BB_CN">16</td>
+									<td data-id="HP_CN">7</td>
+									<td data-id="KK_CN">39</td>
+									<td data-id="SLG_RT">0.521</td>
+									<td data-id="OBP_RT">0.400</td>
+								</tr>
+							
+								<tr>
+									<td>6</td>
+									<td><a href="HitterDetail.aspx?playerId=56443">이한민</a></td>
+									<td>삼성</td>
+									<td data-id="HRA_RT">0.339</td>
+									<td data-id="GAME_CN">67</td>
+									<td data-id="PA_CN">195</td>
+									<td data-id="AB_CN">165</td>
+									<td data-id="RUN_CN">36</td>
+									<td data-id="HIT_CN">56</td>
+									<td data-id="H2_CN">11</td>
+									<td data-id="H3_CN">2</td>
+									<td data-id="HR_CN">3</td>
+									<td data-id="RBI_CN">32</td>
+									<td data-id="SB_CN">4</td>
+									<td data-id="BB_CN">13</td>
+									<td data-id="HP_CN">7</td>
+									<td data-id="KK_CN">24</td>
+									<td data-id="SLG_RT">0.485</td>
+									<td data-id="OBP_RT">0.406</td>
+								</tr>
+							
+								<tr>
+									<td>7</td>
+									<td><a href="HitterDetail.aspx?playerId=52765">유민</a></td>
+									<td>한화</td>
+									<td data-id="HRA_RT">0.325</td>
+									<td data-id="GAME_CN">52</td>
+									<td data-id="PA_CN">194</td>
+									<td data-id="AB_CN">157</td>
+									<td data-id="RUN_CN">31</td>
+									<td data-id="HIT_CN">51</td>
+									<td data-id="H2_CN">13</td>
+									<td data-id="H3_CN">0</td>
+									<td data-id="HR_CN">6</td>
+									<td data-id="RBI_CN">43</td>
+									<td data-id="SB_CN">4</td>
+									<td data-id="BB_CN">28</td>
+									<td data-id="HP_CN">7</td>
+									<td data-id="KK_CN">50</td>
+									<td data-id="SLG_RT">0.522</td>
+									<td data-id="OBP_RT">0.443</td>
+								</tr>
+							
+								<tr>
+									<td>8</td>
+									<td><a href="HitterDetail.aspx?playerId=69105">김성진</a></td>
+									<td>LG</td>
+									<td data-id="HRA_RT">0.317</td>
+									<td data-id="GAME_CN">60</td>
+									<td data-id="PA_CN">217</td>
+									<td data-id="AB_CN">183</td>
+									<td data-id="RUN_CN">26</td>
+									<td data-id="HIT_CN">58</td>
+									<td data-id="H2_CN">12</td>
+									<td data-id="H3_CN">0</td>
+									<td data-id="HR_CN">4</td>
+									<td data-id="RBI_CN">46</td>
+									<td data-id="SB_CN">1</td>
+									<td data-id="BB_CN">22</td>
+									<td data-id="HP_CN">9</td>
+									<td data-id="KK_CN">39</td>
+									<td data-id="SLG_RT">0.448</td>
+									<td data-id="OBP_RT">0.410</td>
+								</tr>
+							
+								<tr>
+									<td>9</td>
+									<td><a href="HitterDetail.aspx?playerId=50903">한재환</a></td>
+									<td>NC</td>
+									<td data-id="HRA_RT">0.307</td>
+									<td data-id="GAME_CN">61</td>
+									<td data-id="PA_CN">233</td>
+									<td data-id="AB_CN">192</td>
+									<td data-id="RUN_CN">36</td>
+									<td data-id="HIT_CN">59</td>
+									<td data-id="H2_CN">11</td>
+									<td data-id="H3_CN">0</td>
+									<td data-id="HR_CN">15</td>
+									<td data-id="RBI_CN">45</td>
+									<td data-id="SB_CN">3</td>
+									<td data-id="BB_CN">26</td>
+									<td data-id="HP_CN">11</td>
+									<td data-id="KK_CN">45</td>
+									<td data-id="SLG_RT">0.599</td>
+									<td data-id="OBP_RT">0.414</td>
+								</tr>
+							
+								<tr>
+									<td>10</td>
+									<td><a href="HitterDetail.aspx?playerId=55502">김동현</a></td>
+									<td>롯데</td>
+									<td data-id="HRA_RT">0.302</td>
+									<td data-id="GAME_CN">54</td>
+									<td data-id="PA_CN">221</td>
+									<td data-id="AB_CN">169</td>
+									<td data-id="RUN_CN">38</td>
+									<td data-id="HIT_CN">51</td>
+									<td data-id="H2_CN">15</td>
+									<td data-id="H3_CN">0</td>
+									<td data-id="HR_CN">6</td>
+									<td data-id="RBI_CN">32</td>
+									<td data-id="SB_CN">3</td>
+									<td data-id="BB_CN">45</td>
+									<td data-id="HP_CN">3</td>
+									<td data-id="KK_CN">44</td>
+									<td data-id="SLG_RT">0.497</td>
+									<td data-id="OBP_RT">0.448</td>
+								</tr>
+							
+								<tr>
+									<td>11</td>
+									<td><a href="HitterDetail.aspx?playerId=54567">강성우</a></td>
+									<td>상무</td>
+									<td data-id="HRA_RT">0.301</td>
+									<td data-id="GAME_CN">63</td>
+									<td data-id="PA_CN">250</td>
+									<td data-id="AB_CN">219</td>
+									<td data-id="RUN_CN">34</td>
+									<td data-id="HIT_CN">66</td>
+									<td data-id="H2_CN">8</td>
+									<td data-id="H3_CN">0</td>
+									<td data-id="HR_CN">2</td>
+									<td data-id="RBI_CN">31</td>
+									<td data-id="SB_CN">4</td>
+									<td data-id="BB_CN">18</td>
+									<td data-id="HP_CN">4</td>
+									<td data-id="KK_CN">31</td>
+									<td data-id="SLG_RT">0.365</td>
+									<td data-id="OBP_RT">0.355</td>
+								</tr>
+							
+								<tr>
+									<td>12</td>
+									<td><a href="HitterDetail.aspx?playerId=52124">엄태경</a></td>
+									<td>LG</td>
+									<td data-id="HRA_RT">0.296</td>
+									<td data-id="GAME_CN">63</td>
+									<td data-id="PA_CN">212</td>
+									<td data-id="AB_CN">169</td>
+									<td data-id="RUN_CN">37</td>
+									<td data-id="HIT_CN">50</td>
+									<td data-id="H2_CN">13</td>
+									<td data-id="H3_CN">2</td>
+									<td data-id="HR_CN">4</td>
+									<td data-id="RBI_CN">22</td>
+									<td data-id="SB_CN">7</td>
+									<td data-id="BB_CN">30</td>
+									<td data-id="HP_CN">6</td>
+									<td data-id="KK_CN">24</td>
+									<td data-id="SLG_RT">0.467</td>
+									<td data-id="OBP_RT">0.411</td>
+								</tr>
+							
+								<tr>
+									<td>13</td>
+									<td><a href="HitterDetail.aspx?playerId=69332">주성원</a></td>
+									<td>고양</td>
+									<td data-id="HRA_RT">0.295</td>
+									<td data-id="GAME_CN">52</td>
+									<td data-id="PA_CN">224</td>
+									<td data-id="AB_CN">190</td>
+									<td data-id="RUN_CN">31</td>
+									<td data-id="HIT_CN">56</td>
+									<td data-id="H2_CN">14</td>
+									<td data-id="H3_CN">1</td>
+									<td data-id="HR_CN">6</td>
+									<td data-id="RBI_CN">34</td>
+									<td data-id="SB_CN">3</td>
+									<td data-id="BB_CN">26</td>
+									<td data-id="HP_CN">6</td>
+									<td data-id="KK_CN">26</td>
+									<td data-id="SLG_RT">0.474</td>
+									<td data-id="OBP_RT">0.393</td>
+								</tr>
+							
+								<tr>
+									<td>14</td>
+									<td><a href="HitterDetail.aspx?playerId=68330">예진원</a></td>
+									<td>울산</td>
+									<td data-id="HRA_RT">0.292</td>
+									<td data-id="GAME_CN">62</td>
+									<td data-id="PA_CN">219</td>
+									<td data-id="AB_CN">185</td>
+									<td data-id="RUN_CN">24</td>
+									<td data-id="HIT_CN">54</td>
+									<td data-id="H2_CN">9</td>
+									<td data-id="H3_CN">2</td>
+									<td data-id="HR_CN">0</td>
+									<td data-id="RBI_CN">21</td>
+									<td data-id="SB_CN">4</td>
+									<td data-id="BB_CN">32</td>
+									<td data-id="HP_CN">0</td>
+									<td data-id="KK_CN">23</td>
+									<td data-id="SLG_RT">0.362</td>
+									<td data-id="OBP_RT">0.394</td>
+								</tr>
+							
+								<tr>
+									<td>15</td>
+									<td><a href="HitterDetail.aspx?playerId=52402">김상민</a></td>
+									<td>삼성</td>
+									<td data-id="HRA_RT">0.285</td>
+									<td data-id="GAME_CN">66</td>
+									<td data-id="PA_CN">256</td>
+									<td data-id="AB_CN">214</td>
+									<td data-id="RUN_CN">32</td>
+									<td data-id="HIT_CN">61</td>
+									<td data-id="H2_CN">10</td>
+									<td data-id="H3_CN">3</td>
+									<td data-id="HR_CN">4</td>
+									<td data-id="RBI_CN">30</td>
+									<td data-id="SB_CN">9</td>
+									<td data-id="BB_CN">30</td>
+									<td data-id="HP_CN">8</td>
+									<td data-id="KK_CN">34</td>
+									<td data-id="SLG_RT">0.416</td>
+									<td data-id="OBP_RT">0.388</td>
+								</tr>
+							
+								<tr>
+									<td>16</td>
+									<td><a href="HitterDetail.aspx?playerId=52628">한승연</a></td>
+									<td>KIA</td>
+									<td data-id="HRA_RT">0.285</td>
+									<td data-id="GAME_CN">42</td>
+									<td data-id="PA_CN">182</td>
+									<td data-id="AB_CN">158</td>
+									<td data-id="RUN_CN">22</td>
+									<td data-id="HIT_CN">45</td>
+									<td data-id="H2_CN">14</td>
+									<td data-id="H3_CN">0</td>
+									<td data-id="HR_CN">3</td>
+									<td data-id="RBI_CN">29</td>
+									<td data-id="SB_CN">8</td>
+									<td data-id="BB_CN">20</td>
+									<td data-id="HP_CN">2</td>
+									<td data-id="KK_CN">30</td>
+									<td data-id="SLG_RT">0.430</td>
+									<td data-id="OBP_RT">0.368</td>
+								</tr>
+							
+								<tr>
+									<td>17</td>
+									<td><a href="HitterDetail.aspx?playerId=51302">이주형</a></td>
+									<td>고양</td>
+									<td data-id="HRA_RT">0.284</td>
+									<td data-id="GAME_CN">58</td>
+									<td data-id="PA_CN">223</td>
+									<td data-id="AB_CN">183</td>
+									<td data-id="RUN_CN">28</td>
+									<td data-id="HIT_CN">52</td>
+									<td data-id="H2_CN">10</td>
+									<td data-id="H3_CN">2</td>
+									<td data-id="HR_CN">4</td>
+									<td data-id="RBI_CN">35</td>
+									<td data-id="SB_CN">3</td>
+									<td data-id="BB_CN">33</td>
+									<td data-id="HP_CN">7</td>
+									<td data-id="KK_CN">45</td>
+									<td data-id="SLG_RT">0.426</td>
+									<td data-id="OBP_RT">0.413</td>
+								</tr>
+							
+								<tr>
+									<td>18</td>
+									<td><a href="HitterDetail.aspx?playerId=56009">김경환</a></td>
+									<td>KT</td>
+									<td data-id="HRA_RT">0.283</td>
+									<td data-id="GAME_CN">69</td>
+									<td data-id="PA_CN">209</td>
+									<td data-id="AB_CN">184</td>
+									<td data-id="RUN_CN">35</td>
+									<td data-id="HIT_CN">52</td>
+									<td data-id="H2_CN">9</td>
+									<td data-id="H3_CN">0</td>
+									<td data-id="HR_CN">1</td>
+									<td data-id="RBI_CN">18</td>
+									<td data-id="SB_CN">5</td>
+									<td data-id="BB_CN">15</td>
+									<td data-id="HP_CN">4</td>
+									<td data-id="KK_CN">44</td>
+									<td data-id="SLG_RT">0.348</td>
+									<td data-id="OBP_RT">0.348</td>
+								</tr>
+							
+								<tr>
+									<td>19</td>
+									<td><a href="HitterDetail.aspx?playerId=31003">김서원</a></td>
+									<td>울산</td>
+									<td data-id="HRA_RT">0.281</td>
+									<td data-id="GAME_CN">52</td>
+									<td data-id="PA_CN">216</td>
+									<td data-id="AB_CN">185</td>
+									<td data-id="RUN_CN">33</td>
+									<td data-id="HIT_CN">52</td>
+									<td data-id="H2_CN">7</td>
+									<td data-id="H3_CN">1</td>
+									<td data-id="HR_CN">2</td>
+									<td data-id="RBI_CN">24</td>
+									<td data-id="SB_CN">15</td>
+									<td data-id="BB_CN">21</td>
+									<td data-id="HP_CN">3</td>
+									<td data-id="KK_CN">29</td>
+									<td data-id="SLG_RT">0.362</td>
+									<td data-id="OBP_RT">0.360</td>
+								</tr>
+							
+								<tr>
+									<td>20</td>
+									<td><a href="HitterDetail.aspx?playerId=55631">엄준현</a></td>
+									<td>KIA</td>
+									<td data-id="HRA_RT">0.279</td>
+									<td data-id="GAME_CN">59</td>
+									<td data-id="PA_CN">238</td>
+									<td data-id="AB_CN">201</td>
+									<td data-id="RUN_CN">33</td>
+									<td data-id="HIT_CN">56</td>
+									<td data-id="H2_CN">14</td>
+									<td data-id="H3_CN">0</td>
+									<td data-id="HR_CN">1</td>
+									<td data-id="RBI_CN">23</td>
+									<td data-id="SB_CN">18</td>
+									<td data-id="BB_CN">24</td>
+									<td data-id="HP_CN">6</td>
+									<td data-id="KK_CN">31</td>
+									<td data-id="SLG_RT">0.363</td>
+									<td data-id="OBP_RT">0.368</td>
+								</tr>
+							
+								<tr>
+									<td>21</td>
+									<td><a href="HitterDetail.aspx?playerId=54307">원성준</a></td>
+									<td>고양</td>
+									<td data-id="HRA_RT">0.277</td>
+									<td data-id="GAME_CN">51</td>
+									<td data-id="PA_CN">201</td>
+									<td data-id="AB_CN">155</td>
+									<td data-id="RUN_CN">27</td>
+									<td data-id="HIT_CN">43</td>
+									<td data-id="H2_CN">12</td>
+									<td data-id="H3_CN">3</td>
+									<td data-id="HR_CN">1</td>
+									<td data-id="RBI_CN">37</td>
+									<td data-id="SB_CN">6</td>
+									<td data-id="BB_CN">38</td>
+									<td data-id="HP_CN">5</td>
+									<td data-id="KK_CN">27</td>
+									<td data-id="SLG_RT">0.413</td>
+									<td data-id="OBP_RT">0.428</td>
+								</tr>
+							
+								<tr>
+									<td>22</td>
+									<td><a href="HitterDetail.aspx?playerId=53992">박한결</a></td>
+									<td>상무</td>
+									<td data-id="HRA_RT">0.277</td>
+									<td data-id="GAME_CN">66</td>
+									<td data-id="PA_CN">294</td>
+									<td data-id="AB_CN">231</td>
+									<td data-id="RUN_CN">55</td>
+									<td data-id="HIT_CN">64</td>
+									<td data-id="H2_CN">10</td>
+									<td data-id="H3_CN">0</td>
+									<td data-id="HR_CN">16</td>
+									<td data-id="RBI_CN">54</td>
+									<td data-id="SB_CN">1</td>
+									<td data-id="BB_CN">54</td>
+									<td data-id="HP_CN">6</td>
+									<td data-id="KK_CN">58</td>
+									<td data-id="SLG_RT">0.528</td>
+									<td data-id="OBP_RT">0.422</td>
+								</tr>
+							
+								<tr>
+									<td>23</td>
+									<td><a href="HitterDetail.aspx?playerId=50901">안인산</a></td>
+									<td>KT</td>
+									<td data-id="HRA_RT">0.271</td>
+									<td data-id="GAME_CN">70</td>
+									<td data-id="PA_CN">269</td>
+									<td data-id="AB_CN">229</td>
+									<td data-id="RUN_CN">36</td>
+									<td data-id="HIT_CN">62</td>
+									<td data-id="H2_CN">11</td>
+									<td data-id="H3_CN">0</td>
+									<td data-id="HR_CN">10</td>
+									<td data-id="RBI_CN">49</td>
+									<td data-id="SB_CN">5</td>
+									<td data-id="BB_CN">20</td>
+									<td data-id="HP_CN">15</td>
+									<td data-id="KK_CN">41</td>
+									<td data-id="SLG_RT">0.450</td>
+									<td data-id="OBP_RT">0.361</td>
+								</tr>
+							
+								<tr>
+									<td>24</td>
+									<td><a href="HitterDetail.aspx?playerId=50108">함창건</a></td>
+									<td>LG</td>
+									<td data-id="HRA_RT">0.268</td>
+									<td data-id="GAME_CN">63</td>
+									<td data-id="PA_CN">229</td>
+									<td data-id="AB_CN">194</td>
+									<td data-id="RUN_CN">36</td>
+									<td data-id="HIT_CN">52</td>
+									<td data-id="H2_CN">12</td>
+									<td data-id="H3_CN">2</td>
+									<td data-id="HR_CN">2</td>
+									<td data-id="RBI_CN">35</td>
+									<td data-id="SB_CN">2</td>
+									<td data-id="BB_CN">33</td>
+									<td data-id="HP_CN">1</td>
+									<td data-id="KK_CN">36</td>
+									<td data-id="SLG_RT">0.381</td>
+									<td data-id="OBP_RT">0.376</td>
+								</tr>
+							
+								<tr>
+									<td>25</td>
+									<td><a href="HitterDetail.aspx?playerId=68305">변상권</a></td>
+									<td>울산</td>
+									<td data-id="HRA_RT">0.268</td>
+									<td data-id="GAME_CN">63</td>
+									<td data-id="PA_CN">208</td>
+									<td data-id="AB_CN">183</td>
+									<td data-id="RUN_CN">25</td>
+									<td data-id="HIT_CN">49</td>
+									<td data-id="H2_CN">6</td>
+									<td data-id="H3_CN">2</td>
+									<td data-id="HR_CN">1</td>
+									<td data-id="RBI_CN">20</td>
+									<td data-id="SB_CN">3</td>
+									<td data-id="BB_CN">23</td>
+									<td data-id="HP_CN">1</td>
+									<td data-id="KK_CN">23</td>
+									<td data-id="SLG_RT">0.339</td>
+									<td data-id="OBP_RT">0.351</td>
+								</tr>
+							
+								<tr>
+									<td>26</td>
+									<td><a href="HitterDetail.aspx?playerId=31012">홀</a></td>
+									<td>울산</td>
+									<td data-id="HRA_RT">0.267</td>
+									<td data-id="GAME_CN">69</td>
+									<td data-id="PA_CN">298</td>
+									<td data-id="AB_CN">247</td>
+									<td data-id="RUN_CN">37</td>
+									<td data-id="HIT_CN">66</td>
+									<td data-id="H2_CN">19</td>
+									<td data-id="H3_CN">0</td>
+									<td data-id="HR_CN">4</td>
+									<td data-id="RBI_CN">55</td>
+									<td data-id="SB_CN">0</td>
+									<td data-id="BB_CN">44</td>
+									<td data-id="HP_CN">1</td>
+									<td data-id="KK_CN">54</td>
+									<td data-id="SLG_RT">0.393</td>
+									<td data-id="OBP_RT">0.372</td>
+								</tr>
+							
+								<tr>
+									<td>27</td>
+									<td><a href="HitterDetail.aspx?playerId=53103">강민균</a></td>
+									<td>LG</td>
+									<td data-id="HRA_RT">0.256</td>
+									<td data-id="GAME_CN">56</td>
+									<td data-id="PA_CN">204</td>
+									<td data-id="AB_CN">172</td>
+									<td data-id="RUN_CN">40</td>
+									<td data-id="HIT_CN">44</td>
+									<td data-id="H2_CN">10</td>
+									<td data-id="H3_CN">1</td>
+									<td data-id="HR_CN">6</td>
+									<td data-id="RBI_CN">33</td>
+									<td data-id="SB_CN">10</td>
+									<td data-id="BB_CN">26</td>
+									<td data-id="HP_CN">3</td>
+									<td data-id="KK_CN">40</td>
+									<td data-id="SLG_RT">0.430</td>
+									<td data-id="OBP_RT">0.360</td>
+								</tr>
+							
+								<tr>
+									<td>28</td>
+									<td><a href="HitterDetail.aspx?playerId=56634">박종혁</a></td>
+									<td>KIA</td>
+									<td data-id="HRA_RT">0.251</td>
+									<td data-id="GAME_CN">62</td>
+									<td data-id="PA_CN">196</td>
+									<td data-id="AB_CN">179</td>
+									<td data-id="RUN_CN">23</td>
+									<td data-id="HIT_CN">45</td>
+									<td data-id="H2_CN">12</td>
+									<td data-id="H3_CN">0</td>
+									<td data-id="HR_CN">5</td>
+									<td data-id="RBI_CN">26</td>
+									<td data-id="SB_CN">3</td>
+									<td data-id="BB_CN">13</td>
+									<td data-id="HP_CN">3</td>
+									<td data-id="KK_CN">57</td>
+									<td data-id="SLG_RT">0.402</td>
+									<td data-id="OBP_RT">0.313</td>
+								</tr>
+							
+								<tr>
+									<td>29</td>
+									<td><a href="HitterDetail.aspx?playerId=53659">정해원</a></td>
+									<td>KIA</td>
+									<td data-id="HRA_RT">0.249</td>
+									<td data-id="GAME_CN">57</td>
+									<td data-id="PA_CN">244</td>
+									<td data-id="AB_CN">205</td>
+									<td data-id="RUN_CN">37</td>
+									<td data-id="HIT_CN">51</td>
+									<td data-id="H2_CN">10</td>
+									<td data-id="H3_CN">2</td>
+									<td data-id="HR_CN">4</td>
+									<td data-id="RBI_CN">24</td>
+									<td data-id="SB_CN">3</td>
+									<td data-id="BB_CN">32</td>
+									<td data-id="HP_CN">6</td>
+									<td data-id="KK_CN">38</td>
+									<td data-id="SLG_RT">0.376</td>
+									<td data-id="OBP_RT">0.365</td>
+								</tr>
+							
+								<tr>
+									<td>30</td>
+									<td><a href="HitterDetail.aspx?playerId=68743">정은원</a></td>
+									<td>한화</td>
+									<td data-id="HRA_RT">0.246</td>
+									<td data-id="GAME_CN">51</td>
+									<td data-id="PA_CN">210</td>
+									<td data-id="AB_CN">167</td>
+									<td data-id="RUN_CN">25</td>
+									<td data-id="HIT_CN">41</td>
+									<td data-id="H2_CN">4</td>
+									<td data-id="H3_CN">3</td>
+									<td data-id="HR_CN">3</td>
+									<td data-id="RBI_CN">32</td>
+									<td data-id="SB_CN">1</td>
+									<td data-id="BB_CN">37</td>
+									<td data-id="HP_CN">1</td>
+									<td data-id="KK_CN">25</td>
+									<td data-id="SLG_RT">0.359</td>
+									<td data-id="OBP_RT">0.378</td>
+								</tr>
+							
+						</tbody>
+					</table> 
+					
+					<!-- pagination -->
+					
+<div class="paging">    
+	<a id="cphContents_cphContents_cphContents_ucPager_btnFirst" title="첫 페이지로 이동" href="javascript:__doPostBack(&#39;ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ucPager$btnFirst&#39;,&#39;&#39;)"><img src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/images/common/btn_paging_first.gif" alt="처음으로" /></a>
+	
+	<a id="cphContents_cphContents_cphContents_ucPager_btnNo1" class="on" href="javascript:__doPostBack(&#39;ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ucPager$btnNo1&#39;,&#39;&#39;)">1</a>
+	<a id="cphContents_cphContents_cphContents_ucPager_btnNo2" href="javascript:__doPostBack(&#39;ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ucPager$btnNo2&#39;,&#39;&#39;)">2</a>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	<a id="cphContents_cphContents_cphContents_ucPager_btnLast" title="마지막 페이지로 이동" href="javascript:__doPostBack(&#39;ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ucPager$btnLast&#39;,&#39;&#39;)"><img src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/images/common/btn_paging_last.gif" alt="맨끝으로" /></a>
+</div>
+					<!-- //pagination -->
+				</div>
+
+				<input type="hidden" name="ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$hfPage" id="cphContents_cphContents_cphContents_hfPage" value="1" />
+				<input type="hidden" name="ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$hfOrderByCol" id="cphContents_cphContents_cphContents_hfOrderByCol" value="HRA_RT" />
+				<input type="hidden" name="ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$hfOrderBy" id="cphContents_cphContents_cphContents_hfOrderBy" value="DESC" />
+				<a id="cphContents_cphContents_cphContents_lbtnOrderBy" href="javascript:__doPostBack(&#39;ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$lbtnOrderBy&#39;,&#39;&#39;)" style="display:none"></a>
+			
+</div>
+	</div>
+</div>
+
+    </div>
+</section>
+
+
+		    <!-- // container -->	
+		    <hr />
+		    <!-- footer -->
+		    <footer>
+			    <div id="fnb">
+				    <div class="wrapping fnb-wrap">
+					    <ul class="fnb-list">
+						    <li class="privacy"><a href="/Etc/Privacy.aspx">개인정보 처리방침</a></li>
+						    <li><a href="/Schedule/ScoreBoard.aspx">문자중계</a></li>
+						    <li><a href="/Kbo/Board/Faqs/List.aspx">고객질문</a></li>
+						    <li><a href="/Etc/SiteMap.aspx">사이트맵</a></li>
+						    
+					    </ul>
+				    </div>
+			    </div>
+			    <div id="kboInfo" class="wrapping">
+				    <h2><a href="/Etc/PressRelease.aspx"><img src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/images/common/h2_logo.png" alt="KBO" /></a></h2>
+				    <address class="kbo-info">
+					    <div class="address01">
+						    <p>(사)한국야구위원회 | 서울시 강남구 강남대로 278 | 02)3460-4600</p>					
+					    </div>
+					    
+				    </address>
+				    <div class="copyright">
+					    <span>Copyrightⓒ KBO, All Rights Reserved.</span>
+				    </div>
+					<div class="certification">
+						<img src="//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/images/main/img_certification.png" alt="w3c xhtml 3.0, Verisign" />
+					</div>
+			    </div>
+		    </footer>
+		    <!-- // footer -->
+	    </div>
+	    <!-- // wrap -->
+    
+
+<script type="text/javascript">
+//<![CDATA[
+jQuery(function ($) {$('[data-id=HRA_RT]').addClass('asc');$('[data-id=HRA_RT]').siblings().removeClass('asc');});//]]>
+</script>
+</form>
+    
+    
+
+    
+    
+    
+<script type="text/javascript">
+    currentLnb("04");
+    $(".record_words a").on("click", function (e) {
+        e.preventDefault();
+        Words();
+        $(".words").show();
+    });
+    function tooltip(x) {
+        var title = $(x).attr("title");
+        $(x).append("<div class='tooltip'></div>");
+        $(".tooltip").html(title);
+        var cnt = $(".tooltip").text().length;
+        $(".tooltip").css("width", cnt * 12);
+        return false;
+    }
+
+    function hideTip() {
+        $(".tooltip").remove();
+    }
+
+    function sort(colName) {
+        var order = $("#cphContents_cphContents_cphContents_hfOrderBy").val();           //정렬조건 
+
+        if ($("#cphContents_cphContents_cphContents_hfOrderByCol").val() == colName) {
+            if (order.indexOf("DESC") > -1) {
+                order = "ASC";
+            } else {
+                order = "DESC";
+            }
+        } else {
+            order = "DESC";
+        }
+
+        $("#cphContents_cphContents_cphContents_hfOrderByCol").val(colName);
+        $("#cphContents_cphContents_cphContents_hfOrderBy").val(order);
+        __doPostBack('ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$lbtnOrderBy','')
+    }
+</script>
+
+
+
+    <script type="text/javascript">
+		$(document).ready(function () {
+
+            const ua = navigator.userAgent.toLowerCase();
+
+            // 모바일 체크
+            const isMobile = /iphone|android/i.test(ua) && ua.includes("mobile");
+
+            // 아이패드(iPadOS 포함) 체크
+            const isPad = /ipad/i.test(ua) || (ua.includes("macintosh") && navigator.maxTouchPoints > 1);
+
+            if ((isMobile && !isPad) && window.location.host.includes("www.koreabaseball.com")) {
+                window.location.href = "https://m.koreabaseball.com";
+            }
+
+
+            // 선수 검색
+            $(document).on("click", "#btnTopPlayerSearch", function (e) {
+                getPlayerSearch();
+                e.preventDefault();
+            });
+
+            // 선수 검색 엔터
+            $(document).on("keypress", "#txtTopPlayerWord", function (e) {
+                if (event.keyCode == 13) {
+                    getPlayerSearch();
+                    e.preventDefault();
+                }
+			});
+
+            //// 선수 검색 마우스 아웃
+            //$("body").click(function (e) {
+            //    var container = $("#player_search_area");
+
+            //    if (container.css("display") == "block") {
+            //        if (!container.has(e.target).length) {
+            //            container.hide();
+            //        }
+            //    }
+            //});
+
+			// 21.06.29 | veron | 나중에 탭들 다 지우고 배너 다시 원복 후 이부분 삭제해야함
+			// 8월 15일 00시 지나가면 삭제
+            //if (new Date().getTime() > new Date("2021/08/15 00:00:00").getTime()) {
+			//	// 위에 탭 삭제
+            //    $(".menu04 li:last").remove();
+            //    $(".lnb-sub ul.lnb04 li:last").remove();
+			//	// Player.master 삭제
+            //    $("#liRookie").remove();
+			//	// 메인 배너 교체
+            //    $("#imgGijang").attr("href", "http://gijangcmc.or.kr/baseball/main/main.asp");
+            //    $("#imgGijang img").attr("src", "//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/images/main/img_banner01.jpg");
+			//}
+
+			// 2026 미디어데이
+            if (new Date().getTime() < new Date("2026/03/18 11:00:00"))
+				$('.lnbMedia').hide();
+			// SaveSacrifice
+			if (new Date().getTime() < new Date("2023/04/01 09:00:00"))
+				$('[data-tab=SaveSacrifice]').hide();
+			// draft 
+			// 2025.09.09 11시 이전 또는 2025.09.10 00:30 이후로는 표출 숨김
+            if (new Date().getTime() < new Date("2025/09/09 11:00:00") || new Date().getTime() > new Date("2025/09/10 00:30:00"))
+				$('[data-tab=DraftApplication]').hide();
+			// KBO 시상식
+            if (new Date().getTime() < new Date("2025/11/19 11:00:00") || new Date().getTime() > new Date("2025/11/20 00:30:00"))
+				$('[data-tab=MvpApplication]').hide();
+            // KBO 골든글러브
+            if (new Date().getTime() < new Date("2024/12/09 10:00:00") || new Date().getTime() > new Date("2024/12/09 15:30:00"))
+                $('[data-tab=GGApplication]').hide();
+        });
+
+        // 선수 검색
+        function getPlayerSearch() {
+            if ($("#txtTopPlayerWord").val() == "") {
+                alert("선수명은 필수 입니다.");
+                $("#txtTopPlayerWord").focus();
+                return false;
+            } else {
+                //var searchWord = encodeURI($("#txtTopPlayerWord").val());
+
+                //if (searchWord != "") {
+                //    location.href = "/Player/Search.aspx?searchWord=" + searchWord;
+                //}
+                var request = $.ajax({
+                    type: "post"
+                    , url: "/ws/Controls.asmx/GetSearchPlayer"
+                    , dataType: "json"
+                    , data: {
+                        name: $("#txtTopPlayerWord").val()
+                    }
+                    , error: ajaxFailed
+                    , async: true
+                });
+
+                request.done(function (data) {
+                    if (data.code == "100") {
+                        var container = $(".search-result");
+                        container.children().remove();
+
+                        container.hide();
+
+                        if (data.now.length > 0 || data.retire.length > 0) {
+                            // 2017-05-22 yeeun, 홍지희 사원 요청, 결과가 1명일 경우 바로 페이지 연결
+                            if (data.now.length + data.retire.length == 1) {
+                                var link = "";
+
+                                if (data.now.length == 1) {
+                                    link = data.now[0]["P_LINK"];
+                                } else {
+                                    link = data.retire[0]["P_LINK"];
+                                }
+
+                                location.href = link;
+                            } else {
+                                if (data.now.length > 0) {
+                                    container.append($("<h4>등록 선수</h4>"));
+
+                                    var div = $("<div class='active' />");
+                                    div.children().remove();
+
+                                    setPlayerDiv(data.now, div, true);
+
+                                    container.append(div);
+                                }
+
+                                if (data.retire.length > 0) {
+                                    container.append($("<h4>역대 선수</h4>"));
+
+                                    var div = $("<div class='retire'/>");
+                                    div.children().remove();
+
+                                    setPlayerDiv(data.retire, div, false);
+
+                                    container.append(div);
+                                }
+
+                                //container.append($(String.format("<p><a href='/Player/Search.aspx?searchWord={0}''>'{0}' 검색결과 모두 보기</a></p>", $("#txtTopPlayerWord").val())));
+                                container.append($("<p><a href='/Player/Search.aspx?searchWord=" + $("#txtTopPlayerWord").val() + "''>'" + $("#txtTopPlayerWord").val() + "' 검색결과 모두 보기</a></p>"));
+                                container.show();
+                            }
+                        } else {
+                            container.append($("<p class='null'>검색 결과가 없습니다.</p>"));
+                            container.show();
+                        }
+                    }
+                });
+            }
+        }
+
+        // 선수 검색 div 
+        function setPlayerDiv(list, div, isActive) {
+            $.each(list, function (index, player) {
+                var aLink = $("<a />");
+                aLink.attr("href", player["P_LINK"]);
+
+                var dl = $("<dl />");
+                var dt = $("<dt />");
+                var backNo = "";
+
+                if (isActive) {
+                    //backNo = String.format("No.{0}", player["BACK_NO"]);
+                    backNo = "No." + player["BACK_NO"];
+                }
+
+                //dt.text(String.format("{0} {1}", player["P_NM"], backNo));
+                dt.text(player["P_NM"] + " " + backNo);
+                dl.append(dt);
+
+                var dd = $("<dd />");
+                //dd.text(String.format("{0} {1}({2})", player["T_NM"], player["POS_NO"], player["P_TYPE"]));
+                dd.text(player["T_NM"] + " " + player["POS_NO"] + "(" + player["P_TYPE"] + ")");
+                dl.append(dd);
+
+                var ddImg = $(String.format("<dd class='btn-arrow'><img src='{0}/resources/images/common/btn_arrow_search.png' alt='' /></dd>", "//6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome"));
+                dl.append(ddImg);
+
+                aLink.append(dl);
+                div.append(aLink);
+            });
+        }
+    </script>
+</body>
+</html>
