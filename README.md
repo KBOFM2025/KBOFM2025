@@ -4,6 +4,41 @@
 
 > 현재 개발 중인 프로젝트입니다. 실제 경기 시뮬레이션과 시즌 진행 기능은 아직 완성되지 않았습니다.
 
+## 빠른 실행
+
+### 1. 저장소 받기
+
+```powershell
+git clone https://github.com/KBOFM2025/KBOFM2025.git
+cd KBOFM2025
+```
+
+ZIP으로 받은 경우 압축을 푼 뒤 PowerShell에서 해당 폴더로 이동하면 됩니다.
+
+### 2. 가상환경과 패키지 설치
+
+```powershell
+python -m venv venv
+venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install PySide6
+```
+
+PowerShell 실행 정책 때문에 가상환경 활성화가 차단되면 현재 창에서 다음 명령을 먼저 실행합니다.
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+venv\Scripts\Activate.ps1
+```
+
+### 3. 게임 실행
+
+```powershell
+python main.py
+```
+
+최초 실행 시 `data/players.db`가 자동으로 확인·갱신됩니다. 게임 저장 파일은 `data/kbo_fm_saves.db`에 생성됩니다.
+
 ## 핵심 기능
 
 ### 감독과 구단 생성
