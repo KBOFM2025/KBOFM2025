@@ -28,6 +28,20 @@ SAVE_COLUMNS = {
     "current_date": "TEXT NOT NULL DEFAULT '2025-11-01'",
 }
 
+DAILY_NEWS_TABLE_SQL = """
+    CREATE TABLE IF NOT EXISTS daily_news (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        save_id INTEGER NOT NULL,
+        news_date TEXT NOT NULL,
+        category TEXT NOT NULL,
+        headline TEXT NOT NULL,
+        body TEXT NOT NULL,
+        is_read INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        UNIQUE(save_id, news_date, headline)
+    )
+"""
+
 MANAGER_ABILITY_COLUMNS = (
     "manager_batting",
     "manager_pitching",
@@ -88,21 +102,7 @@ class SaveDatabase:
                 )
                 """
             )
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS daily_news (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    save_id INTEGER NOT NULL,
-                    news_date TEXT NOT NULL,
-                    category TEXT NOT NULL,
-                    headline TEXT NOT NULL,
-                    body TEXT NOT NULL,
-                    is_read INTEGER NOT NULL DEFAULT 0,
-                    created_at TEXT NOT NULL,
-                    UNIQUE(save_id, news_date, headline)
-                )
-                """
-            )
+            self._ensure_daily_news_table(connection)
             existing_columns = {
                 row["name"]
                 for row in connection.execute("PRAGMA table_info(game_saves)").fetchall()
@@ -140,6 +140,11 @@ class SaveDatabase:
                     END
                     """
                 )
+
+    @staticmethod
+    def _ensure_daily_news_table(connection):
+        """구버전 또는 외부에서 교체된 세이브 DB에도 뉴스 스키마를 보장한다."""
+        connection.execute(DAILY_NEWS_TABLE_SQL)
 
     def create_save(
         self,
@@ -211,6 +216,7 @@ class SaveDatabase:
 
     def delete_save(self, save_id):
         with self.connect() as connection:
+            self._ensure_daily_news_table(connection)
             connection.execute(
                 "DELETE FROM daily_news WHERE save_id = ?",
                 (save_id,),
@@ -224,6 +230,7 @@ class SaveDatabase:
     def add_daily_news(self, save_id, news_date, category, headline, body):
         now = datetime.now().isoformat(timespec="seconds")
         with self.connect() as connection:
+            self._ensure_daily_news_table(connection)
             connection.execute(
                 """
                 INSERT OR IGNORE INTO daily_news (
@@ -236,6 +243,7 @@ class SaveDatabase:
 
     def list_daily_news(self, save_id):
         with self.connect() as connection:
+            self._ensure_daily_news_table(connection)
             rows = connection.execute(
                 """
                 SELECT * FROM daily_news
@@ -248,6 +256,7 @@ class SaveDatabase:
 
     def mark_daily_news_read(self, save_id, news_id):
         with self.connect() as connection:
+            self._ensure_daily_news_table(connection)
             connection.execute(
                 """
                 UPDATE daily_news SET is_read = 1
@@ -258,6 +267,7 @@ class SaveDatabase:
 
     def mark_all_daily_news_read(self, save_id):
         with self.connect() as connection:
+            self._ensure_daily_news_table(connection)
             connection.execute(
                 "UPDATE daily_news SET is_read = 1 WHERE save_id = ?",
                 (save_id,),
@@ -265,6 +275,7 @@ class SaveDatabase:
 
     def unread_daily_news_count(self, save_id):
         with self.connect() as connection:
+            self._ensure_daily_news_table(connection)
             row = connection.execute(
                 """
                 SELECT COUNT(*) AS count FROM daily_news
@@ -278,6 +289,7 @@ class SaveDatabase:
         """메모리에 누적된 소식과 확인 상태를 수동 저장 시점에 반영한다."""
         now = datetime.now().isoformat(timespec="seconds")
         with self.connect() as connection:
+            self._ensure_daily_news_table(connection)
             for news in news_items:
                 connection.execute(
                     """

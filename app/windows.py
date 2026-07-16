@@ -1033,6 +1033,8 @@ class StartWindow(QMainWindow):
         self.close()
 
     def show_load_game(self):
+        # 실행 중 구버전 세이브 DB가 복원되어도 불러오기 전에 최신 스키마로 보정한다.
+        self.save_database.initialize()
         saves = self.save_database.list_saves()
         if not saves:
             QMessageBox.information(
