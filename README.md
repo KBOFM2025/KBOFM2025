@@ -254,3 +254,20 @@ KBO-Manager-2025/
 ## 고지
 
 이 프로젝트는 KBO 및 각 구단과 공식적으로 관련이 없는 비공식 개인 개발 프로젝트입니다. 구단명, 선수명, 기록과 이미지의 권리는 각 권리자에게 있으며, 공개·배포 시 원자료의 이용 조건을 별도로 확인해야 합니다.
+
+
+
+
+## 실행 사진
+
+<img width="1191" height="761" alt="image" src="https://github.com/user-attachments/assets/557e04cd-adc6-4934-84f5-926f049f46db" />
+
+<img width="1170" height="736" alt="image" src="https://github.com/user-attachments/assets/9f924e3b-2e35-41c7-94e6-4660219411fb" />
+
+<img width="1280" height="656" alt="image" src="https://github.com/user-attachments/assets/2cd10660-516c-487f-9b1d-bc574c9b2d19" />
+
+<img width="1280" height="820" alt="image" src="https://github.com/user-attachments/assets/ca411cf4-1ab5-4603-b76e-4d08c98d8ecf" />
+
+<img width="1280" height="809" alt="image" src="https://github.com/user-attachments/assets/20d8d1f0-54ff-42cf-ba62-97030e4cd5e4" />
+
+<img width="1280" height="807" alt="image" src="https://github.com/user-attachments/assets/0e48b551-9f0e-464f-94fe-c53c7871151b" />
