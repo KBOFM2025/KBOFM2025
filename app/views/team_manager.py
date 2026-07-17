@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
 from app.config import TEAM_COLORS, TEAM_EMOJIS
+from app.transitions import FadeStackTransition, fade_widget_in
 from app.views.team_manage import FirstTeamTab, SecondTeamTab, SetLineupTab
 from app.views.team_manage.player_profile import PlayerProfilePage
 from database import PLAYERS_DB_PATH, ensure_player_database
@@ -25,7 +26,7 @@ class MyTeamManager(QWidget):
         c = self.colors
         self.setStyleSheet(f"""
             QWidget {{ background-color: {c['bg_dark']}; }}
-            QLabel {{ color: {c['text']}; font-family: 'Malgun Gothic'; }}
+            QLabel {{ color: {c['text']}; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
             QTabWidget::pane {{
                 border: 1px solid {c['card_bg']};
                 background-color: {c['bg_dark']};
@@ -34,14 +35,15 @@ class MyTeamManager(QWidget):
             QTabBar::tab {{
                 background-color: {c['card_bg']};
                 color: #9ca3af;
-                padding: 12px 24px;
-                font-weight: bold;
+                padding: 14px 26px;
+                font-size: 15px;
+                font-weight: 600;
                 border: 1px solid {c['card_bg']};
                 border-bottom: none;
                 border-top-left-radius: 6px;
                 border-top-right-radius: 6px;
                 margin-right: 4px;
-                font-family: 'Malgun Gothic';
+                font-family: 'Noto Sans KR', 'Malgun Gothic';
             }}
             QTabBar::tab:selected {{
                 background-color: {c['tab_selected']};
@@ -59,10 +61,10 @@ class MyTeamManager(QWidget):
                 color: {c['text']};
                 border: 1px solid {c['accent']};
                 border-radius: 6px;
-                padding: 8px 16px;
-                font-family: 'Malgun Gothic';
-                font-size: 13px;
-                font-weight: bold;
+                padding: 10px 18px;
+                font-family: 'Noto Sans KR', 'Malgun Gothic';
+                font-size: 15px;
+                font-weight: 600;
             }}
             QPushButton#btn_back:hover {{
                 background-color: {c['accent']};
@@ -73,12 +75,13 @@ class MyTeamManager(QWidget):
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
         self.page_stack = QStackedWidget()
+        self.page_transition = FadeStackTransition(self.page_stack, self)
         root_layout.addWidget(self.page_stack)
 
         self.roster_page = QWidget()
         main_layout = QVBoxLayout(self.roster_page)
-        main_layout.setContentsMargins(25, 25, 25, 25)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(30, 26, 30, 30)
+        main_layout.setSpacing(18)
 
         # ----------------------------------------------------
         # 💡 상단 헤더 영역 (타이틀 + 우측 뒤로가기 버튼 가로 배치)
@@ -87,7 +90,7 @@ class MyTeamManager(QWidget):
         
         # 선택한 구단에 맞는 타이틀
         title = QLabel(f"🏟️ {self.selected_team} 구단 관리실")
-        title.setFont(QFont("Malgun Gothic", 18, QFont.Bold))
+        title.setFont(QFont("Noto Sans KR", 23, QFont.Bold))
         title.setStyleSheet(f"color: {c['accent_light']};")
         header_layout.addWidget(title)
         
@@ -104,7 +107,6 @@ class MyTeamManager(QWidget):
         # ----------------------------------------------------
 
         self.tabs = QTabWidget()
-        self.tabs.currentChanged.connect(self.on_tab_changed)
         
         self.tab1 = FirstTeamTab(self)
         self.tab2 = SecondTeamTab(self)
@@ -117,6 +119,7 @@ class MyTeamManager(QWidget):
         self.tabs.addTab(self.tab1, f"{emoji_main} 1군 엔트리")
         self.tabs.addTab(self.tab2, f"{emoji_sub} C팀(2군) 육성")
         self.tabs.addTab(self.tab3, "📋 라인업 & 타순")
+        self.tabs.currentChanged.connect(self.on_tab_changed)
         
         main_layout.addWidget(self.tabs)
 
@@ -134,10 +137,10 @@ class MyTeamManager(QWidget):
     def show_player_profile(self, player):
         """팝업을 열지 않고 구단 관리 화면 전체를 선수 상세 페이지로 바꾼다."""
         self.profile_page.set_player(player)
-        self.page_stack.setCurrentWidget(self.profile_page)
+        self.page_transition.to_widget(self.profile_page)
 
     def show_roster_page(self):
-        self.page_stack.setCurrentWidget(self.roster_page)
+        self.page_transition.to_widget(self.roster_page)
 
     # 데이터베이스로부터 선수단 실시간 로드
     def load_players_from_db(self):
@@ -169,6 +172,7 @@ class MyTeamManager(QWidget):
 
     def on_tab_changed(self, index):
         self.refresh_all()
+        fade_widget_in(self.tabs.currentWidget())
 
     def refresh_all(self):
         self.load_players_from_db() 

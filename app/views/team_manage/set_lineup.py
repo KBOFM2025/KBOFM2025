@@ -14,11 +14,11 @@ class SetLineupTab(QWidget):
 
         info_layout = QHBoxLayout()
         info_label = QLabel("1군 타자들의 선발 타순과 수비 포지션을 매칭하세요.")
-        info_label.setStyleSheet("color: #9ca3af; font-size: 13px;")
+        info_label.setStyleSheet("color: #b0bdca; font-size: 15px;")
         info_layout.addWidget(info_label)
 
         btn_save_lineup = QPushButton("💾 전술 및 타순 최종 저장")
-        btn_save_lineup.setStyleSheet("background-color: #22c55e; color: #030712;")
+        btn_save_lineup.setStyleSheet("background-color: #22c55e; color: #07120b; border: none; border-radius: 7px; padding: 10px 18px; font-size: 14px; font-weight: 700;")
         btn_save_lineup.clicked.connect(self.save_lineup)
         info_layout.addWidget(btn_save_lineup)
         layout.addLayout(info_layout)
@@ -27,6 +27,7 @@ class SetLineupTab(QWidget):
         self.table_lineup.setColumnCount(5)
         self.table_lineup.setHorizontalHeaderLabels(["타순", "선수 선택", "수비 포지션", "컨택", "파워"])
         self.table_lineup.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table_lineup.verticalHeader().setDefaultSectionSize(48)
         layout.addWidget(self.table_lineup)
 
     def refresh(self):
@@ -37,7 +38,7 @@ class SetLineupTab(QWidget):
             order = idx + 1
             order_item = QTableWidgetItem(f"{order}번 타자")
             order_item.setTextAlignment(Qt.AlignCenter)
-            order_item.setFont(QFont("Malgun Gothic", 9, QFont.Bold))
+            order_item.setFont(QFont("Noto Sans KR", 13, QFont.Bold))
             self.table_lineup.setItem(idx, 0, order_item)
 
             combo = QComboBox()
@@ -83,7 +84,7 @@ class SetLineupTab(QWidget):
     def set_stat_item(self, row, col, score):
         item = QTableWidgetItem(str(score))
         item.setTextAlignment(Qt.AlignCenter)
-        font = QFont("Malgun Gothic")
+        font = QFont("Segoe UI Variable", 11)
         font.setBold(True)
         item.setFont(font)
 

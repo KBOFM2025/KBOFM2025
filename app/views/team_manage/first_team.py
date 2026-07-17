@@ -14,24 +14,25 @@ class FirstTeamTab(QWidget):
 
         info_layout = QHBoxLayout()
         info_label = QLabel("📢 1군 엔트리 (선수를 클릭하면 전체 선수 보고서로 이동합니다.)")
-        info_label.setStyleSheet("color: #af9154; font-size: 14px; font-weight: bold;")
+        info_label.setStyleSheet("color: #d6b66f; font-size: 16px; font-weight: 700;")
         info_layout.addWidget(info_label)
 
         self.btn_demote = QPushButton("🔻 선택 선수 C팀(2군) 강등")
-        self.btn_demote.setStyleSheet("background-color: #991b1b; color: #fca5a5; border: none; padding: 8px 15px;")
+        self.btn_demote.setStyleSheet("background-color: #7f1d1d; color: #fecaca; border: 1px solid #b33838; border-radius: 7px; padding: 10px 17px; font-size: 14px; font-weight: 600;")
         self.btn_demote.clicked.connect(self.demote_player)
         info_layout.addWidget(self.btn_demote)
         layout.addLayout(info_layout)
 
         # [1] 투수진 테이블 구역
         pitcher_title = QLabel("🔮 1군 투수진 (마운드)")
-        pitcher_title.setFont(QFont("Malgun Gothic", 11, QFont.Bold))
+        pitcher_title.setFont(QFont("Noto Sans KR", 15, QFont.Bold))
         layout.addWidget(pitcher_title)
 
         self.table_pitchers = QTableWidget()
         self.table_pitchers.setColumnCount(8)
         self.table_pitchers.setHorizontalHeaderLabels(["이름", "포지션", "나이", "구속", "제구", "변화구", "스태미나", "보직"])
         self.table_pitchers.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table_pitchers.verticalHeader().setDefaultSectionSize(42)
         self.table_pitchers.setSelectionBehavior(QTableWidget.SelectRows)
         self.table_pitchers.cellClicked.connect(
             lambda row, col: self.open_profile(self.table_pitchers, row) if col == 0 else None
@@ -40,13 +41,14 @@ class FirstTeamTab(QWidget):
 
         # [2] 야수진 테이블 구역
         batter_title = QLabel("⚾ 1군 야수진 (타석/수비)")
-        batter_title.setFont(QFont("Malgun Gothic", 11, QFont.Bold))
+        batter_title.setFont(QFont("Noto Sans KR", 15, QFont.Bold))
         layout.addWidget(batter_title)
 
         self.table_batters = QTableWidget()
         self.table_batters.setColumnCount(8)
         self.table_batters.setHorizontalHeaderLabels(["이름", "포지션", "나이", "컨택", "파워", "선구안", "수비력", "타순"])
         self.table_batters.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table_batters.verticalHeader().setDefaultSectionSize(42)
         self.table_batters.setSelectionBehavior(QTableWidget.SelectRows)
         self.table_batters.cellClicked.connect(
             lambda row, col: self.open_profile(self.table_batters, row) if col == 0 else None
@@ -102,7 +104,7 @@ class FirstTeamTab(QWidget):
     def set_stat_item(self, table, row, col, score):
         item = QTableWidgetItem(str(score))
         item.setTextAlignment(Qt.AlignCenter)
-        font = QFont("Malgun Gothic")
+        font = QFont("Segoe UI Variable", 11)
         font.setBold(True)
         item.setFont(font)
 

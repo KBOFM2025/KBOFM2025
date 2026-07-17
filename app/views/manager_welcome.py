@@ -110,7 +110,7 @@ class ManagerWelcomePage(QWidget):
         headline = QLabel(f"{club_name}, {manager_name} 신임 감독 선임")
         headline.setObjectName("Headline")
         headline.setWordWrap(True)
-        headline.setFont(QFont("Malgun Gothic", 30, QFont.Bold))
+        headline.setFont(QFont("Noto Sans KR", 34, QFont.Bold))
         outer.addWidget(headline)
 
         welcome = QLabel(f"반갑습니다, {manager_name} 감독님.")
@@ -212,23 +212,23 @@ class ManagerWelcomePage(QWidget):
     def _style(colors):
         return f"""
             QWidget#WelcomeNewsPage {{ background-color: #07111f; }}
-            QLabel {{ color: #dbe7f3; font-family: 'Malgun Gothic'; }}
-            QLabel#Publication {{ color: {colors['accent_light']}; font-size: 13px; font-weight: bold; }}
-            QLabel#PublishedAt {{ color: #718096; font-size: 12px; }}
+            QLabel {{ color: #dbe7f3; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
+            QLabel#Publication {{ color: {colors['accent_light']}; font-size: 15px; font-weight: 700; }}
+            QLabel#PublishedAt {{ color: #8495a8; font-size: 14px; }}
             QFrame#NewsRule {{ background-color: {colors['accent']}; border: none; }}
-            QLabel#Category {{ color: {colors['accent_light']}; font-size: 13px; font-weight: bold; }}
+            QLabel#Category {{ color: {colors['accent_light']}; font-size: 15px; font-weight: 700; }}
             QLabel#Headline {{ color: #ffffff; }}
-            QLabel#Welcome {{ color: #a9bdd1; font-size: 20px; margin-top: 4px; }}
-            QFrame#Article {{ background-color: #0d1b2a; border: 1px solid #263b52; border-radius: 10px; }}
+            QLabel#Welcome {{ color: #b8c9da; font-size: 23px; margin-top: 5px; }}
+            QFrame#Article {{ background-color: #0d1b2a; border: 1px solid #2c4055; border-radius: 12px; }}
             QLabel#PressPhoto {{ background-color: #050b14; border: 1px solid #263b52; border-radius: 7px; }}
-            QLabel#PhotoCaption {{ color: #718096; font-size: 10px; padding-bottom: 4px; }}
-            QLabel#Lead {{ color: #edf4fa; font-size: 16px; line-height: 1.5; }}
-            QLabel#Quote {{ color: #ffffff; background-color: {colors['card_bg']}; border-left: 4px solid {colors['accent']}; padding: 18px; font-size: 15px; font-weight: bold; }}
-            QLabel#Body {{ color: #b8c8d8; font-size: 14px; }}
+            QLabel#PhotoCaption {{ color: #8495a8; font-size: 12px; padding-bottom: 5px; }}
+            QLabel#Lead {{ color: #edf4fa; font-size: 18px; line-height: 1.5; }}
+            QLabel#Quote {{ color: #ffffff; background-color: {colors['card_bg']}; border-left: 4px solid {colors['accent']}; padding: 20px; font-size: 17px; font-weight: 700; }}
+            QLabel#Body {{ color: #c4d2df; font-size: 16px; }}
             QFrame#Briefing {{ background-color: {colors['card_bg']}; border: 1px solid {colors['accent']}; border-radius: 10px; }}
-            QLabel#BriefingTitle {{ color: {colors['accent_light']}; font-size: 12px; font-weight: bold; }}
-            QLabel#Fact {{ color: #f8fafc; background-color: rgba(7, 17, 31, 150); border-radius: 6px; padding: 10px; font-size: 12px; }}
-            QLabel#Hint {{ color: #718096; font-size: 12px; }}
-            QPushButton#ContinueButton {{ color: white; background-color: {colors['accent']}; border: 1px solid {colors['accent_light']}; border-radius: 7px; padding: 14px 26px; font-family: 'Malgun Gothic'; font-size: 14px; font-weight: bold; }}
+            QLabel#BriefingTitle {{ color: {colors['accent_light']}; font-size: 14px; font-weight: 700; }}
+            QLabel#Fact {{ color: #f8fafc; background-color: rgba(7, 17, 31, 150); border-radius: 7px; padding: 12px; font-size: 14px; }}
+            QLabel#Hint {{ color: #8495a8; font-size: 14px; }}
+            QPushButton#ContinueButton {{ color: white; background-color: {colors['accent']}; border: 1px solid {colors['accent_light']}; border-radius: 8px; padding: 15px 28px; font-family: 'Noto Sans KR', 'Malgun Gothic'; font-size: 16px; font-weight: 700; }}
             QPushButton#ContinueButton:hover {{ background-color: {colors['accent_light']}; }}
         """

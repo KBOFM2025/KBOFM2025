@@ -6,7 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont, QPainter, QPen
+from PySide6.QtGui import QColor, QFont, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -29,6 +29,9 @@ DEFAULT_COLORS = {
     "accent_light": "#93c5fd",
     "text": "#e5eef8",
 }
+
+PLAYER_PHOTO_DIRECTORY = DATA_DIR.parent / "image" / "players" / "local"
+PLAYER_PHOTO_EXTENSIONS = (".webp", ".png", ".jpg", ".jpeg")
 
 HITTER_COLUMNS = (
     (
@@ -117,6 +120,16 @@ def _source_path(filename):
     return bundle_root / "data" / "source" / filename
 
 
+def _player_photo_path(kbo_player_id):
+    if not kbo_player_id:
+        return None
+    for extension in PLAYER_PHOTO_EXTENSIONS:
+        candidate = PLAYER_PHOTO_DIRECTORY / f"{kbo_player_id}{extension}"
+        if candidate.exists():
+            return candidate
+    return None
+
+
 @lru_cache(maxsize=2)
 def _season_records(filename):
     path = _source_path(filename)
@@ -153,8 +166,8 @@ class AttributeColumn(QFrame):
         self.setObjectName("AttributeColumn")
         self.rows = []
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 9, 10, 10)
-        layout.setSpacing(4)
+        layout.setContentsMargins(12, 11, 12, 12)
+        layout.setSpacing(5)
         self.title_label = QLabel()
         self.title_label.setObjectName("ColumnTitle")
         layout.addWidget(self.title_label)
@@ -162,14 +175,14 @@ class AttributeColumn(QFrame):
             row_frame = QFrame()
             row_frame.setObjectName("AttributeRow")
             row = QHBoxLayout(row_frame)
-            row.setContentsMargins(7, 4, 5, 4)
+            row.setContentsMargins(9, 5, 6, 5)
             name = QLabel()
             name.setObjectName("AttributeName")
             value = QLabel("-")
             value.setObjectName("AttributeValue")
             value.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            value.setFixedWidth(29)
-            value.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+            value.setFixedWidth(34)
+            value.setFont(QFont("Segoe UI Variable", 12, QFont.Weight.DemiBold))
             row.addWidget(name)
             row.addStretch()
             row.addWidget(value)
@@ -251,6 +264,7 @@ class PlayerProfilePage(QWidget):
 
     def __init__(self, colors=None, parent=None):
         super().__init__(parent)
+        self.setObjectName("PlayerProfilePage")
         self.colors = {**DEFAULT_COLORS, **(colors or {})}
         self.player = {}
         self._build_ui()
@@ -264,8 +278,8 @@ class PlayerProfilePage(QWidget):
         nav = QFrame()
         nav.setObjectName("TopNavigation")
         nav_layout = QHBoxLayout(nav)
-        nav_layout.setContentsMargins(8, 4, 10, 4)
-        nav_layout.setSpacing(3)
+        nav_layout.setContentsMargins(12, 5, 14, 5)
+        nav_layout.setSpacing(4)
         self.back_button = QPushButton("← 선수단")
         self.back_button.setObjectName("BackButton")
         self.back_button.clicked.connect(self.back_requested.emit)
@@ -286,12 +300,13 @@ class PlayerProfilePage(QWidget):
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         root.addWidget(scroll)
         canvas = QWidget()
-        canvas.setMinimumSize(1080, 700)
+        canvas.setObjectName("ProfileCanvas")
+        canvas.setMinimumSize(1120, 720)
         scroll.setWidget(canvas)
         grid = QGridLayout(canvas)
-        grid.setContentsMargins(8, 8, 8, 10)
-        grid.setHorizontalSpacing(8)
-        grid.setVerticalSpacing(8)
+        grid.setContentsMargins(14, 14, 14, 16)
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(12)
 
         self._build_left_card(grid)
         self._build_center(grid)
@@ -302,55 +317,92 @@ class PlayerProfilePage(QWidget):
 
         self.setStyleSheet(f"""
             QWidget {{
-                background-color: {colors['bg_dark']}; color: {colors['text']};
-                font-family: 'Malgun Gothic'; font-size: 12px;
+                color: {colors['text']};
+                font-family: 'Noto Sans KR', 'Malgun Gothic'; font-size: 13px;
             }}
-            QScrollArea {{ border: none; }}
-            QFrame#TopNavigation {{ background-color: {colors['card_bg']}; border-bottom: 1px solid {colors['accent']}; }}
-            QLabel#NavItem, QLabel#ActiveNav {{ color: #aeb9c5; padding: 7px 11px; }}
-            QLabel#ActiveNav {{ color: white; border-bottom: 2px solid {colors['accent_light']}; font-weight: bold; }}
-            QLabel#HeaderType {{ color: {colors['accent_light']}; padding: 5px 9px; font-weight: bold; }}
-            QPushButton#BackButton {{ color: white; background-color: {colors['tab_selected']}; border: 1px solid {colors['accent']}; padding: 6px 10px; }}
+            QWidget#PlayerProfilePage, QWidget#ProfileCanvas {{ background-color: {colors['bg_dark']}; }}
+            QLabel {{ background-color: transparent; border: none; }}
+            QScrollArea {{ background-color: {colors['bg_dark']}; border: none; }}
+            QFrame#TopNavigation {{
+                min-height: 42px; background-color: {colors['card_bg']};
+                border-bottom: 1px solid #334252;
+            }}
+            QLabel#NavItem, QLabel#ActiveNav {{
+                color: #95a5b6; padding: 10px 13px; font-size: 13px; font-weight: 500;
+            }}
+            QLabel#ActiveNav {{ color: white; border-bottom: 2px solid {colors['accent_light']}; font-weight: 700; }}
+            QLabel#HeaderType {{ color: {colors['accent_light']}; padding: 7px 11px; font-size: 12px; font-weight: 700; }}
+            QPushButton#BackButton {{
+                color: white; background-color: {colors['tab_selected']};
+                border: 1px solid #405063; border-radius: 6px;
+                padding: 8px 13px; font-size: 13px; font-weight: 600;
+            }}
             QPushButton#BackButton:hover {{ background-color: {colors['accent']}; }}
             QFrame#LeftCard, QFrame#CenterCard, QFrame#RightCard {{
-                background-color: {colors['card_bg']}; border: 1px solid #2d3946;
+                background-color: {colors['card_bg']}; border: 1px solid #2d3946; border-radius: 10px;
             }}
-            QFrame#SubCard {{ background-color: {colors['tab_selected']}; border: 1px solid {colors['accent']}; }}
-            QLabel#Avatar {{ color: white; background-color: {colors['accent']}; border: 1px solid {colors['accent_light']}; }}
-            QLabel#PlayerName {{ color: white; font-size: 23px; font-weight: bold; }}
-            QLabel#AccentText, QLabel#SectionTitle, QLabel#ColumnTitle {{ color: {colors['accent_light']}; font-weight: bold; }}
-            QLabel#Muted, QLabel#AttributeName, QLabel#InfoName, QLabel#SeasonName {{ color: #95a3b2; }}
-            QLabel#AttributeValue {{ border-radius: 3px; padding: 2px 4px; }}
+            QFrame#SubCard {{
+                background-color: {colors['tab_selected']}; border: 1px solid #354455; border-radius: 7px;
+            }}
+            QLabel#Avatar {{
+                color: white;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {colors['accent']}, stop:1 {colors['tab_selected']});
+                border: 1px solid #40536a; border-radius: 8px;
+            }}
+            QLabel#PlayerName {{ color: white; font-size: 30px; font-weight: 800; }}
+            QLabel#AccentText {{ color: {colors['accent_light']}; font-size: 14px; font-weight: 600; }}
+            QLabel#SectionTitle {{
+                color: #edf6ff; border-left: 3px solid {colors['accent']};
+                padding: 3px 0 3px 9px; font-size: 16px; font-weight: 700;
+            }}
+            QLabel#ColumnTitle {{ color: {colors['accent_light']}; font-size: 14px; font-weight: 700; padding-bottom: 4px; }}
+            QLabel#Muted {{ color: #8fa0b1; font-size: 12px; }}
+            QLabel#AttributeName {{ color: #b5c0cb; font-size: 13px; font-weight: 400; }}
+            QLabel#AttributeValue {{
+                border-radius: 4px; padding: 2px 4px;
+                font-family: 'Segoe UI Variable', 'Arial'; font-size: 15px; font-weight: 700;
+            }}
             QLabel#AttributeValue[rating="elite"] {{ color: #67e8f9; background-color: #164e63; }}
             QLabel#AttributeValue[rating="good"] {{ color: #86efac; background-color: #14532d; }}
             QLabel#AttributeValue[rating="average"] {{ color: #fde68a; background-color: #713f12; }}
             QLabel#AttributeValue[rating="low"] {{ color: #fca5a5; background-color: #7f1d1d; }}
             QLabel#AttributeValue[rating="empty"] {{ color: #64748b; background-color: #202936; }}
-            QFrame#AttributeColumn {{ background-color: {colors['tab_selected']}; border: 1px solid {colors['accent']}; }}
-            QFrame#AttributeRow {{ background-color: {colors['card_bg']}; border: none; min-height: 25px; }}
-            QFrame#SeasonBox {{ background-color: {colors['tab_selected']}; border: 1px solid {colors['accent']}; }}
-            QLabel#SeasonValue {{ color: white; font-weight: bold; }}
-            QLabel#BigRating {{ color: {colors['accent_light']}; font-size: 28px; font-weight: bold; }}
-            QLabel#Stars {{ color: #facc15; font-size: 16px; }}
-            QLabel#Positive {{ color: #4ade80; font-weight: bold; }}
-            QLabel#Warning {{ color: #fbbf24; font-weight: bold; }}
-            QLabel#BodyText {{ color: #c6d1dc; }}
-            QLabel#InfoValue {{ color: #e6edf5; font-weight: bold; }}
-            QLabel#RolePrimary {{ color: #4ade80; background-color: #183e2a; padding: 4px 6px; }}
-            QLabel#RoleEmpty {{ color: #657487; background-color: #202936; padding: 4px 6px; }}
+            QFrame#AttributeColumn {{
+                background-color: {colors['tab_selected']}; border: 1px solid #344456; border-radius: 7px;
+            }}
+            QFrame#AttributeRow {{ background-color: {colors['card_bg']}; border: none; border-radius: 4px; min-height: 32px; }}
+            QFrame#SeasonBox {{
+                background-color: {colors['tab_selected']}; border: 1px solid #344456; border-radius: 6px;
+            }}
+            QLabel#SeasonName {{ color: #92a2b3; font-size: 12px; font-weight: 500; }}
+            QLabel#SeasonValue {{
+                color: white; font-family: 'Segoe UI Variable', 'Arial'; font-size: 17px; font-weight: 700;
+            }}
+            QLabel#BigRating {{
+                color: {colors['accent_light']}; font-family: 'Segoe UI Variable', 'Arial';
+                font-size: 32px; font-weight: 700;
+            }}
+            QLabel#Stars {{ color: #facc15; font-size: 17px; }}
+            QLabel#Positive {{ color: #4ade80; font-size: 13px; font-weight: 600; }}
+            QLabel#Warning {{ color: #fbbf24; font-weight: 600; }}
+            QLabel#BodyText {{ color: #c3cfda; font-size: 13px; }}
+            QLabel#InfoName {{ color: #93a3b4; font-size: 12px; }}
+            QLabel#InfoValue {{ color: #edf3f9; font-size: 13px; font-weight: 600; }}
+            QLabel#RolePrimary {{ color: #6ee7a0; background-color: #183e2a; border-radius: 4px; padding: 4px 7px; font-weight: 600; }}
+            QLabel#RoleEmpty {{ color: #657487; background-color: #202936; border-radius: 4px; padding: 4px 7px; }}
         """)
 
     def _build_left_card(self, grid):
         card = QFrame()
         card.setObjectName("LeftCard")
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(8, 8, 8, 10)
-        layout.setSpacing(7)
+        layout.setContentsMargins(12, 12, 12, 14)
+        layout.setSpacing(9)
         self.avatar = QLabel()
         self.avatar.setObjectName("Avatar")
         self.avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.avatar.setMinimumHeight(275)
-        self.avatar.setFont(QFont("Malgun Gothic", 34, QFont.Weight.Bold))
+        self.avatar.setMinimumHeight(285)
+        self.avatar.setFont(QFont("Noto Sans KR", 36, QFont.Weight.Bold))
         layout.addWidget(self.avatar)
         self.physical_line = QLabel()
         self.physical_line.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -385,7 +437,7 @@ class PlayerProfilePage(QWidget):
         self.team_badge = QLabel()
         self.team_badge.setObjectName("AccentText")
         self.team_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.team_badge.setFont(QFont("Malgun Gothic", 14, QFont.Weight.Bold))
+        self.team_badge.setFont(QFont("Noto Sans KR", 15, QFont.Weight.Bold))
         self.squad_number = QLabel("등번호  -")
         self.squad_number.setAlignment(Qt.AlignmentFlag.AlignCenter)
         shirt_layout.addWidget(self.team_badge)
@@ -403,8 +455,8 @@ class PlayerProfilePage(QWidget):
         center = QFrame()
         center.setObjectName("CenterCard")
         layout = QVBoxLayout(center)
-        layout.setContentsMargins(10, 9, 10, 10)
-        layout.setSpacing(8)
+        layout.setContentsMargins(16, 14, 16, 15)
+        layout.setSpacing(11)
         heading = QHBoxLayout()
         identity = QVBoxLayout()
         self.name_label = QLabel()
@@ -445,7 +497,8 @@ class PlayerProfilePage(QWidget):
             box = QFrame()
             box.setObjectName("SeasonBox")
             box_layout = QVBoxLayout(box)
-            box_layout.setContentsMargins(5, 5, 5, 5)
+            box_layout.setContentsMargins(7, 7, 7, 7)
+            box_layout.setSpacing(2)
             name = QLabel()
             name.setObjectName("SeasonName")
             name.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -498,8 +551,8 @@ class PlayerProfilePage(QWidget):
         right = QFrame()
         right.setObjectName("RightCard")
         layout = QVBoxLayout(right)
-        layout.setContentsMargins(9, 9, 9, 10)
-        layout.setSpacing(7)
+        layout.setContentsMargins(14, 14, 14, 15)
+        layout.setSpacing(10)
         title = QLabel("능력치 분석")
         title.setObjectName("SectionTitle")
         layout.addWidget(title)
@@ -580,7 +633,7 @@ class PlayerProfilePage(QWidget):
             column.set_schema(title, fields, self.player)
 
         name = self.player.get("name", "-")
-        self.avatar.setText(name[-2:])
+        self._set_player_photo(name)
         self.name_label.setText(name)
         self.header_type.setText("투수 PROFILE" if is_pitcher else "타자 PROFILE")
         self.subtitle_label.setText(f"{self.player.get('team', '-')}  ·  {position}")
@@ -638,6 +691,27 @@ class PlayerProfilePage(QWidget):
 
         for label in (self.fitness_value, self.condition_value, self.injury_value, self.morale_value):
             label.setText("미평가")
+
+    def _set_player_photo(self, player_name):
+        photo_path = _player_photo_path(self.player.get("kbo_player_id"))
+        if photo_path is not None:
+            pixmap = QPixmap(str(photo_path))
+            if not pixmap.isNull():
+                width = max(220, min(self.avatar.width(), 420))
+                self.avatar.setText("")
+                self.avatar.setPixmap(
+                    pixmap.scaled(
+                        width,
+                        285,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                )
+                self.avatar.setToolTip(str(photo_path))
+                return
+        self.avatar.setPixmap(QPixmap())
+        self.avatar.setText(player_name[-2:])
+        self.avatar.setToolTip("로컬 선수 사진 없음")
 
     def _load_record(self, is_pitcher):
         filename = "kbo_2025_first_team_pitching.csv" if is_pitcher else "kbo_2025_first_team_hitting.csv"

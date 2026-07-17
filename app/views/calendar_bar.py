@@ -8,13 +8,14 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QVBoxLayout,
 )
 
 
 class CalendarBar(QFrame):
     next_day_requested = Signal()
 
-    def __init__(self, game_date, colors, parent=None):
+    def __init__(self, game_date, colors, club_name="KBO 구단", parent=None):
         super().__init__(parent)
         self.game_date = game_date
         self._pending_date = None
@@ -25,17 +26,28 @@ class CalendarBar(QFrame):
         layout.setContentsMargins(24, 11, 24, 11)
         layout.setSpacing(14)
 
-        section = QLabel("구단 일정")
-        section.setStyleSheet(
-            f"color: {colors['accent_light']}; font-size: 12px; font-weight: bold;"
-        )
-        layout.addWidget(section)
+        brand = QLabel("⌂")
+        brand.setObjectName("HeaderBrand")
+        brand.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        brand.setFixedSize(42, 42)
+        layout.addWidget(brand)
+
+        title_column = QVBoxLayout()
+        title_column.setSpacing(0)
+        section = QLabel("수신함")
+        section.setObjectName("HeaderTitle")
+        title_column.addWidget(section)
+        context = QLabel(f"{club_name}  ·  구단 운영 센터")
+        context.setObjectName("HeaderContext")
+        title_column.addWidget(context)
+        layout.addLayout(title_column)
+        layout.addStretch()
 
         self.date_label = QLabel(self._date_text(game_date))
-        self.date_label.setFont(QFont("Malgun Gothic", 16, QFont.Bold))
-        self.date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.date_label.setFont(QFont("Noto Sans KR", 19, QFont.Bold))
+        self.date_label.setObjectName("HeaderDate")
+        self.date_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(self.date_label)
-        layout.addStretch()
 
         self.next_button = QPushButton("다음 날짜  →")
         self.next_button.setObjectName("NextDateButton")
@@ -44,19 +56,23 @@ class CalendarBar(QFrame):
 
         self.setStyleSheet(f"""
             QFrame#CalendarBar {{
-                background-color: {colors['card_bg']};
-                border-bottom: 1px solid {colors['accent']};
+                background-color: #171c22;
+                border-bottom: 1px solid #3b4652;
             }}
-            QLabel {{ color: {colors['text']}; font-family: 'Malgun Gothic'; }}
+            QLabel {{ color: {colors['text']}; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
+            QLabel#HeaderBrand {{ color: white; background-color: {colors['accent']}; border-radius: 21px; font-size: 20px; font-weight: 800; }}
+            QLabel#HeaderTitle {{ color: white; font-size: 20px; font-weight: 700; }}
+            QLabel#HeaderContext {{ color: #8f9cab; font-size: 12px; }}
+            QLabel#HeaderDate {{ color: {colors['accent_light']}; font-size: 16px; padding-right: 10px; }}
             QPushButton#NextDateButton {{
                 color: white;
                 background-color: {colors['accent']};
                 border: 1px solid {colors['accent_light']};
                 border-radius: 7px;
-                padding: 9px 20px;
-                font-family: 'Malgun Gothic';
-                font-size: 13px;
-                font-weight: bold;
+                padding: 10px 22px;
+                font-family: 'Noto Sans KR', 'Malgun Gothic';
+                font-size: 15px;
+                font-weight: 700;
             }}
             QPushButton#NextDateButton:hover {{ background-color: {colors['accent_light']}; }}
             QPushButton#NextDateButton:disabled {{ color: #94a3b8; background-color: #334155; border-color: #475569; }}

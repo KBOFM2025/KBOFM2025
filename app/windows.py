@@ -46,7 +46,7 @@ from app.config import (
 )
 from app.constants import APP_TITLE
 from app.manager_widgets import AbilitySliderControl, ManagerRadarChart, ManagerStyleCard
-from app.styles import START_STYLE
+from app.styles import GLOBAL_STYLE, START_STYLE, UI_FONT_FAMILY
 from app.utils import manager_data_from_save, resource_path
 from app.views.league_rank import LeagueRankTab
 from app.views.load_game import LoadGameDialog
@@ -84,7 +84,7 @@ class NewGameWizard(QWidget):
         layout.setSpacing(14)
 
         self.step_label = QLabel()
-        self.step_label.setStyleSheet("color: #42a5f5; font-size: 12px; font-weight: bold;")
+        self.step_label.setStyleSheet("color: #42a5f5; font-size: 14px; font-weight: 700;")
         layout.addWidget(self.step_label)
 
         self.error_label = QLabel()
@@ -140,7 +140,7 @@ class NewGameWizard(QWidget):
         layout.setSpacing(13)
 
         title = QLabel(title_text)
-        title.setFont(QFont("Malgun Gothic", 23, QFont.Bold))
+        title.setFont(QFont(UI_FONT_FAMILY, 27, QFont.Bold))
         layout.addWidget(title)
         subtitle = QLabel(subtitle_text)
         subtitle.setObjectName("Subtitle")
@@ -208,7 +208,7 @@ class NewGameWizard(QWidget):
         self.style_description.setWordWrap(True)
         self.style_description.setStyleSheet(
             "background-color: #101f31; border: 1px solid #30445c; "
-            "border-radius: 9px; color: #cbd5e1; padding: 18px; font-size: 14px;"
+            "border-radius: 10px; color: #d5e0ea; padding: 20px; font-size: 16px;"
         )
         layout.addWidget(self.style_description)
 
@@ -239,7 +239,7 @@ class NewGameWizard(QWidget):
         level_guide.setAlignment(Qt.AlignCenter)
         level_guide.setStyleSheet(
             "color: #bcd1e5; background-color: #10243a; border: 1px solid #29445f; "
-            "border-radius: 7px; padding: 8px; font-size: 11px; font-weight: bold;"
+            "border-radius: 8px; padding: 10px; font-size: 14px; font-weight: 600;"
         )
         layout.addWidget(level_guide)
 
@@ -293,9 +293,9 @@ class NewGameWizard(QWidget):
                 border: 1px solid #263b52;
                 border-radius: 10px;
                 padding: 7px;
-                font-family: 'Malgun Gothic';
-                font-size: 13px;
-                font-weight: bold;
+                font-family: 'Noto Sans KR', 'Malgun Gothic';
+                font-size: 15px;
+                font-weight: 600;
             }
             QListWidget::item { padding: 12px 10px; border-radius: 7px; }
             QListWidget::item:hover { background-color: #162a40; }
@@ -304,7 +304,7 @@ class NewGameWizard(QWidget):
         for team_name, info in TEAM_INFO.items():
             item = QListWidgetItem(f'{info["emoji"]}  {team_name}\n     {info["city"]}')
             item.setData(Qt.UserRole, team_name)
-            item.setSizeHint(QSize(230, 60))
+            item.setSizeHint(QSize(230, 70))
             self.team_list.addItem(item)
         content.addWidget(self.team_list)
 
@@ -325,7 +325,7 @@ class NewGameWizard(QWidget):
         self.team_emoji_label.setFixedWidth(70)
         heading.addWidget(self.team_emoji_label)
         self.team_name_label = QLabel()
-        self.team_name_label.setFont(QFont("Malgun Gothic", 22, QFont.Bold))
+        self.team_name_label.setFont(QFont(UI_FONT_FAMILY, 25, QFont.Bold))
         heading.addWidget(self.team_name_label)
         heading.addStretch()
         self.team_roster_preview_button = QPushButton("선수단 미리보기")
@@ -379,7 +379,7 @@ class NewGameWizard(QWidget):
         ):
             label.setStyleSheet(
                 "background-color: #101f31; border: 1px solid #263b52; border-radius: 8px; "
-                "padding: 11px; color: #dbe7f3; font-size: 12px;"
+                "padding: 13px; color: #dbe7f3; font-size: 14px;"
             )
             facts.addWidget(label)
         info_column.addLayout(facts)
@@ -391,7 +391,7 @@ class NewGameWizard(QWidget):
         self.team_goal_label.setWordWrap(True)
         self.team_goal_label.setStyleSheet(
             "color: #f8fafc; background-color: #162a40; border: 1px solid #3b82f6; "
-            "border-radius: 9px; padding: 13px; font-size: 12px; font-weight: bold;"
+            "border-radius: 9px; padding: 15px; font-size: 14px; font-weight: 600;"
         )
         info_column.addWidget(self.team_goal_label)
 
@@ -402,7 +402,7 @@ class NewGameWizard(QWidget):
         self.team_description_label.setWordWrap(True)
         self.team_description_label.setStyleSheet(
             "color: #d2dee9; background-color: #0d1b2a; border-radius: 8px; "
-            "padding: 13px; font-size: 13px; line-height: 1.45;"
+            "padding: 15px; font-size: 15px; line-height: 1.45;"
         )
         info_column.addWidget(self.team_description_label)
 
@@ -415,7 +415,7 @@ class NewGameWizard(QWidget):
             player_card.setWordWrap(True)
             player_card.setStyleSheet(
                 "color: #cbd5e1; background-color: #10243a; border-radius: 8px; "
-                "padding: 11px; font-size: 12px;"
+                "padding: 13px; font-size: 14px;"
             )
             info_column.addWidget(player_card)
             self.team_player_cards.append(player_card)
@@ -434,7 +434,7 @@ class NewGameWizard(QWidget):
             label.setWordWrap(True)
             label.setStyleSheet(
                 "color: #cbd5e1; background-color: #0d1b2a; border-radius: 8px; "
-                "padding: 11px; font-size: 12px;"
+                "padding: 13px; font-size: 14px;"
             )
             info_column.addWidget(label)
 
@@ -442,7 +442,7 @@ class NewGameWizard(QWidget):
         self.team_youtube_label.setWordWrap(True)
         self.team_youtube_label.setStyleSheet(
             "color: #fff1f2; background-color: #3b1018; border: 1px solid #7f1d2d; "
-            "border-radius: 8px; padding: 11px; font-size: 12px; font-weight: bold;"
+            "border-radius: 8px; padding: 13px; font-size: 14px; font-weight: 600;"
         )
         info_column.addWidget(self.team_youtube_label)
 
@@ -450,7 +450,7 @@ class NewGameWizard(QWidget):
             "※ 프런트·팬·SNS 성향은 실제 인물에 대한 평가가 아니라 게임 플레이를 위한 구단 환경 해석입니다."
         )
         interpretation_note.setWordWrap(True)
-        interpretation_note.setStyleSheet("color: #718096; font-size: 10px;")
+        interpretation_note.setStyleSheet("color: #8495a8; font-size: 12px;")
         info_column.addWidget(interpretation_note)
 
         name_label = QLabel("게임에서 사용할 구단 이름")
@@ -489,7 +489,7 @@ class NewGameWizard(QWidget):
         mascot_help.setWordWrap(True)
         mascot_help.setStyleSheet(
             "color: #718096; background-color: #0d1b2a; border-radius: 8px; "
-            "padding: 10px; font-size: 10px;"
+            "padding: 12px; font-size: 12px;"
         )
         visual_column.addWidget(mascot_help)
         visual_column.addStretch()
@@ -583,7 +583,7 @@ class NewGameWizard(QWidget):
         self.team_roster_preview_button.setStyleSheet(
             f"QPushButton#RosterPreviewButton {{ color: white; background-color: {colors['accent']}; "
             f"border: 1px solid {colors['accent_light']}; border-radius: 8px; "
-            "min-height: 38px; padding: 0 14px; font-size: 12px; font-weight: bold; }} "
+            "min-height: 42px; padding: 0 16px; font-size: 14px; font-weight: 700; }} "
             f"QPushButton#RosterPreviewButton:hover {{ background-color: {colors['accent_light']}; }}"
         )
 
@@ -657,7 +657,7 @@ class NewGameWizard(QWidget):
             "※ 현재는 시즌 진행 기준점으로 저장되며, 실제 일정 날짜는 이후 일정 시스템과 연결됩니다."
         )
         guide.setWordWrap(True)
-        guide.setStyleSheet("color: #718096; font-size: 11px; padding-top: 8px;")
+        guide.setStyleSheet("color: #8495a8; font-size: 13px; padding-top: 9px;")
         layout.addWidget(guide)
         layout.addStretch()
         return page
@@ -916,7 +916,7 @@ class StartWindow(QMainWindow):
 
         badge = QLabel("KOREA BASEBALL MANAGEMENT")
         badge.setAlignment(Qt.AlignCenter)
-        badge.setStyleSheet("color: #42a5f5; font-size: 12px; font-weight: bold;")
+        badge.setStyleSheet("color: #42a5f5; font-size: 14px; font-weight: 700;")
         card_layout.addWidget(badge)
 
         title = QLabel(APP_TITLE)
@@ -946,7 +946,7 @@ class StartWindow(QMainWindow):
 
         version = QLabel("PRE-SEASON BUILD 0.1")
         version.setAlignment(Qt.AlignCenter)
-        version.setStyleSheet("color: #60758a; font-size: 11px;")
+        version.setStyleSheet("color: #718399; font-size: 13px;")
         card_layout.addWidget(version)
 
         outer.addWidget(card)
@@ -1135,7 +1135,7 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        self.calendar_bar = CalendarBar(self.current_date, self.colors)
+        self.calendar_bar = CalendarBar(self.current_date, self.colors, self.club_name)
         self.calendar_bar.next_day_requested.connect(self.advance_to_next_day)
         main_layout.addWidget(self.calendar_bar)
 
@@ -1149,7 +1149,7 @@ class MainWindow(QMainWindow):
         body_layout.addWidget(self.sidebar)
 
         self.content_stack = QStackedWidget()
-        self.league_home = LeagueRankTab(self.colors)
+        self.league_home = LeagueRankTab(self.colors, self.selected_team)
         self.content_stack.addWidget(self.league_home)
 
         appointment_date = start_point_date(self.start_point)
@@ -1230,68 +1230,82 @@ class MainWindow(QMainWindow):
     def create_sidebar(self):
         sidebar = QWidget()
         sidebar.setObjectName("Sidebar")
-        sidebar.setFixedWidth(210)
+        sidebar.setFixedWidth(220)
 
         layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(14, 30, 14, 30)
-        layout.setSpacing(12)
+        layout.setContentsMargins(9, 12, 9, 12)
+        layout.setSpacing(4)
 
         logo = QLabel(TEAM_EMOJIS.get(self.selected_team, "🏟️"))
-        logo.setFont(QFont("Arial", 56))
+        logo.setFont(QFont("Arial", 30))
         logo.setAlignment(Qt.AlignCenter)
         layout.addWidget(logo)
 
         team_label = QLabel(self.club_name)
         team_label.setWordWrap(True)
-        team_label.setFont(QFont("Malgun Gothic", 15, QFont.Bold))
+        team_label.setFont(QFont(UI_FONT_FAMILY, 15, QFont.Bold))
         team_label.setAlignment(Qt.AlignCenter)
-        team_label.setStyleSheet(f"color: {self.colors['accent']}; margin-top: 5px;")
+        team_label.setStyleSheet(f"color: {self.colors['accent_light']}; margin-top: 2px;")
         layout.addWidget(team_label)
 
         base_label = QLabel(f"기준 구단 · {self.selected_team}")
         base_label.setAlignment(Qt.AlignCenter)
-        base_label.setStyleSheet("color: #64748b; font-size: 11px;")
+        base_label.setStyleSheet("color: #748396; font-size: 12px;")
         layout.addWidget(base_label)
 
         manager_label = QLabel(
-            f'{self.manager_data["manager_name"]} 감독 · '
-            f'{self.manager_data["manager_style"]} 스타일\n'
-            f'시작: {start_point_title(self.start_point)}'
+            f'{self.manager_data["manager_name"]} 감독  ·  '
+            f'{self.manager_data["manager_style"]}'
         )
         manager_label.setWordWrap(True)
         manager_label.setAlignment(Qt.AlignCenter)
-        manager_label.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        manager_label.setStyleSheet("color: #98a7b7; font-size: 12px; padding: 5px 0 9px 0;")
         layout.addWidget(manager_label)
-        layout.addSpacing(24)
 
-        self.btn_home = QPushButton("🏠 리그 대시보드")
+        self.btn_home = QPushButton("▣  수신함")
         self.btn_home.setCheckable(True)
         self.btn_home.setChecked(True)
         self.btn_home.clicked.connect(lambda: self.switch_page(0))
         layout.addWidget(self.btn_home)
 
-        self.btn_news = QPushButton("📰 뉴스")
+        self.btn_news = QPushButton("▤  구단 뉴스")
         self.btn_news.setCheckable(True)
         self.btn_news.clicked.connect(lambda: self.switch_page(1))
         layout.addWidget(self.btn_news)
 
-        self.btn_daily_news = QPushButton("📅 일자별 소식")
+        self.btn_daily_news = QPushButton("▦  주요 일정")
         self.btn_daily_news.setCheckable(True)
         self.btn_daily_news.clicked.connect(lambda: self.switch_page(2))
         layout.addWidget(self.btn_daily_news)
 
-        self.btn_manage = QPushButton("📋 내 팀 관리")
+        self.btn_manage = QPushButton("♟  선수단")
         self.btn_manage.setCheckable(True)
         self.btn_manage.clicked.connect(lambda: self.switch_page(3))
         layout.addWidget(self.btn_manage)
+
+        for title in (
+            "⌁  전술",
+            "◉  데이터 센터",
+            "♟  스태프",
+            "▲  훈련",
+            "✚  의료 센터",
+            "⌕  스카우트",
+            "⇄  이적",
+            "▰  구단 정보",
+            "₩  재정",
+        ):
+            placeholder = QPushButton(title)
+            placeholder.setProperty("placeholder", True)
+            placeholder.setToolTip("후속 개발에서 구현될 메뉴입니다.")
+            layout.addWidget(placeholder)
         layout.addStretch()
 
-        self.btn_save = QPushButton("💾 게임 저장")
+        self.btn_save = QPushButton("▣  게임 저장")
         self.btn_save.setObjectName("SaveButton")
         self.btn_save.clicked.connect(lambda: self.save_game())
         layout.addWidget(self.btn_save)
 
-        self.btn_start = QPushButton("↩ 시작 화면으로")
+        self.btn_start = QPushButton("↩  시작 화면")
         self.btn_start.setObjectName("StartButton")
         self.btn_start.clicked.connect(self.return_to_start)
         layout.addWidget(self.btn_start)
@@ -1305,7 +1319,7 @@ class MainWindow(QMainWindow):
         self.daily_news.set_game_date(self.current_date)
 
     def update_daily_news_badge(self, unread_count):
-        text = "📅 일자별 소식"
+        text = "▦  주요 일정"
         if unread_count:
             text += f"  ({unread_count})"
         self.btn_daily_news.setText(text)
@@ -1404,26 +1418,29 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(f"""
             QMainWindow {{ background-color: {c['bg_dark']}; }}
             QWidget#Sidebar {{
-                background-color: {c['card_bg']};
-                border-right: 1px solid {c['card_bg']};
+                background-color: #151a20;
+                border-right: 1px solid #3a4551;
             }}
-            QLabel {{ color: {c['text']}; font-family: 'Malgun Gothic'; }}
-            QPushButton {{
+            QLabel {{ color: {c['text']}; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
+            QWidget#Sidebar QPushButton {{
                 background-color: transparent;
                 color: #9ca3af;
                 border: 1px solid transparent;
-                padding: 12px 15px;
+                min-height: 35px;
+                padding: 7px 12px;
                 text-align: left;
-                font-family: 'Malgun Gothic';
+                font-family: 'Noto Sans KR', 'Malgun Gothic';
                 font-size: 14px;
-                border-radius: 6px;
-                font-weight: bold;
+                border-radius: 5px;
+                font-weight: 600;
             }}
-            QPushButton:hover {{
+            QWidget#Sidebar QPushButton:hover {{
                 background-color: {c['bg_dark']};
                 color: {c['accent_light']};
             }}
-            QPushButton:checked {{ background-color: {c['accent']}; color: white; }}
+            QWidget#Sidebar QPushButton:checked {{ background-color: {c['accent']}; color: white; }}
+            QWidget#Sidebar QPushButton[placeholder="true"] {{ color: #83909e; }}
+            QWidget#Sidebar QPushButton[placeholder="true"]:hover {{ color: {c['accent_light']}; border-left: 2px solid {c['accent']}; }}
             QTableWidget {{
                 background-color: {c['card_bg']};
                 border: 1px solid #1e293b;
@@ -1436,6 +1453,8 @@ class MainWindow(QMainWindow):
 def run():
     app = QApplication(sys.argv)
     app.setApplicationName(APP_TITLE)
+    app.setFont(QFont(UI_FONT_FAMILY, 11))
+    app.setStyleSheet(GLOBAL_STYLE)
     start_window = StartWindow()
     start_window.show()
     return app.exec()

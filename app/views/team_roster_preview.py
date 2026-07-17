@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from database import PLAYERS_DB_PATH
+from app.transitions import FadeStackTransition, fade_widget_in
 from app.views.team_manage.player_profile import PlayerProfilePage
 
 
@@ -68,6 +69,7 @@ class TeamRosterPreviewWidget(QFrame):
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
         self.view_stack = QStackedWidget()
+        self.view_transition = FadeStackTransition(self.view_stack, self)
         outer_layout.addWidget(self.view_stack)
 
         self.roster_page = QWidget()
@@ -78,10 +80,10 @@ class TeamRosterPreviewWidget(QFrame):
         heading = QHBoxLayout()
         title_column = QVBoxLayout()
         self.title_label = QLabel()
-        self.title_label.setFont(QFont("Malgun Gothic", 17, QFont.Bold))
+        self.title_label.setFont(QFont("Noto Sans KR", 21, QFont.Bold))
         title_column.addWidget(self.title_label)
         subtitle = QLabel("2025년 10월 31일 기준 · 생년월일은 KBO 공식 프로필 기준")
-        subtitle.setStyleSheet("color: #8fa3b8; font-size: 11px;")
+        subtitle.setStyleSheet("color: #9fb0c2; font-size: 13px;")
         title_column.addWidget(subtitle)
         heading.addLayout(title_column)
         heading.addStretch()
@@ -97,7 +99,7 @@ class TeamRosterPreviewWidget(QFrame):
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet(
                 "color: #dbe7f3; background-color: #101f31; "
-                "border-radius: 7px; padding: 8px; font-weight: bold;"
+                "border: 1px solid #2b4056; border-radius: 8px; padding: 10px; font-size: 14px; font-weight: 600;"
             )
             self.position_count_labels[code] = label
             summary.addWidget(label)
@@ -105,10 +107,13 @@ class TeamRosterPreviewWidget(QFrame):
 
         self.tabs = QTabWidget()
         self.tabs.setMinimumHeight(390)
+        self.tabs.currentChanged.connect(
+            lambda _index: fade_widget_in(self.tabs.currentWidget())
+        )
         layout.addWidget(self.tabs)
 
         guide = QLabel("신인 · 외국인 선수는 이름 옆 배지로 표시됩니다.")
-        guide.setStyleSheet("color: #718096; font-size: 10px;")
+        guide.setStyleSheet("color: #8495a8; font-size: 12px;")
         layout.addWidget(guide)
 
         self.view_stack.addWidget(self.roster_page)
@@ -126,7 +131,7 @@ class TeamRosterPreviewWidget(QFrame):
         self.total_label.setText(f"총 {len(players)}명")
         self.total_label.setStyleSheet(
             f"color: white; background-color: {colors['accent']}; "
-            "border-radius: 11px; padding: 7px 13px; font-weight: bold;"
+            "border-radius: 12px; padding: 8px 15px; font-size: 14px; font-weight: 700;"
         )
 
         for code, label in self.position_count_labels.items():
@@ -171,7 +176,7 @@ class TeamRosterPreviewWidget(QFrame):
         table.setAlternatingRowColors(True)
         table.setShowGrid(False)
         table.verticalHeader().setVisible(False)
-        table.verticalHeader().setDefaultSectionSize(36)
+        table.verticalHeader().setDefaultSectionSize(43)
 
         for row_index, player in enumerate(players):
             badges = []
@@ -217,11 +222,11 @@ class TeamRosterPreviewWidget(QFrame):
         player = self.players_by_id.get(player_id)
         if player:
             self.profile_page.set_player(player)
-            self.view_stack.setCurrentWidget(self.profile_page)
+            self.view_transition.to_widget(self.profile_page)
             self.profile_mode_changed.emit(True)
 
     def _show_roster(self):
-        self.view_stack.setCurrentWidget(self.roster_page)
+        self.view_transition.to_widget(self.roster_page)
         self.profile_mode_changed.emit(False)
 
     @staticmethod
@@ -230,9 +235,9 @@ class TeamRosterPreviewWidget(QFrame):
             QFrame#RosterPreview {{
                 background-color: #0b1828;
                 border: 1px solid {colors['accent']};
-                border-radius: 11px;
+                border-radius: 12px;
             }}
-            QLabel {{ color: #f8fafc; font-family: 'Malgun Gothic'; border: none; }}
+            QLabel {{ color: #f8fafc; font-family: 'Noto Sans KR', 'Malgun Gothic'; border: none; }}
             QTabWidget::pane {{
                 background-color: #0d1b2a;
                 border: 1px solid #263b52;
@@ -240,19 +245,19 @@ class TeamRosterPreviewWidget(QFrame):
             }}
             QTabBar::tab {{
                 color: #9fb2c7; background-color: #101f31;
-                border: 1px solid #263b52; padding: 9px 17px;
-                font-family: 'Malgun Gothic'; font-weight: bold;
+                border: 1px solid #30445a; padding: 11px 20px;
+                font-family: 'Noto Sans KR', 'Malgun Gothic'; font-size: 14px; font-weight: 600;
             }}
             QTabBar::tab:selected {{ color: white; background-color: {colors['accent']}; }}
             QTableWidget {{
                 color: #dbe7f3; background-color: #0d1b2a;
                 alternate-background-color: #101f31; border: none;
                 selection-background-color: {colors['accent']};
-                font-family: 'Malgun Gothic'; font-size: 12px;
+                font-family: 'Noto Sans KR', 'Malgun Gothic'; font-size: 14px;
             }}
             QHeaderView::section {{
                 color: #dbe7f3; background-color: #162a40; border: none;
-                border-bottom: 1px solid #30445c; padding: 8px;
-                font-family: 'Malgun Gothic'; font-weight: bold;
+                border-bottom: 1px solid #30445c; padding: 9px;
+                font-family: 'Noto Sans KR', 'Malgun Gothic'; font-size: 13px; font-weight: 600;
             }}
         """

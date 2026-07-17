@@ -26,23 +26,23 @@ class NewsCard(QFrame):
         meta = QHBoxLayout()
         category_label = QLabel(category)
         category_label.setStyleSheet(
-            f"color: {colors['accent_light']}; font-size: 11px; font-weight: bold;"
+            f"color: {colors['accent_light']}; font-size: 13px; font-weight: 700;"
         )
         meta.addWidget(category_label)
         meta.addStretch()
         date_label = QLabel(published_at)
-        date_label.setStyleSheet("color: #64748b; font-size: 11px;")
+        date_label.setStyleSheet("color: #8292a3; font-size: 13px;")
         meta.addWidget(date_label)
         layout.addLayout(meta)
 
         headline_label = QLabel(headline)
         headline_label.setWordWrap(True)
-        headline_label.setFont(QFont("Malgun Gothic", 16, QFont.Bold))
+        headline_label.setFont(QFont("Noto Sans KR", 19, QFont.Bold))
         layout.addWidget(headline_label)
 
         body_label = QLabel(body)
         body_label.setWordWrap(True)
-        body_label.setStyleSheet("color: #aebfd0; font-size: 12px;")
+        body_label.setStyleSheet("color: #b9c8d7; font-size: 14px;")
         layout.addWidget(body_label)
 
         self.setStyleSheet(f"""
@@ -52,7 +52,7 @@ class NewsCard(QFrame):
                 border-radius: 9px;
             }}
             QFrame#NewsCard:hover {{ border-color: {colors['accent']}; }}
-            QLabel {{ color: {colors['text']}; font-family: 'Malgun Gothic'; }}
+            QLabel {{ color: {colors['text']}; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
         """)
 
 
@@ -78,10 +78,10 @@ class NewsFeedPage(QWidget):
         layout.setSpacing(16)
 
         title = QLabel("📰 뉴스 센터")
-        title.setFont(QFont("Malgun Gothic", 22, QFont.Bold))
+        title.setFont(QFont("Noto Sans KR", 26, QFont.Bold))
         layout.addWidget(title)
         subtitle = QLabel("구단 공식 발표와 리그 주요 소식을 시간순으로 확인합니다.")
-        subtitle.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        subtitle.setStyleSheet("color: #a6b5c5; font-size: 14px;")
         layout.addWidget(subtitle)
 
         scroll = QScrollArea()
@@ -148,32 +148,32 @@ class DailyNewsCard(QFrame):
         meta = QHBoxLayout()
         category = QLabel(news["category"])
         category.setStyleSheet(
-            f"color: {colors['accent_light']}; font-size: 11px; font-weight: bold;"
+            f"color: {colors['accent_light']}; font-size: 13px; font-weight: 700;"
         )
         meta.addWidget(category)
         meta.addStretch()
         status = QLabel("확인함" if is_read else "● 미확인")
         status.setStyleSheet(
-            "color: #64748b; font-size: 11px;"
+            "color: #8292a3; font-size: 13px;"
             if is_read
-            else "color: #fbbf24; font-size: 11px; font-weight: bold;"
+            else "color: #fbbf24; font-size: 13px; font-weight: 700;"
         )
         meta.addWidget(status)
         layout.addLayout(meta)
 
         headline = QLabel(news["headline"])
         headline.setWordWrap(True)
-        headline.setFont(QFont("Malgun Gothic", 15, QFont.Bold))
+        headline.setFont(QFont("Noto Sans KR", 18, QFont.Bold))
         layout.addWidget(headline)
 
         body = QLabel(news["body"])
         body.setWordWrap(True)
-        body.setStyleSheet("color: #aebfd0; font-size: 12px;")
+        body.setStyleSheet("color: #b9c8d7; font-size: 14px;")
         layout.addWidget(body)
 
         footer = QHBoxLayout()
         published = QLabel(news["news_date"].replace("-", "."))
-        published.setStyleSheet("color: #64748b; font-size: 10px;")
+        published.setStyleSheet("color: #8292a3; font-size: 12px;")
         footer.addWidget(published)
         footer.addStretch()
         if not is_read:
@@ -196,7 +196,7 @@ class DailyNewsCard(QFrame):
                 border: 1px solid #263b52;
                 border-radius: 9px;
             }}
-            QLabel {{ color: {colors['text']}; font-family: 'Malgun Gothic'; }}
+            QLabel {{ color: {colors['text']}; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
             QPushButton#ConfirmNewsButton {{
                 color: white;
                 background-color: {colors['accent']};
@@ -253,7 +253,7 @@ class DailyNewsPage(QWidget):
 
         header = QHBoxLayout()
         title = QLabel("📅 일자별 소식")
-        title.setFont(QFont("Malgun Gothic", 22, QFont.Bold))
+        title.setFont(QFont("Noto Sans KR", 26, QFont.Bold))
         header.addWidget(title)
         header.addStretch()
         self.read_all_button = QPushButton("모두 확인")
@@ -262,7 +262,7 @@ class DailyNewsPage(QWidget):
         layout.addLayout(header)
         self.date_label = QLabel()
         self.date_label.setStyleSheet(
-            f"color: {colors['accent_light']}; font-size: 14px; font-weight: bold;"
+            f"color: {colors['accent_light']}; font-size: 16px; font-weight: 700;"
         )
         layout.addWidget(self.date_label)
 

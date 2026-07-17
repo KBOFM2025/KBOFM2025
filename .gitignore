@@ -7,3 +7,5 @@ build/
 dist/
 data/kbo_fm_saves.db
 data/players.before-*.db
+image/players/local/*
+!image/players/local/.gitkeep
