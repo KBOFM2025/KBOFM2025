@@ -29,8 +29,8 @@ class FirstTeamTab(QWidget):
         layout.addWidget(pitcher_title)
 
         self.table_pitchers = QTableWidget()
-        self.table_pitchers.setColumnCount(8)
-        self.table_pitchers.setHorizontalHeaderLabels(["이름", "포지션", "나이", "구속", "제구", "변화구", "스태미나", "보직"])
+        self.table_pitchers.setColumnCount(10)
+        self.table_pitchers.setHorizontalHeaderLabels(["이름", "포지션", "나이", "구속", "제구", "변화구", "스태미나", "보직", "컨디션", "상태"])
         self.table_pitchers.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table_pitchers.verticalHeader().setDefaultSectionSize(42)
         self.table_pitchers.setSelectionBehavior(QTableWidget.SelectRows)
@@ -45,8 +45,8 @@ class FirstTeamTab(QWidget):
         layout.addWidget(batter_title)
 
         self.table_batters = QTableWidget()
-        self.table_batters.setColumnCount(8)
-        self.table_batters.setHorizontalHeaderLabels(["이름", "포지션", "나이", "컨택", "파워", "선구안", "수비력", "타순"])
+        self.table_batters.setColumnCount(10)
+        self.table_batters.setHorizontalHeaderLabels(["이름", "포지션", "나이", "컨택", "파워", "선구안", "수비력", "타순", "컨디션", "상태"])
         self.table_batters.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table_batters.verticalHeader().setDefaultSectionSize(42)
         self.table_batters.setSelectionBehavior(QTableWidget.SelectRows)
@@ -82,6 +82,11 @@ class FirstTeamTab(QWidget):
             role_item = QTableWidgetItem(p.get("role", "투수"))
             role_item.setForeground(Qt.GlobalColor.cyan)
             self.table_pitchers.setItem(row, 7, role_item)
+            self.table_pitchers.setItem(row, 8, QTableWidgetItem(str(p.get("sim_condition", "-"))))
+            injury_days = int(p.get("sim_injury_days", 0))
+            self.table_pitchers.setItem(row, 9, QTableWidgetItem(
+                f"{p.get('sim_injury_type', '부상')} {injury_days}일" if injury_days else p.get("sim_squad_group", "정상")
+            ))
 
         self.table_batters.setRowCount(len(batters))
         for row, p in enumerate(batters):
@@ -100,6 +105,11 @@ class FirstTeamTab(QWidget):
             if p["lineup_pos"] > 0:
                 order_item.setForeground(Qt.GlobalColor.green)
             self.table_batters.setItem(row, 7, order_item)
+            self.table_batters.setItem(row, 8, QTableWidgetItem(str(p.get("sim_condition", "-"))))
+            injury_days = int(p.get("sim_injury_days", 0))
+            self.table_batters.setItem(row, 9, QTableWidgetItem(
+                f"{p.get('sim_injury_type', '부상')} {injury_days}일" if injury_days else p.get("sim_squad_group", "정상")
+            ))
 
     def set_stat_item(self, table, row, col, score):
         item = QTableWidgetItem(str(score))

@@ -1,8 +1,9 @@
 """FM 스타일의 메인 수신함과 구단 현황 대시보드."""
 
 import sqlite3
+from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -26,11 +27,11 @@ from database.paths import PLAYERS_DB_PATH
 
 INBOX_ITEMS = (
     {
-        "category": "프런트",
-        "sender": "구단 운영팀",
+        "category": "이사회",
+        "sender": "구단 이사회",
         "time": "14:18",
-        "headline": "감독 부임 후 첫 구단 운영 회의가 준비되었습니다",
-        "body": "감독님의 부임을 환영합니다. 프런트는 현재 선수단 구성과 시즌 준비 현황을 정리했습니다. 아래 핵심 선수와 리그 현황을 확인한 뒤 첫 운영 방향을 결정해 주십시오.",
+        "headline": "구단 비전과 이번 시즌 목표 협의를 요청합니다",
+        "body": "감독님의 부임을 환영합니다. 이사회는 이번 시즌 성과 목표와 장기적인 구단 운영 방향을 협의하고자 합니다. 아래 버튼을 눌러 목표별 조건을 확인하고 협상을 진행해 주십시오.",
     },
     {
         "category": "전력 분석",
@@ -66,10 +67,20 @@ INBOX_ITEMS = (
 class LeagueRankTab(QWidget):
     """수신함 목록과 선택 메시지, 선수·리그 정보를 한 화면에 표시한다."""
 
-    def __init__(self, colors, team_name=None):
+    board_vision_requested = Signal()
+    club_info_requested = Signal(str)
+    news_requested = Signal()
+    notification_count_changed = Signal(int)
+
+    def __init__(self, colors, team_name=None, db_path=None, save_database=None, save_id=None):
         super().__init__()
         self.colors = colors
         self.team_name = team_name
+        self.db_path = db_path or PLAYERS_DB_PATH
+        self.save_database = save_database
+        self.save_id = save_id
+        self.messages = [dict(message, is_board=index == 0) for index, message in enumerate(INBOX_ITEMS)]
+        self.board_vision_reviewed = False
         self._build_ui()
         self._load_team_players()
         self._load_standings()
@@ -115,9 +126,9 @@ class LeagueRankTab(QWidget):
         all_items.setObjectName("InboxFilter")
         header_layout.addWidget(all_items)
         header_layout.addStretch()
-        count = QLabel(f"{len(INBOX_ITEMS)}")
-        count.setObjectName("InboxCount")
-        header_layout.addWidget(count)
+        self.inbox_count = QLabel(f"{len(self.messages)}")
+        self.inbox_count.setObjectName("InboxCount")
+        header_layout.addWidget(self.inbox_count)
         inbox_layout.addWidget(inbox_header)
 
         day = QLabel("오늘  ·  받은 메시지")
@@ -127,13 +138,11 @@ class LeagueRankTab(QWidget):
         self.inbox_list = QListWidget()
         self.inbox_list.setObjectName("InboxList")
         self.inbox_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        for message in INBOX_ITEMS:
-            item = QListWidgetItem(
-                f'{message["sender"]}     {message["time"]}\n{message["headline"]}'
-            )
-            item.setSizeHint(QSize(320, 88))
-            self.inbox_list.addItem(item)
+        self._populate_inbox()
         self.inbox_list.currentRowChanged.connect(self._show_message)
+        self.inbox_list.itemDoubleClicked.connect(
+            lambda _item: self._activate_current_message()
+        )
         inbox_layout.addWidget(self.inbox_list, 1)
         splitter.addWidget(inbox)
 
@@ -196,6 +205,7 @@ class LeagueRankTab(QWidget):
         self.standings_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         for column in (0, 2, 3, 4):
             self.standings_table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        self.standings_table.cellClicked.connect(self._open_standings_club)
         standings_card.layout().addWidget(self.standings_table)
         data_split.addWidget(standings_card)
         data_split.setSizes((620, 520))
@@ -203,11 +213,12 @@ class LeagueRankTab(QWidget):
 
         actions = QHBoxLayout()
         actions.addStretch()
-        report_button = QPushButton("선수단 보고서  ›")
-        report_button.setObjectName("SecondaryAction")
-        actions.addWidget(report_button)
+        self.message_action_button = QPushButton("이사회 목표 협상  ›")
+        self.message_action_button.setObjectName("PrimaryAction")
+        self.message_action_button.clicked.connect(self._activate_current_message)
+        actions.addWidget(self.message_action_button)
         league_button = QPushButton("리그 순위표  ›")
-        league_button.setObjectName("PrimaryAction")
+        league_button.setObjectName("SecondaryAction")
         actions.addWidget(league_button)
         detail_layout.addLayout(actions)
         splitter.addWidget(detail)
@@ -264,19 +275,102 @@ class LeagueRankTab(QWidget):
         table.horizontalHeader().setSectionsMovable(False)
 
     def _show_message(self, row):
-        if row < 0:
+        if row < 0 or row >= len(self.messages):
             return
-        message = INBOX_ITEMS[row]
+        message = self.messages[row]
         self.sender_label.setText(message["sender"])
         self.category_label.setText(message["category"])
         self.message_time.setText(f'오늘  {message["time"]}')
         self.headline_label.setText(message["headline"])
         self.body_label.setText(message["body"])
+        is_board_message = bool(message.get("is_board"))
+        is_news_message = message.get("news_id") is not None
+        self.message_action_button.setVisible(is_board_message or is_news_message)
+        self.message_action_button.setEnabled(is_board_message or is_news_message)
+        if is_board_message:
+            self.message_action_button.setText(
+                "이사회 목표 다시 보기  ›"
+                if self.board_vision_reviewed
+                else "이사회 목표 협상  ›"
+            )
+        elif is_news_message:
+            self.message_action_button.setText("전체 뉴스 보기  ›")
+            if not message.get("is_read") and self.save_database and self.save_id is not None:
+                self.save_database.mark_daily_news_read(self.save_id, message["news_id"])
+                message["is_read"] = 1
+                item = self.inbox_list.item(row)
+                if item is not None and item.text().startswith("●  "):
+                    item.setText(item.text()[3:])
+                self._update_unread_count()
+
+    def _activate_current_message(self):
+        row = self.inbox_list.currentRow()
+        if row < 0 or row >= len(self.messages):
+            return
+        message = self.messages[row]
+        if message.get("is_board"):
+            self.board_vision_requested.emit()
+        elif message.get("news_id") is not None:
+            self.news_requested.emit()
+
+    def mark_board_vision_reviewed(self):
+        self.board_vision_reviewed = True
+        board_row = next((index for index, message in enumerate(self.messages) if message.get("is_board")), -1)
+        item = self.inbox_list.item(board_row) if board_row >= 0 else None
+        if item is not None and "[확인 완료]" not in item.text():
+            item.setText(f"[확인 완료]  {item.text()}")
+        self.message_action_button.setText("이사회 목표 다시 보기  ›")
+
+    def set_save_id(self, save_id):
+        self.save_id = save_id
+        self.refresh_notifications()
+
+    def refresh_notifications(self):
+        dynamic = []
+        if self.save_database and self.save_id is not None:
+            for news in self.save_database.list_daily_news(self.save_id):
+                if news["category"] == "의료 센터" and (
+                    "발생 당시 소속은 2군," in news["body"] or "기존 2군 선수단" in news["body"]
+                ):
+                    continue
+                dynamic.append({
+                    "category": news["category"],
+                    "sender": "메디컬 센터" if news["category"] == "의료 센터" else "KBO 뉴스센터",
+                    "time": news["news_date"].replace("-", "."),
+                    "headline": news["headline"], "body": news["body"],
+                    "news_id": news["id"], "is_read": int(news["is_read"]), "is_board": False,
+                })
+                if len(dynamic) >= 30:
+                    break
+        static = [dict(message, is_board=index == 0) for index, message in enumerate(INBOX_ITEMS)]
+        self.messages = dynamic + static
+        self._populate_inbox()
+        self._update_unread_count()
+
+    def _populate_inbox(self):
+        if not hasattr(self, "inbox_list"):
+            return
+        self.inbox_list.blockSignals(True)
+        self.inbox_list.clear()
+        for message in self.messages:
+            unread = "●  " if message.get("news_id") is not None and not message.get("is_read") else ""
+            item = QListWidgetItem(f'{unread}{message["sender"]}     {message["time"]}\n{message["headline"]}')
+            item.setSizeHint(QSize(320, 88))
+            self.inbox_list.addItem(item)
+        self.inbox_list.blockSignals(False)
+        self.inbox_count.setText(str(len(self.messages))) if hasattr(self, "inbox_count") else None
+
+    def _update_unread_count(self):
+        if self.save_database and self.save_id is not None:
+            unread = self.save_database.unread_daily_news_count(self.save_id)
+        else:
+            unread = 0
+        self.notification_count_changed.emit(unread)
 
     def _load_team_players(self):
-        if not PLAYERS_DB_PATH.exists():
+        if not self.db_path or not Path(self.db_path).exists():
             return
-        connection = sqlite3.connect(PLAYERS_DB_PATH)
+        connection = sqlite3.connect(self.db_path)
         try:
             rows = connection.execute(
                 """
@@ -305,6 +399,12 @@ class LeagueRankTab(QWidget):
             values = (row + 1, team, 0, 0, "0.000")
             for column, value in enumerate(values):
                 item = QTableWidgetItem(str(value))
+                item.setToolTip(f"{team} 구단 정보 열기")
                 if column != 1:
                     item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.standings_table.setItem(row, column, item)
+
+    def _open_standings_club(self, row, _column):
+        item = self.standings_table.item(row, 1)
+        if item is not None:
+            self.club_info_requested.emit(item.text())

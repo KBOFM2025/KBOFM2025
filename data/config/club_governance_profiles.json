@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "as_of": "2025-10-31",
+  "scale": {"minimum": 1, "average": 10, "maximum": 20},
+  "clubs": {
+    "KIA 타이거즈": {
+      "general_manager": {
+        "name": "심재학",
+        "style": "현장 위임을 바탕으로 우승 가능성이 보이면 미래 자원도 활용하는 승부형 단장",
+        "traits": {"negotiation": 14, "boldness": 16, "win_now": 17, "development": 15, "data": 13, "economy": 9, "manager_autonomy": 18, "winning_pressure": 18}
+      },
+      "ownership": {
+        "name": "기아·현대자동차그룹",
+        "style": "전통과 팬 여론을 중시하며 우승 경쟁 전력을 기대하는 대기업 구단",
+        "traits": {"financial_support": 17, "performance_pressure": 18, "long_term_development": 14, "manager_autonomy": 15, "brand_value": 18, "stability": 17}
+      }
+    },
+    "삼성 라이온즈": {
+      "general_manager": {
+        "name": "이종열",
+        "style": "전력 공백이 명확하면 FA와 트레이드로 빠르게 보강하는 적극 투자형 단장",
+        "traits": {"negotiation": 15, "boldness": 17, "win_now": 18, "development": 14, "data": 14, "economy": 8, "manager_autonomy": 15, "winning_pressure": 18}
+      },
+      "ownership": {
+        "name": "삼성·제일기획",
+        "style": "명문 구단의 정상권 복귀와 지속적인 브랜드 경쟁력을 요구하는 소유 구조",
+        "traits": {"financial_support": 18, "performance_pressure": 18, "long_term_development": 14, "manager_autonomy": 15, "brand_value": 18, "stability": 16}
+      }
+    },
+    "LG 트윈스": {
+      "general_manager": {
+        "name": "차명석",
+        "style": "내부 육성으로 기반을 만들고 필요한 마지막 조각에 선별 투자하는 균형형 단장",
+        "traits": {"negotiation": 17, "boldness": 15, "win_now": 16, "development": 17, "data": 16, "economy": 10, "manager_autonomy": 16, "winning_pressure": 18}
+      },
+      "ownership": {
+        "name": "LG그룹·LG스포츠",
+        "style": "장기 운영과 우승 전력 유지를 동시에 지원하며 높은 성과 기준을 적용하는 구단",
+        "traits": {"financial_support": 19, "performance_pressure": 19, "long_term_development": 17, "manager_autonomy": 16, "brand_value": 19, "stability": 19}
+      }
+    },
+    "두산 베어스": {
+      "general_manager": {
+        "name": "김태룡",
+        "style": "장기 경험과 팜 시스템을 바탕으로 내부 대체 자원을 적극 활용하는 운영형 단장",
+        "traits": {"negotiation": 17, "boldness": 13, "win_now": 15, "development": 17, "data": 12, "economy": 14, "manager_autonomy": 13, "winning_pressure": 17}
+      },
+      "ownership": {
+        "name": "두산그룹",
+        "style": "육성 시스템과 경쟁력을 중시하되 대형 외부 투자는 선택적으로 집행하는 구단",
+        "traits": {"financial_support": 14, "performance_pressure": 17, "long_term_development": 16, "manager_autonomy": 14, "brand_value": 17, "stability": 15}
+      }
+    },
+    "KT 위즈": {
+      "general_manager": {
+        "name": "나도현",
+        "style": "검증된 주축과 감독 체제의 안정성을 중시하며 필요한 즉시 전력을 보강하는 단장",
+        "traits": {"negotiation": 14, "boldness": 14, "win_now": 17, "development": 12, "data": 13, "economy": 9, "manager_autonomy": 17, "winning_pressure": 17}
+      },
+      "ownership": {
+        "name": "KT",
+        "style": "급격한 개입보다 안정적인 운영 체계와 지속 가능한 상위권 경쟁을 선호하는 구단",
+        "traits": {"financial_support": 15, "performance_pressure": 16, "long_term_development": 15, "manager_autonomy": 17, "brand_value": 16, "stability": 18}
+      }
+    },
+    "SSG 랜더스": {
+      "general_manager": {
+        "name": "김재현",
+        "style": "핵심 베테랑과 젊은 선수의 성장을 함께 가져가는 리모델링 균형형 단장",
+        "traits": {"negotiation": 15, "boldness": 14, "win_now": 14, "development": 17, "data": 14, "economy": 11, "manager_autonomy": 17, "winning_pressure": 16}
+      },
+      "ownership": {
+        "name": "신세계그룹",
+        "style": "야구단을 그룹의 핵심 콘텐츠로 활용하며 성적과 팬 경험 모두에 적극 투자하는 구단",
+        "traits": {"financial_support": 19, "performance_pressure": 18, "long_term_development": 16, "manager_autonomy": 12, "brand_value": 19, "stability": 15}
+      }
+    },
+    "롯데 자이언츠": {
+      "general_manager": {
+        "name": "박준혁",
+        "style": "일관된 시스템과 스카우트·육성을 강조하면서 현장 권한을 존중하는 단장",
+        "traits": {"negotiation": 14, "boldness": 13, "win_now": 14, "development": 18, "data": 13, "economy": 12, "manager_autonomy": 17, "winning_pressure": 16}
+      },
+      "ownership": {
+        "name": "롯데그룹",
+        "style": "부산 팬덤과 그룹 브랜드 효과를 중시하며 가을야구 성과를 강하게 요구하는 구단",
+        "traits": {"financial_support": 18, "performance_pressure": 19, "long_term_development": 14, "manager_autonomy": 13, "brand_value": 19, "stability": 13}
+      }
+    },
+    "한화 이글스": {
+      "general_manager": {
+        "name": "손혁",
+        "style": "검증된 FA와 즉시 전력을 적극 확보해 우승 시기를 앞당기는 윈나우형 단장",
+        "traits": {"negotiation": 15, "boldness": 18, "win_now": 19, "development": 13, "data": 14, "economy": 7, "manager_autonomy": 14, "winning_pressure": 19}
+      },
+      "ownership": {
+        "name": "한화그룹",
+        "style": "신구장 시대의 우승 도전을 위해 강한 재정 지원과 높은 성과 기준을 함께 적용하는 구단",
+        "traits": {"financial_support": 19, "performance_pressure": 19, "long_term_development": 16, "manager_autonomy": 13, "brand_value": 19, "stability": 16}
+      }
+    },
+    "NC 다이노스": {
+      "general_manager": {
+        "name": "임선남",
+        "style": "데이터와 기대가치, 유망주 육성을 우선해 효율적인 선수단을 구성하는 단장",
+        "traits": {"negotiation": 16, "boldness": 12, "win_now": 11, "development": 18, "data": 18, "economy": 18, "manager_autonomy": 16, "winning_pressure": 14}
+      },
+      "ownership": {
+        "name": "엔씨소프트",
+        "style": "데이터와 디지털 정체성, 젊은 코어의 장기 성장을 중시하는 효율 중심 구단",
+        "traits": {"financial_support": 13, "performance_pressure": 15, "long_term_development": 18, "manager_autonomy": 18, "brand_value": 17, "stability": 16}
+      }
+    },
+    "키움 히어로즈": {
+      "general_manager": {
+        "name": "허승필",
+        "style": "육성·지명권·선수 가치의 선순환을 최우선으로 하는 자산관리형 단장",
+        "traits": {"negotiation": 14, "boldness": 9, "win_now": 8, "development": 19, "data": 16, "economy": 19, "manager_autonomy": 14, "winning_pressure": 10}
+      },
+      "ownership": {
+        "name": "서울히어로즈·키움증권 네이밍 스폰서",
+        "style": "모기업 지원 없이 육성과 선수 가치 창출로 생존하는 독립 운영 구단",
+        "traits": {"financial_support": 7, "performance_pressure": 17, "long_term_development": 19, "manager_autonomy": 15, "brand_value": 19, "stability": 12}
+      }
+    }
+  }
+}

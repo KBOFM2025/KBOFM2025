@@ -30,8 +30,8 @@ class SecondTeamTab(QWidget):
         layout.addWidget(pitcher_title)
 
         self.table_pitchers = QTableWidget()
-        self.table_pitchers.setColumnCount(7)
-        self.table_pitchers.setHorizontalHeaderLabels(["이름", "포지션", "나이", "구속", "제구", "변화구", "스태미나"])
+        self.table_pitchers.setColumnCount(9)
+        self.table_pitchers.setHorizontalHeaderLabels(["이름", "포지션", "나이", "구속", "제구", "변화구", "스태미나", "컨디션", "상태"])
         self.table_pitchers.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table_pitchers.verticalHeader().setDefaultSectionSize(42)
         self.table_pitchers.setSelectionBehavior(QTableWidget.SelectRows)
@@ -46,8 +46,8 @@ class SecondTeamTab(QWidget):
         layout.addWidget(batter_title)
 
         self.table_batters = QTableWidget()
-        self.table_batters.setColumnCount(7)
-        self.table_batters.setHorizontalHeaderLabels(["이름", "포지션", "나이", "컨택", "파워", "선구안", "수비력"])
+        self.table_batters.setColumnCount(9)
+        self.table_batters.setHorizontalHeaderLabels(["이름", "포지션", "나이", "컨택", "파워", "선구안", "수비력", "컨디션", "상태"])
         self.table_batters.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table_batters.verticalHeader().setDefaultSectionSize(42)
         self.table_batters.setSelectionBehavior(QTableWidget.SelectRows)
@@ -79,6 +79,7 @@ class SecondTeamTab(QWidget):
             self.set_stat_item(self.table_pitchers, row, 4, p["pow"])
             self.set_stat_item(self.table_pitchers, row, 5, p["eye"])
             self.set_stat_item(self.table_pitchers, row, 6, p["def"])
+            self._set_simulation_cells(self.table_pitchers, row, p)
 
         # 야수 채우기
         self.table_batters.setRowCount(len(batters))
@@ -92,6 +93,15 @@ class SecondTeamTab(QWidget):
             self.set_stat_item(self.table_batters, row, 4, p["pow"])
             self.set_stat_item(self.table_batters, row, 5, p["eye"])
             self.set_stat_item(self.table_batters, row, 6, p["def"])
+            self._set_simulation_cells(self.table_batters, row, p)
+
+    @staticmethod
+    def _set_simulation_cells(table, row, player):
+        table.setItem(row, 7, QTableWidgetItem(str(player.get("sim_condition", "-"))))
+        injury_days = int(player.get("sim_injury_days", 0))
+        status = (f"{player.get('sim_injury_type', '부상')} {injury_days}일"
+                  if injury_days else player.get("sim_squad_group", "정상"))
+        table.setItem(row, 8, QTableWidgetItem(status))
 
     def set_stat_item(self, table, row, col, score):
         item = QTableWidgetItem(str(score))

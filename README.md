@@ -78,6 +78,99 @@ python main.py
 - 감독 부임 직후 구단 공식 발표 뉴스
 - 정규리그 순위와 선수 랭킹 화면
 
+### 로컬 구단 운영 AI
+
+이사회·단장 협상과 상대 구단의 주요 일정 판단에는 로컬 Qwen 모델을 사용할 수 있습니다.
+하루 진행에 필요한 선수 상태·훈련·부상·1군/2군 편성은 빠른 시뮬레이션 엔진이 처리하고,
+응답 생성 시간이 필요한 구단 AI 판단은 백그라운드에서 실행됩니다.
+
+- 권장 모델: `Qwen3-1.7B-Q4_K_M.gguf`
+- 로컬 서버: `llama.cpp`의 OpenAI 호환 서버
+- 기본 주소: `http://127.0.0.1:8080/v1`
+- 응답 검증: 잘못된 JSON과 허용되지 않은 결정 차단
+- 폴백: 모델 서버가 꺼져 있어도 날짜 진행과 구단 시뮬레이션은 계속 수행
+- 종료 처리: 제공 스크립트로 시작한 모델 서버는 게임 종료 시 함께 종료
+
+프로필 기준값은 `data/config/club_governance_profiles.json`에 있으며 선수 DB와 분리되어 있습니다.
+
+## AI 모델 다운로드
+
+GGUF 모델 가중치는 용량과 배포 정책 때문에 GitHub 저장소에 포함하지 않습니다. 저장소를 받은 뒤
+[ggml-org의 Qwen3-1.7B GGUF 페이지](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF)에서
+`Qwen3-1.7B-Q4_K_M.gguf`를 내려받아 `models` 폴더에 넣어야 합니다.
+
+### 방법 1: Hugging Face CLI 사용 권장
+
+프로젝트 루트의 PowerShell에서 실행합니다.
+
+```powershell
+python -m pip install --upgrade huggingface_hub
+New-Item -ItemType Directory -Force models | Out-Null
+hf download ggml-org/Qwen3-1.7B-GGUF Qwen3-1.7B-Q4_K_M.gguf --local-dir models
+```
+
+### 방법 2: PowerShell로 직접 다운로드
+
+```powershell
+New-Item -ItemType Directory -Force models | Out-Null
+Invoke-WebRequest `
+  -Uri "https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf?download=true" `
+  -OutFile "models/Qwen3-1.7B-Q4_K_M.gguf"
+```
+
+다운로드 결과를 확인합니다.
+
+```powershell
+Get-Item models/Qwen3-1.7B-Q4_K_M.gguf | Select-Object Name, Length
+```
+
+파일 크기는 약 1.28GB입니다. 다음 경로와 파일명이 정확해야 제공 스크립트가 인식합니다.
+
+```text
+KBOFM2025/
+└─ models/
+   └─ Qwen3-1.7B-Q4_K_M.gguf
+```
+
+## llama.cpp 설치 및 AI 실행
+
+Windows에서는 `llama.cpp`를 설치합니다.
+
+```powershell
+winget install llama.cpp
+```
+
+설치와 모델 다운로드가 끝나면 첫 번째 PowerShell에서 서버를 실행합니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/start_local_ai.ps1
+```
+
+두 번째 PowerShell에서 게임을 실행합니다.
+
+```powershell
+$env:KBOFM_AI_ENABLED="1"
+python main.py
+```
+
+서버는 `127.0.0.1:8080`에서 `kbofm-local`이라는 별칭으로 실행되며 로그는
+`data/ai_logs`에 기록됩니다.
+
+Ollama의 OpenAI 호환 주소를 사용하는 경우 실행 전에 환경변수를 지정합니다.
+
+```powershell
+$env:KBOFM_AI_BASE_URL="http://127.0.0.1:11434/v1"
+$env:KBOFM_AI_MODEL="qwen3:4b"
+python main.py
+```
+
+로컬 AI를 사용하지 않으려면 다음과 같이 명시적으로 비활성화할 수 있습니다.
+
+```powershell
+$env:KBOFM_AI_ENABLED="0"
+python main.py
+```
+
 ## 데이터 기준
 
 | 구분 | 기준 |
@@ -227,9 +320,9 @@ KBO-Manager-2025/
 ## 현재 제한사항
 
 - 투수 전용 세부 능력치는 아직 기존 임시 능력치를 사용합니다.
-- 수비·멘탈·잠재력·계약기간·시장가치·부상 정보는 아직 평가되지 않았습니다.
+- 수비·멘탈·잠재력·계약기간과 시장가치는 아직 일부 항목이 평가되지 않았습니다.
 - 선수 사진은 DB와 연결되지 않아 이름 카드가 표시됩니다.
-- 경기 시뮬레이션과 정규시즌 일정 진행은 개발 예정입니다.
+- 정규시즌 경기 결과를 만드는 타석 단위 경기 시뮬레이션은 개발 예정입니다.
 - 일부 구단·팬·미디어 성향은 게임 플레이용 해석값입니다.
 
 ## 개발 로드맵

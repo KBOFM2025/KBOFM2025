@@ -97,11 +97,8 @@ class SetLineupTab(QWidget):
         self.table_lineup.setItem(row, col, item)
 
     def save_lineup(self):
-        for p in self.manager.players:
-            if p["status"] == 1:
-                p["lineup_pos"] = 0
-
         selected_ids = set()
+        assignments = {}
         for idx in range(9):
             combo = self.table_lineup.cellWidget(idx, 1)
             player_id = combo.currentData()
@@ -113,10 +110,13 @@ class SetLineupTab(QWidget):
                     QMessageBox.critical(self, "오류", f"중복 배치된 선수가 있습니다: {player_name}\n타순을 다시 조정해 주세요.")
                     return
                 selected_ids.add(player_id)
+                position_combo = self.table_lineup.cellWidget(idx, 2)
+                assignments[player_id] = {
+                    "order": idx + 1,
+                    "position": position_combo.currentText(),
+                    "name": player_name,
+                }
 
-                for p in self.manager.players:
-                    if p["id"] == player_id:
-                        p["lineup_pos"] = idx + 1
-
+        self.manager.save_lineup_to_db(assignments)
         QMessageBox.information(self, "성공", "라인업과 수비 배치가 구단 클럽하우스에 반영되었습니다!")
         self.manager.refresh_all()

@@ -12,6 +12,8 @@ ROSTER_IMPORT_VERSION = "kbo-2025-10-31-v1"
 ROSTER_SNAPSHOT_DATE = "2025-10-31"
 ROSTER_FILE_NAME = "kbo_2025_final_roster.csv"
 HITTER_ABILITIES_FILE_NAME = "kbo_2025_hitter_abilities.csv"
+FINAL_FIRST_TEAM_FILE_NAME = "kbo_2025_final_first_team.csv"
+FINAL_FIRST_TEAM_VERSION = "kbo-2025-regular-season-final-first-team-v1"
 
 
 def _roster_source_path():
@@ -28,6 +30,14 @@ def _hitter_abilities_source_path():
         return external
     bundle_root = Path(getattr(sys, "_MEIPASS", DATA_DIR.parent))
     return bundle_root / "data" / "source" / HITTER_ABILITIES_FILE_NAME
+
+
+def _final_first_team_source_path():
+    external = DATA_DIR / "source" / FINAL_FIRST_TEAM_FILE_NAME
+    if external.exists():
+        return external
+    bundle_root = Path(getattr(sys, "_MEIPASS", DATA_DIR.parent))
+    return bundle_root / "data" / "source" / FINAL_FIRST_TEAM_FILE_NAME
 
 
 CREATE_PLAYERS_TABLE = """
@@ -181,6 +191,89 @@ def _create_hitter_ability_import_history(connection):
     )
 
 
+def _create_first_team_import_history(connection):
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS first_team_roster_imports (
+            version TEXT PRIMARY KEY,
+            snapshot_date TEXT NOT NULL,
+            player_count INTEGER NOT NULL,
+            source_path TEXT NOT NULL,
+            imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+
+def _read_final_first_team():
+    source_path = _final_first_team_source_path()
+    if not source_path.exists():
+        return []
+    with source_path.open("r", encoding="utf-8-sig", newline="") as source:
+        rows = list(csv.DictReader(source))
+    team_counts = Counter(row["team"] for row in rows)
+    if len(team_counts) != 10 or any(count < 30 or count > 33 for count in team_counts.values()):
+        raise ValueError(f"2025 최종 1군 명단의 구단별 인원이 올바르지 않습니다: {dict(team_counts)}")
+    player_ids = [row["kbo_player_id"] for row in rows]
+    missing = [f"{row['team']} {row['name']}" for row in rows if not row["kbo_player_id"]]
+    duplicate_ids = sorted(
+        player_id for player_id, count in Counter(player_ids).items()
+        if player_id and count > 1
+    )
+    if missing or duplicate_ids:
+        raise ValueError(
+            "2025 최종 1군 명단의 KBO 선수 ID 오류: "
+            f"누락={missing or '없음'}, 중복={duplicate_ids or '없음'}"
+        )
+    return rows
+
+
+def _import_final_first_team(connection):
+    if connection.execute(
+        "SELECT 1 FROM first_team_roster_imports WHERE version = ?",
+        (FINAL_FIRST_TEAM_VERSION,),
+    ).fetchone():
+        return False
+    rows = _read_final_first_team()
+    if not rows:
+        return False
+    csv_ids = {row["kbo_player_id"] for row in rows}
+    db_ids = {
+        str(row["kbo_player_id"])
+        for row in connection.execute("SELECT kbo_player_id FROM players")
+        if row["kbo_player_id"]
+    }
+    unknown = csv_ids - db_ids
+    if unknown:
+        raise ValueError(f"선수 DB에 없는 최종 1군 선수 ID가 있습니다: {sorted(unknown)}")
+
+    connection.execute("UPDATE players SET status = 0, lineup_pos = 0")
+    cursor = connection.cursor()
+    updated = 0
+    for row in rows:
+        cursor.execute(
+            "UPDATE players SET status = 1 WHERE kbo_player_id = ? AND team = ?",
+            (row["kbo_player_id"], row["team"]),
+        )
+        updated += cursor.rowcount
+    if updated != len(rows):
+        raise ValueError(f"최종 1군 명단 {len(rows)}명 중 {updated}명만 DB에 반영되었습니다.")
+    connection.execute(
+        """
+        INSERT INTO first_team_roster_imports
+            (version, snapshot_date, player_count, source_path)
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            FINAL_FIRST_TEAM_VERSION,
+            "2025-10-31",
+            len(rows),
+            str(_final_first_team_source_path()),
+        ),
+    )
+    return True
+
+
 def _create_ability_views(connection):
     connection.execute("DROP VIEW IF EXISTS player_defense_abilities")
     connection.execute(
@@ -244,6 +337,14 @@ def _import_hitter_abilities(connection):
     rows, formula_version = _read_hitter_abilities()
     if not rows:
         return False
+
+    # 동일한 산식 버전이 이미 반영됐다면 원본 선수 능력치를 다시 쓰지 않는다.
+    # 게임 실행 및 화면 진입은 DB 초기화가 아니라 스키마 확인만 수행해야 한다.
+    if connection.execute(
+        "SELECT 1 FROM hitter_ability_imports WHERE formula_version = ?",
+        (formula_version,),
+    ).fetchone():
+        return True
 
     csv_ids = {row["kbo_player_id"] for row in rows}
     db_ids = {
@@ -424,14 +525,29 @@ def ensure_player_database():
         _migrate_columns(connection)
         _create_import_history(connection)
         _create_hitter_ability_import_history(connection)
+        _create_first_team_import_history(connection)
         if not _import_official_roster(connection):
             _seed_missing_teams(connection)
         _import_hitter_abilities(connection)
+        _import_final_first_team(connection)
         _create_ability_views(connection)
         connection.execute("CREATE INDEX IF NOT EXISTS idx_players_team ON players(team)")
         connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_players_uid ON players(player_uid)")
         connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_players_kbo_id ON players(kbo_player_id)")
         connection.commit()
+    finally:
+        connection.close()
+
+
+def ensure_final_roster_assignments(db_path=PLAYERS_DB_PATH):
+    """기존 세이브 DB에도 최종 경기 기준 1군/2군 편성을 한 번만 적용한다."""
+    connection = sqlite3.connect(db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        _create_first_team_import_history(connection)
+        changed = _import_final_first_team(connection)
+        connection.commit()
+        return changed
     finally:
         connection.close()
 

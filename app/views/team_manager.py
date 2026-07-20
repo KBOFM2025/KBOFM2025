@@ -7,18 +7,16 @@ from app.config import TEAM_COLORS, TEAM_EMOJIS
 from app.transitions import FadeStackTransition, fade_widget_in
 from app.views.team_manage import FirstTeamTab, SecondTeamTab, SetLineupTab
 from app.views.team_manage.player_profile import PlayerProfilePage
-from database import PLAYERS_DB_PATH, ensure_player_database
+from database import PLAYERS_DB_PATH
 class MyTeamManager(QWidget):
-    def __init__(self, team_name="NC 다이노스", parent_window=None, display_name=None):  # 💡 parent_window(main.py) 인자 추가
+    def __init__(self, team_name="NC 다이노스", parent_window=None, display_name=None, db_path=None):  # 💡 parent_window(main.py) 인자 추가
         super().__init__()
         self.team_key = team_name
         self.selected_team = display_name or team_name
         self.parent_window = parent_window  # 뒤로가기(페이지 전환)를 제어하기 위한 부모 객체 저장
         self.colors = TEAM_COLORS.get(team_name, TEAM_COLORS["NC 다이노스"])
-        self.db_path = PLAYERS_DB_PATH
+        self.db_path = db_path or PLAYERS_DB_PATH
         
-        ensure_player_database()
-            
         self.players = []
         self.load_players_from_db()
 
@@ -155,6 +153,16 @@ class MyTeamManager(QWidget):
         
         self.players = [dict(row) for row in rows]
         conn.close()
+        if self.parent_window and self.parent_window.save_id is not None:
+            states = self.parent_window.save_database.get_player_simulation_states(
+                self.parent_window.save_id, self.team_key
+            )
+            assignments = self.parent_window.save_database.get_latest_team_assignments(
+                self.parent_window.save_id, self.team_key, 1
+            )
+            for player in self.players:
+                player.update({f"sim_{key}": value for key, value in states.get(player["id"], {}).items()})
+                player["simulation_assignment"] = assignments.get(player["id"], "")
 
     # 승격, 강등, 라인업 등의 상태 변화 발생 시 DB 업데이트
     def update_player_status_in_db(self, player_id, status, lineup_pos=0):
@@ -167,7 +175,32 @@ class MyTeamManager(QWidget):
         """, (status, lineup_pos, player_id, self.team_key))
         conn.commit()
         conn.close()
+        if self.parent_window and self.parent_window.save_id is not None:
+            self.parent_window.save_database.update_player_squad_group(
+                self.parent_window.save_id, player_id, "1군" if status else "2군"
+            )
         
+        self.load_players_from_db()
+
+    def save_lineup_to_db(self, assignments):
+        """감독이 확정한 타순을 감독별 선수 DB에 영구 저장한다."""
+        with sqlite3.connect(self.db_path) as connection:
+            connection.execute(
+                "UPDATE players SET lineup_pos=0 WHERE team=? AND status=1",
+                (self.team_key,),
+            )
+            for player_id, assignment in assignments.items():
+                connection.execute(
+                    "UPDATE players SET lineup_pos=? WHERE id=? AND team=? AND status=1",
+                    (assignment["order"], player_id, self.team_key),
+                )
+        if self.parent_window and self.parent_window.save_id is not None:
+            self.parent_window.save_database.save_user_lineup(
+                self.parent_window.save_id,
+                self.parent_window.current_date.isoformat(),
+                self.team_key,
+                assignments,
+            )
         self.load_players_from_db()
 
     def on_tab_changed(self, index):

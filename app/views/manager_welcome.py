@@ -184,6 +184,14 @@ class ManagerWelcomePage(QWidget):
         briefing_layout.addWidget(self._fact("부임 시점", start_point_title(start_point)))
         briefing_layout.addWidget(self._fact("단장", team_info["general_manager"]))
         briefing_layout.addWidget(self._fact("홈구장", team_info["stadium"]))
+        opponent_count = manager_data.get("opponent_player_count")
+        if opponent_count is not None:
+            briefing_layout.addWidget(
+                self._fact(
+                    "상대 선수단 생성",
+                    f"9개 구단 · {opponent_count}명 · 30세 미만 ±2 적용",
+                )
+            )
         briefing_layout.addStretch()
         article_row.addWidget(briefing, 2)
 
@@ -191,11 +199,11 @@ class ManagerWelcomePage(QWidget):
         outer.addSpacing(24)
 
         actions = QHBoxLayout()
-        hint = QLabel("구단 이사회와의 첫 미팅이 준비되어 있습니다.")
+        hint = QLabel("구단 비전 협의 요청이 메인 수신함에 도착해 있습니다.")
         hint.setObjectName("Hint")
         actions.addWidget(hint)
         actions.addStretch()
-        continue_button = QPushButton("감독 업무 시작  →")
+        continue_button = QPushButton("메인 화면으로  →")
         continue_button.setObjectName("ContinueButton")
         continue_button.clicked.connect(self.continue_requested.emit)
         actions.addWidget(continue_button)
