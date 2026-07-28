@@ -1,9 +1,9 @@
 import json
 import hashlib
-import random
 import re
 import shutil
 import sqlite3
+import csv
 from datetime import datetime
 from pathlib import Path
 
@@ -84,12 +84,45 @@ OPPONENT_PLAYERS_TABLE_SQL = """
     )
 """
 
+TRADE_FUTURE_PLAYER_OBLIGATION_SQL = """
+    CREATE TABLE IF NOT EXISTS trade_future_player_obligations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        save_id INTEGER NOT NULL,
+        managed_team TEXT NOT NULL,
+        other_team TEXT NOT NULL,
+        due_date TEXT NOT NULL,
+        candidate_pool_json TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        selection_event_created INTEGER NOT NULL DEFAULT 0,
+        selected_player_id INTEGER,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+"""
+
+CLUB_FINANCE_TRANSACTIONS_SQL = """
+    CREATE TABLE IF NOT EXISTS club_finance_transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        save_id INTEGER NOT NULL,
+        team TEXT NOT NULL,
+        amount_10k INTEGER NOT NULL,
+        category TEXT NOT NULL,
+        details TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+"""
+
 PLAYER_RATING_COLUMNS = (
     "con", "pow", "eye", "def", "contact", "power",
     "plate_discipline", "bat_control", "timing", "bunt", "speed",
     "baserunning_judgment", "fielding_range", "catching",
     "throwing_power", "throwing_accuracy", "fielding_judgment",
     "composure", "leadership", "aggressiveness",
+    "pitcher_velocity", "pitcher_stuff", "pitcher_command",
+    "pitcher_movement", "pitcher_stamina", "pitcher_pitchability",
+    "pitcher_strikeout", "pitcher_walk_control", "pitcher_composure",
+    "pitch_four_seam", "pitch_sinker", "pitch_cutter", "pitch_changeup",
+    "pitch_slider", "pitch_curve", "pitch_splitter", "pitch_sweeper",
+    "pitch_knuckleball",
 )
 
 OBJECTIVE_KEYS = (
@@ -126,6 +159,11 @@ MANAGER_ABILITY_COLUMNS = (
 
 
 class SaveDatabase:
+    @staticmethod
+    def _rating_delta(save_id, player_id, column):
+        seed_text = f"{save_id}:{player_id}:{column}".encode("utf-8")
+        return hashlib.sha256(seed_text).digest()[0] % 5 - 2
+
     def __init__(self, db_path=None):
         self.db_path = Path(db_path) if db_path else SAVES_DB_PATH
         self.initialize()
@@ -174,8 +212,22 @@ class SaveDatabase:
             self._ensure_governance_state_table(connection)
             self._ensure_gm_objective_defaults(connection)
             connection.execute(OPPONENT_PLAYERS_TABLE_SQL)
+            connection.execute(TRADE_FUTURE_PLAYER_OBLIGATION_SQL)
+            connection.execute(CLUB_FINANCE_TRANSACTIONS_SQL)
             for statement in SIMULATION_SCHEMA:
                 connection.execute(statement)
+            tactic_columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(team_tactic_versions)"
+                ).fetchall()
+            }
+            if "game_plan_json" not in tactic_columns:
+                connection.execute(
+                    "ALTER TABLE team_tactic_versions "
+                    "ADD COLUMN game_plan_json TEXT NOT NULL DEFAULT '{}'"
+                )
+            self._seed_incoming_rookies(connection)
             existing_columns = {
                 row["name"]
                 for row in connection.execute("PRAGMA table_info(game_saves)").fetchall()
@@ -241,6 +293,83 @@ class SaveDatabase:
             rows,
         )
 
+    @staticmethod
+    def _seed_incoming_rookies(connection, save_id=None):
+        """공식 2026 신인 지명자를 세이브별 입단 예정 명단으로 복제한다."""
+        source_path = DATA_DIR / "source" / "kbo_2026_rookie_draft.csv"
+        if not source_path.exists():
+            return 0
+        if save_id is None:
+            save_ids = [
+                int(row["id"])
+                for row in connection.execute(
+                    "SELECT id FROM game_saves"
+                ).fetchall()
+            ]
+        else:
+            save_ids = [int(save_id)]
+        if not save_ids:
+            return 0
+        with source_path.open("r", encoding="utf-8-sig", newline="") as source:
+            rookies = list(csv.DictReader(source))
+        inserted = 0
+        for current_save_id in save_ids:
+            for rookie in rookies:
+                cursor = connection.execute(
+                    """
+                    INSERT OR IGNORE INTO incoming_rookies (
+                        save_id, draft_year, event_date, overall_pick,
+                        round_no, team, player_name, position_group,
+                        position_name, school, is_early_draft, arrival_date,
+                        status, source_url
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '2026-01-01',
+                              'incoming', ?)
+                    """,
+                    (
+                        current_save_id,
+                        int(rookie["draft_year"]),
+                        rookie["event_date"],
+                        int(rookie["overall_pick"]),
+                        int(rookie["round"]),
+                        rookie["team"],
+                        rookie["name"],
+                        rookie["position_group"],
+                        rookie["position_name"],
+                        rookie["school"],
+                        int(rookie["is_early_draft"]),
+                        rookie["source_url"],
+                    ),
+                )
+                inserted += max(0, cursor.rowcount)
+            team_row = connection.execute(
+                "SELECT base_team FROM game_saves WHERE id=?",
+                (current_save_id,),
+            ).fetchone()
+            if team_row:
+                team_rookies = [
+                    rookie["name"]
+                    for rookie in rookies
+                    if rookie["team"] == team_row["base_team"]
+                ]
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO daily_news (
+                        save_id, news_date, category, headline, body,
+                        created_at
+                    ) VALUES (?, '2025-09-17', 'KBO', ?, ?, ?)
+                    """,
+                    (
+                        current_save_id,
+                        "2026 KBO 신인 드래프트 · 110명 지명 완료",
+                        f"{team_row['base_team']}은 "
+                        f"{', '.join(team_rookies)}을 지명했습니다.\n"
+                        "지명 선수는 선수단 정보의 2026 입단 예정 명단에서 "
+                        "확인할 수 있습니다.",
+                        datetime.now().isoformat(timespec="seconds"),
+                    ),
+                )
+        return inserted
+
     def get_gm_objective_defaults(self, club_name):
         with self.connect() as connection:
             self._ensure_gm_objective_defaults(connection)
@@ -283,9 +412,7 @@ class SaveDatabase:
                     value = source_row[column]
                     if value is None:
                         continue
-                    seed_text = f"{save_id}:{source_row['id']}:{column}".encode("utf-8")
-                    seed = int.from_bytes(hashlib.sha256(seed_text).digest()[:8], "big")
-                    delta = random.Random(seed).randint(-2, 2)
+                    delta = self._rating_delta(save_id, source_row["id"], column)
                     assignments.append(f"{column} = ?")
                     values.append(max(1, min(20, int(value) + delta)))
                 if assignments:
@@ -294,6 +421,9 @@ class SaveDatabase:
                         f"UPDATE players SET {', '.join(assignments)} WHERE id = ?",
                         values,
                     )
+            self._sync_remaining_hitter_abilities(
+                connection, save_id, managed_team
+            )
             connection.commit()
             opponent_count = connection.execute(
                 "SELECT COUNT(*) AS count FROM players WHERE team <> ?",
@@ -309,9 +439,105 @@ class SaveDatabase:
             )
         return target, int(opponent_count)
 
+    @staticmethod
+    def _sync_remaining_hitter_abilities(connection, save_id, managed_team):
+        """최신 타자 능력치와 근거 데이터를 넣고 U30 상대팀 보정을 재현한다."""
+        source_path = DATA_DIR / "source" / "kbo_2025_hitter_abilities.csv"
+        if not source_path.exists():
+            return 0
+        with source_path.open("r", encoding="utf-8-sig", newline="") as source:
+            rows = list(csv.DictReader(source))
+        columns = (
+            "contact", "power", "plate_discipline", "bat_control",
+            "timing", "bunt", "speed", "baserunning_judgment",
+            "fielding_range", "catching", "throwing_power",
+            "throwing_accuracy", "fielding_judgment",
+            "composure", "leadership", "aggressiveness",
+        )
+        metadata = {
+            "advanced_public_player_id": ("hitter_advanced_public_player_id", "TEXT"),
+            "advanced_wrc_plus": ("hitter_advanced_wrc_plus", "REAL"),
+            "advanced_sfr": ("hitter_advanced_sfr", "REAL"),
+            "advanced_war": ("hitter_advanced_war", "REAL"),
+            "advanced_source_url": ("hitter_advanced_source_url", "TEXT"),
+            "rating_confidence": ("hitter_rating_confidence", "TEXT"),
+            "rating_detail_json": ("hitter_rating_detail_json", "TEXT"),
+        }
+        existing_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(players)")
+        }
+        for db_column, declaration in metadata.values():
+            if db_column not in existing_columns:
+                connection.execute(
+                    f"ALTER TABLE players ADD COLUMN {db_column} {declaration}"
+                )
+        players = {
+            str(row["kbo_player_id"]): dict(row)
+            for row in connection.execute(
+                "SELECT id, kbo_player_id, team, age FROM players WHERE position_group <> 'P'"
+            )
+        }
+        updated = 0
+        for ability in rows:
+            player = players.get(str(ability["kbo_player_id"]))
+            if player is None:
+                continue
+            values = []
+            for column in columns:
+                value = int(ability[column])
+                if player["team"] != managed_team and int(player["age"]) < 30:
+                    value += SaveDatabase._rating_delta(
+                        save_id, player["id"], column
+                    )
+                values.append(max(1, min(20, value)))
+            for csv_column, (_, declaration) in metadata.items():
+                raw = ability.get(csv_column, "").strip()
+                if declaration == "REAL":
+                    values.append(float(raw) if raw else None)
+                else:
+                    values.append(raw or None)
+            salary_text = ability.get("salary_10k_krw", "").strip()
+            values.extend(
+                (
+                    int(salary_text) if salary_text else None,
+                    ability["formula_version"],
+                    player["id"],
+                )
+            )
+            connection.execute(
+                f"""
+                UPDATE players SET
+                    {', '.join(f'{column} = ?' for column in columns)},
+                    {', '.join(f'{db_column} = ?' for db_column, _ in metadata.values())},
+                    salary = COALESCE(?, salary),
+                    ability_formula_version = ?
+                WHERE id = ?
+                """,
+                values,
+            )
+            updated += 1
+        return updated
+
+    def sync_manager_hitter_abilities(self, save_id):
+        save = self.get_save(save_id)
+        if not save or not save.get("player_db_path"):
+            return 0
+        target = Path(save["player_db_path"])
+        if not target.exists():
+            return 0
+        with sqlite3.connect(target) as connection:
+            connection.row_factory = sqlite3.Row
+            updated = self._sync_remaining_hitter_abilities(
+                connection, save_id, save["base_team"]
+            )
+            connection.commit()
+        return updated
+
     def list_opponent_players(self, save_id, team_name=None):
         with self.connect() as connection:
             connection.execute(OPPONENT_PLAYERS_TABLE_SQL)
+            connection.execute(TRADE_FUTURE_PLAYER_OBLIGATION_SQL)
+            connection.execute(CLUB_FINANCE_TRANSACTIONS_SQL)
             if team_name:
                 rows = connection.execute(
                     "SELECT player_json FROM opponent_players WHERE save_id = ? AND team = ? ORDER BY player_id",
@@ -372,7 +598,9 @@ class SaveDatabase:
                     now,
                 ),
             )
-            return cursor.lastrowid
+            save_id = cursor.lastrowid
+            self._seed_incoming_rookies(connection, save_id)
+            return save_id
 
     def list_saves(self):
         with self.connect() as connection:
@@ -410,9 +638,17 @@ class SaveDatabase:
                 (save_id,),
             )
             for table_name in (
+                "manager_events",
+                "trade_future_player_obligations",
+                "club_finance_transactions",
+                "incoming_rookies",
+                "second_draft_results",
+                "second_draft_pool",
+                "second_draft_settings",
                 "team_ai_decision_queue",
                 "player_injury_events",
                 "team_training_plans",
+                "team_tactic_versions",
                 "team_pitching_roles",
                 "team_lineups",
                 "team_ai_profiles",
@@ -460,6 +696,208 @@ class SaveDatabase:
                     (save_id, save_id),
                 ).fetchall()
         return [dict(row) for row in rows]
+
+    def list_incoming_rookies(self, save_id, team=None):
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            conditions = ["save_id=?", "status='incoming'"]
+            parameters = [save_id]
+            if team:
+                conditions.append("team=?")
+                parameters.append(team)
+            rows = connection.execute(
+                f"""
+                SELECT * FROM incoming_rookies
+                WHERE {' AND '.join(conditions)}
+                ORDER BY overall_pick
+                """,
+                parameters,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def list_team_training_plans(self, save_id, team=None, plan_date=None, limit=20):
+        """최근 훈련 계획을 구단·날짜 조건으로 조회한다."""
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            conditions = ["save_id = ?"]
+            parameters = [save_id]
+            if team:
+                conditions.append("team = ?")
+                parameters.append(team)
+            if plan_date:
+                conditions.append("plan_date = ?")
+                parameters.append(plan_date)
+            parameters.append(int(limit))
+            rows = connection.execute(
+                f"""
+                SELECT * FROM team_training_plans
+                WHERE {' AND '.join(conditions)}
+                ORDER BY plan_date DESC, team
+                LIMIT ?
+                """,
+                parameters,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def list_league_simulation_events(self, save_id, event_date=None, team=None, limit=30):
+        """달력 및 다른 구단 진행 상황에 기록된 리그 이벤트를 조회한다."""
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            conditions = ["save_id = ?"]
+            parameters = [save_id]
+            if event_date:
+                conditions.append("event_date = ?")
+                parameters.append(event_date)
+            if team:
+                conditions.append("team = ?")
+                parameters.append(team)
+            parameters.append(int(limit))
+            rows = connection.execute(
+                f"""
+                SELECT * FROM league_simulation_events
+                WHERE {' AND '.join(conditions)}
+                ORDER BY event_date DESC, team, category
+                LIMIT ?
+                """,
+                parameters,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def list_active_injuries(self, save_id, team=None, first_team_only=False):
+        """현재 진행 중인 부상과 선수단 구분을 함께 반환한다."""
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            conditions = ["injury.save_id = ?", "injury.status = 'active'"]
+            parameters = [save_id]
+            if team:
+                conditions.append("injury.team = ?")
+                parameters.append(team)
+            if first_team_only:
+                conditions.append("state.squad_group = '1군'")
+            rows = connection.execute(
+                f"""
+                SELECT injury.*, state.injury_days, state.squad_group,
+                       state.condition, state.fatigue
+                FROM player_injury_events injury
+                LEFT JOIN player_simulation_states state
+                  ON state.save_id = injury.save_id
+                 AND state.player_id = injury.player_id
+                WHERE {' AND '.join(conditions)}
+                ORDER BY state.injury_days DESC, injury.event_date DESC
+                """,
+                parameters,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def list_manager_events(self, save_id, limit=50):
+        """감독이 직접 확인하거나 결정해야 하는 이벤트를 최신순으로 반환한다."""
+        if save_id is None:
+            return []
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            rows = connection.execute(
+                """
+                SELECT * FROM manager_events
+                WHERE save_id = ?
+                ORDER BY
+                    CASE WHEN status = 'open' AND requires_action = 1
+                         THEN 0 ELSE 1 END,
+                    event_date DESC, id DESC
+                LIMIT ?
+                """,
+                (save_id, int(limit)),
+            ).fetchall()
+        events = []
+        for row in rows:
+            event = dict(row)
+            try:
+                event["choices"] = json.loads(event["choices_json"])
+            except (TypeError, json.JSONDecodeError):
+                event["choices"] = []
+            try:
+                event["payload"] = json.loads(event["payload_json"])
+            except (TypeError, json.JSONDecodeError):
+                event["payload"] = {}
+            events.append(event)
+        return events
+
+    def get_manager_event(self, save_id, event_id):
+        if save_id is None:
+            return None
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            row = connection.execute(
+                "SELECT * FROM manager_events WHERE save_id = ? AND id = ?",
+                (save_id, event_id),
+            ).fetchone()
+            if row is None:
+                return None
+            connection.execute(
+                "UPDATE manager_events SET is_read = 1 WHERE id = ?",
+                (event_id,),
+            )
+        event = dict(row)
+        event["is_read"] = 1
+        for source, target, fallback in (
+            ("choices_json", "choices", []),
+            ("payload_json", "payload", {}),
+        ):
+            try:
+                event[target] = json.loads(event[source])
+            except (TypeError, json.JSONDecodeError):
+                event[target] = fallback
+        return event
+
+    def mark_manager_event_read(self, save_id, event_id):
+        """수신함에서 확인한 감독 이벤트를 읽음 상태로 기록한다."""
+        if save_id is None:
+            return
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            connection.execute(
+                """
+                UPDATE manager_events SET is_read = 1
+                WHERE save_id = ? AND id = ?
+                """,
+                (save_id, event_id),
+            )
+
+    def pending_manager_event_count(self, save_id):
+        if save_id is None:
+            return 0
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS count FROM manager_events
+                WHERE save_id = ? AND requires_action = 1 AND status = 'open'
+                """,
+                (save_id,),
+            ).fetchone()
+        return int(row["count"])
+
+    def unread_manager_event_count(self, save_id):
+        if save_id is None:
+            return 0
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS count FROM manager_events
+                WHERE save_id = ? AND is_read = 0
+                """,
+                (save_id,),
+            ).fetchone()
+        return int(row["count"])
 
     def get_player_simulation_states(self, save_id, team=None):
         with self.connect() as connection:
@@ -535,6 +973,219 @@ class SaveDatabase:
                     (save_id, lineup_date, team, assignment["order"], player_id,
                      assignment["name"], assignment["position"]),
                 )
+
+    def save_user_tactic(self, save_id, assignment_date, team, batting, pitching):
+        """현재 전술을 날짜별 공식 타순과 투수 보직으로 함께 저장한다."""
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            connection.execute(
+                "DELETE FROM team_lineups "
+                "WHERE save_id=? AND lineup_date=? AND team=? AND squad_level=1",
+                (save_id, assignment_date, team),
+            )
+            connection.execute(
+                "DELETE FROM team_pitching_roles "
+                "WHERE save_id=? AND assignment_date=? AND team=? AND squad_level=1",
+                (save_id, assignment_date, team),
+            )
+            for item in batting:
+                connection.execute(
+                    """
+                    INSERT INTO team_lineups
+                    (save_id,lineup_date,team,squad_level,batting_order,player_id,
+                     player_name,defensive_position,selection_score)
+                    VALUES (?,?,?,1,?,?,?,?,0)
+                    """,
+                    (
+                        save_id,
+                        assignment_date,
+                        team,
+                        item["order"],
+                        item["player_id"],
+                        item["name"],
+                        item["position"],
+                    ),
+                )
+            for item in pitching:
+                connection.execute(
+                    """
+                    INSERT INTO team_pitching_roles
+                    (save_id,assignment_date,team,squad_level,role_order,role,
+                     player_id,player_name,selection_score)
+                    VALUES (?,?,?,1,?,?,?,?,0)
+                    """,
+                    (
+                        save_id,
+                        assignment_date,
+                        team,
+                        item["role_order"],
+                        item["role"],
+                        item["player_id"],
+                        item["name"],
+                    ),
+                )
+
+    def list_tactic_versions(self, save_id, team):
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            rows = connection.execute(
+                """
+                SELECT id, name, is_active, created_at, updated_at
+                FROM team_tactic_versions
+                WHERE save_id=? AND team=?
+                ORDER BY is_active DESC, id
+                """,
+                (save_id, team),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def create_tactic_version(
+        self, save_id, team, name, batting=None, pitching=None,
+        game_plan=None,
+    ):
+        now = datetime.now().isoformat(timespec="seconds")
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            existing_count = connection.execute(
+                "SELECT COUNT(*) FROM team_tactic_versions "
+                "WHERE save_id=? AND team=?",
+                (save_id, team),
+            ).fetchone()[0]
+            cursor = connection.execute(
+                """
+                INSERT INTO team_tactic_versions
+                (save_id,team,name,is_active,batting_json,pitching_json,
+                 game_plan_json,
+                 created_at,updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    save_id,
+                    team,
+                    name.strip(),
+                    1 if existing_count == 0 else 0,
+                    json.dumps(batting or [], ensure_ascii=False),
+                    json.dumps(pitching or [], ensure_ascii=False),
+                    json.dumps(game_plan or {}, ensure_ascii=False),
+                    now,
+                    now,
+                ),
+            )
+            return cursor.lastrowid
+
+    def get_tactic_version(self, save_id, team, tactic_id):
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            row = connection.execute(
+                """
+                SELECT * FROM team_tactic_versions
+                WHERE id=? AND save_id=? AND team=?
+                """,
+                (tactic_id, save_id, team),
+            ).fetchone()
+        if not row:
+            return None
+        tactic = dict(row)
+        tactic["batting"] = json.loads(tactic.pop("batting_json") or "[]")
+        tactic["pitching"] = json.loads(tactic.pop("pitching_json") or "[]")
+        tactic["game_plan"] = json.loads(tactic.pop("game_plan_json") or "{}")
+        return tactic
+
+    def get_active_tactic_version(self, save_id, team):
+        """경기 엔진이 사용할 현재 적용 전술 전체를 반환한다."""
+        with self.connect() as connection:
+            for statement in SIMULATION_SCHEMA:
+                connection.execute(statement)
+            row = connection.execute(
+                """
+                SELECT id FROM team_tactic_versions
+                WHERE save_id=? AND team=? AND is_active=1
+                ORDER BY updated_at DESC LIMIT 1
+                """,
+                (save_id, team),
+            ).fetchone()
+        return (
+            self.get_tactic_version(save_id, team, row["id"])
+            if row else None
+        )
+
+    def update_tactic_version(
+        self, save_id, team, tactic_id, name, batting, pitching,
+        game_plan=None,
+    ):
+        with self.connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE team_tactic_versions
+                SET name=?, batting_json=?, pitching_json=?,
+                    game_plan_json=COALESCE(?, game_plan_json), updated_at=?
+                WHERE id=? AND save_id=? AND team=?
+                """,
+                (
+                    name.strip(),
+                    json.dumps(batting, ensure_ascii=False),
+                    json.dumps(pitching, ensure_ascii=False),
+                    (
+                        json.dumps(game_plan, ensure_ascii=False)
+                        if game_plan is not None else None
+                    ),
+                    datetime.now().isoformat(timespec="seconds"),
+                    tactic_id,
+                    save_id,
+                    team,
+                ),
+            )
+        return cursor.rowcount > 0
+
+    def activate_tactic_version(self, save_id, team, tactic_id):
+        with self.connect() as connection:
+            connection.execute(
+                "UPDATE team_tactic_versions SET is_active=0 "
+                "WHERE save_id=? AND team=?",
+                (save_id, team),
+            )
+            cursor = connection.execute(
+                "UPDATE team_tactic_versions SET is_active=1, updated_at=? "
+                "WHERE id=? AND save_id=? AND team=?",
+                (
+                    datetime.now().isoformat(timespec="seconds"),
+                    tactic_id,
+                    save_id,
+                    team,
+                ),
+            )
+        return cursor.rowcount > 0
+
+    def delete_tactic_version(self, save_id, team, tactic_id):
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT is_active FROM team_tactic_versions "
+                "WHERE id=? AND save_id=? AND team=?",
+                (tactic_id, save_id, team),
+            ).fetchone()
+            if not row:
+                return False
+            connection.execute(
+                "DELETE FROM team_tactic_versions "
+                "WHERE id=? AND save_id=? AND team=?",
+                (tactic_id, save_id, team),
+            )
+            if row["is_active"]:
+                replacement = connection.execute(
+                    "SELECT id FROM team_tactic_versions "
+                    "WHERE save_id=? AND team=? ORDER BY id LIMIT 1",
+                    (save_id, team),
+                ).fetchone()
+                if replacement:
+                    connection.execute(
+                        "UPDATE team_tactic_versions SET is_active=1 WHERE id=?",
+                        (replacement["id"],),
+                    )
+        return True
 
     def update_player_squad_group(self, save_id, player_id, squad_group):
         with self.connect() as connection:

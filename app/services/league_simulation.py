@@ -2,12 +2,18 @@
 
 import hashlib
 import json
+import math
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 
 from app.config import TEAM_INFO
 from app.config.season_schedule import SEASON_EVENTS, phase_for
-from app.services.team_lineup_engine import TeamLineupEngine, availability_score
+from app.services.team_lineup_engine import (
+    TeamLineupEngine,
+    availability_score,
+    player_ability_score,
+)
+from app.services.manager_events import ManagerEventService
 from database.league_simulation_repository import LeagueSimulationRepository
 
 
@@ -39,21 +45,38 @@ def _sim_log(message):
 class DailyTeamDecisionEngine:
     """선수 상태와 구단 성향으로 상대 구단의 1·2군 이동을 판단한다."""
 
-    def choose(self, team, players, states, profile, simulation_date):
+    def choose(
+        self, team, players, states, profile, simulation_date,
+        recent_decisions=(),
+    ):
         first = [p for p in players if int(p.get("status") or 0) == 1]
         second = [p for p in players if int(p.get("status") or 0) == 0]
         if not first or not second:
             return []
+        recent_by_player = {
+            int(item["player_id"]): item for item in recent_decisions
+        }
         decisions, used = [], set()
         for injured in sorted(first, key=lambda p: states[p["id"]]["injury_days"], reverse=True):
             if states[injured["id"]]["injury_days"] <= 0:
                 continue
             candidates = [p for p in second if p["id"] not in used
                           and p.get("position_group") == injured.get("position_group")
-                          and states[p["id"]]["injury_days"] == 0]
+                          and states[p["id"]]["injury_days"] == 0
+                          and not self._on_cooldown(
+                              p["id"], recent_by_player, simulation_date
+                          )]
             if not candidates:
                 continue
-            promote = max(candidates, key=lambda p: availability_score(p, states[p["id"]], profile["development"]))
+            promote = max(
+                candidates,
+                key=lambda p: (
+                    p.get("pos") == injured.get("pos"),
+                    self._organizational_value(
+                        p, states[p["id"]], profile, is_challenger=True
+                    ),
+                ),
+            )
             reason = f"{injured['name']}의 {states[injured['id']]['injury_type']} 이탈에 따른 대체 등록"
             decisions.extend(self._swap(team, injured, promote, reason))
             used.add(promote["id"])
@@ -64,22 +87,120 @@ class DailyTeamDecisionEngine:
         first = [p for p in first if p["id"] not in changed]
         second = [p for p in second if p["id"] not in changed]
         max_swaps = 2 if profile["roster_aggression"] >= 4 else 1
-        for group in POSITION_MINIMUMS:
-            if len(decisions) // 2 >= max_swaps:
-                break
+        proposals = []
+        first_counts = Counter(p.get("position_group") for p in first)
+        for group, minimum in POSITION_MINIMUMS.items():
             incumbents = [p for p in first if p.get("position_group") == group and states[p["id"]]["injury_days"] == 0]
             challengers = [p for p in second if p.get("position_group") == group and states[p["id"]]["injury_days"] == 0]
             if not incumbents or not challengers:
                 continue
-            demote = min(incumbents, key=lambda p: availability_score(p, states[p["id"]], profile["development"]))
-            promote = max(challengers, key=lambda p: availability_score(p, states[p["id"]], profile["development"]))
-            old_score = availability_score(demote, states[demote["id"]], profile["development"])
-            new_score = availability_score(promote, states[promote["id"]], profile["development"])
-            threshold = 3.5 - profile["roster_aggression"] * .45 - profile["development"] * .2
-            if new_score > old_score + threshold:
-                reason = f"정기 전력 평가: {promote['name']}({new_score:.1f})가 {demote['name']}({old_score:.1f})보다 높은 평가"
-                decisions.extend(self._swap(team, demote, promote, reason))
+            incumbents = [
+                player for player in incumbents
+                if not self._on_cooldown(
+                    player["id"], recent_by_player, simulation_date
+                )
+            ]
+            challengers = [
+                player for player in challengers
+                if not self._on_cooldown(
+                    player["id"], recent_by_player, simulation_date
+                )
+            ]
+            if not incumbents or not challengers:
+                continue
+            demote = min(
+                incumbents,
+                key=lambda p: self._organizational_value(
+                    p, states[p["id"]], profile, is_challenger=False
+                ),
+            )
+            promote = max(
+                challengers,
+                key=lambda p: self._organizational_value(
+                    p, states[p["id"]], profile, is_challenger=True
+                ),
+            )
+            old_score = self._organizational_value(
+                demote, states[demote["id"]], profile, is_challenger=False
+            )
+            new_score = self._organizational_value(
+                promote, states[promote["id"]], profile, is_challenger=True
+            )
+            threshold = (
+                3.8
+                - profile["roster_aggression"] * .42
+                - profile["development"] * .16
+                + profile["stability"] * .18
+            )
+            depth_pressure = max(0, minimum - first_counts[group]) * 1.5
+            advantage = new_score - old_score + depth_pressure
+            if advantage > threshold:
+                proposals.append(
+                    (advantage, group, demote, promote, old_score, new_score)
+                )
+
+        for _advantage, group, demote, promote, old_score, new_score in sorted(
+            proposals, key=lambda item: item[0], reverse=True
+        ):
+            if len(decisions) // 2 >= max_swaps:
+                break
+            if demote["id"] in used or promote["id"] in used:
+                continue
+            reason = (
+                f"정기 전력 평가({group}): {promote['name']} "
+                f"{new_score:.1f}, {demote['name']} {old_score:.1f} · "
+                f"구단의 즉시전력 {profile['win_now']}/육성 "
+                f"{profile['development']} 기조 반영"
+            )
+            decisions.extend(self._swap(team, demote, promote, reason))
+            used.update((demote["id"], promote["id"]))
         return decisions
+
+    @staticmethod
+    def _on_cooldown(player_id, recent_by_player, simulation_date):
+        recent = recent_by_player.get(int(player_id))
+        if not recent:
+            return False
+        try:
+            changed = date.fromisoformat(str(recent["decision_date"]))
+        except (TypeError, ValueError):
+            return False
+        return (simulation_date - changed).days < 21
+
+    @staticmethod
+    def _organizational_value(player, state, profile, is_challenger):
+        """현재 전력, 성장성, 연봉 효율과 구단 철학을 하나의 평가로 묶는다."""
+        ability = player_ability_score(player)
+        readiness = availability_score(
+            player, state, profile["development"]
+        )
+        age = int(player.get("age") or 29)
+        salary = max(1, int(player.get("salary") or 1))
+        youth = max(0, 29 - age) * profile["development"] * 0.18
+        veteran = (
+            max(0, age - 31) * profile["win_now"] * 0.08
+            if ability >= 12
+            else -max(0, age - 31) * 0.28
+        )
+        salary_signal = min(3.0, math.log10(salary) * 0.55)
+        salary_burden = (
+            max(0.0, math.log10(salary) - 4.4)
+            * max(0.0, 12.0 - ability)
+            * (6 - profile["risk_tolerance"])
+            * 0.35
+        )
+        role_commitment = 0.7 if player.get("role") not in ("", "선수", None) else 0
+        opportunity = 0.45 * profile["development"] if is_challenger and age <= 27 else 0
+        return (
+            readiness
+            + ability * (0.28 + profile["win_now"] * 0.035)
+            + youth
+            + veteran
+            + salary_signal
+            + role_commitment
+            + opportunity
+            - salary_burden
+        )
 
     @staticmethod
     def _swap(team, demote, promote, reason):
@@ -90,13 +211,37 @@ class DailyTeamDecisionEngine:
 
 
 class LeagueSimulationService:
-    def __init__(self, save_database, save_id, player_db_path, managed_team):
+    def __init__(
+        self,
+        save_database,
+        save_id,
+        player_db_path,
+        managed_team,
+        progress_callback=None,
+    ):
         self.save_database = save_database
         self.save_id = save_id
         self.managed_team = managed_team
+        self.progress_callback = progress_callback
         self.repository = LeagueSimulationRepository(save_database.db_path, player_db_path)
         self.decision_engine = DailyTeamDecisionEngine()
         self.lineup_engine = TeamLineupEngine()
+
+    def _progress(self, team=None, status="", detail="", state="working"):
+        """UI가 구단별 처리 상황을 표시할 수 있도록 안전하게 알린다."""
+        if self.progress_callback is None:
+            return
+        try:
+            self.progress_callback(
+                {
+                    "team": team,
+                    "status": status,
+                    "detail": detail,
+                    "state": state,
+                }
+            )
+        except Exception as error:
+            _sim_log(f"진행 화면 알림 생략 · {error!r}")
 
     def simulate_day(self, simulation_date):
         if isinstance(simulation_date, str):
@@ -107,8 +252,22 @@ class LeagueSimulationService:
             completed = self.repository.completed_summary(connection, self.save_id, day)
             if completed is not None:
                 _sim_log(f"{day}은 이미 처리된 날짜입니다 · 저장된 결과 사용")
+                for team in TEAM_INFO:
+                    self._progress(
+                        team,
+                        "저장 결과 확인",
+                        "이미 처리된 구단 일정을 불러왔습니다.",
+                        "done",
+                    )
                 return completed
             self.repository.begin_run(connection, self.save_id, day)
+            self._progress(
+                status="선수 컨디션과 부상 상태를 계산하고 있습니다.",
+                state="global",
+            )
+            activated_rookies = self._activate_incoming_rookies(
+                connection, simulation_date
+            )
             players = [dict(r) for r in connection.execute("SELECT * FROM playerdb.players ORDER BY team, id")]
             _sim_log(f"선수 DB 로드 완료 · {len(players)}명")
             objectives = self._load_objectives(connection)
@@ -120,11 +279,23 @@ class LeagueSimulationService:
             self._add_medical_news(connection, simulation_date, injury_events, recovery_events)
             states = self._load_states(connection)
             by_team = self._group_players(players)
+            recent_decisions = self._load_recent_decisions(
+                connection, simulation_date
+            )
             decisions = []
             for team in TEAM_INFO:
                 if team == self.managed_team:
                     continue
-                selected = self.decision_engine.choose(team, by_team.get(team, []), states, profiles[team], simulation_date)
+                self._progress(
+                    team,
+                    "엔트리 검토",
+                    "구단 AI가 1·2군 경쟁과 부상 대체 자원을 검토합니다.",
+                    "roster",
+                )
+                selected = self.decision_engine.choose(
+                    team, by_team.get(team, []), states, profiles[team],
+                    simulation_date, recent_decisions.get(team, ()),
+                )
                 self._apply_decisions(connection, day, selected)
                 decisions.extend(selected)
                 if selected:
@@ -136,6 +307,20 @@ class LeagueSimulationService:
             phase_name, _ = phase_for(simulation_date)
             lineup_count = 0
             for team in TEAM_INFO:
+                self._progress(
+                    team,
+                    (
+                        "감독 운영 반영"
+                        if team == self.managed_team
+                        else "훈련·라인업"
+                    ),
+                    (
+                        "사용자 감독의 선수단 운영 상태를 반영합니다."
+                        if team == self.managed_team
+                        else "구단 성향에 따라 훈련과 포지션 경쟁을 정리합니다."
+                    ),
+                    "planning",
+                )
                 roster = by_team.get(team, [])
                 self._refresh_squad_groups(connection, roster, states, phase_name)
                 self._save_training_plan(connection, day, team, phase_name, profiles[team])
@@ -146,9 +331,54 @@ class LeagueSimulationService:
                 injured = sum(states[player["id"]]["injury_days"] > 0 for player in roster)
                 control = "감독 직접 운영" if team == self.managed_team else "구단 AI 운영"
                 _sim_log(f"{team} 완료 · 1군 {first_count}명 · 2군 {len(roster)-first_count}명 · 부상 {injured}명 · 편성 {team_lineup_count}건 · {control}")
+                team_moves = [
+                    (
+                        f"{decision['player_name']} "
+                        f"{'콜업' if decision['action'] == 'promote' else '강등'}"
+                    )
+                    for decision in decisions
+                    if decision["team"] == team
+                ]
+                move_summary = " · ".join(team_moves[:2])
+                if len(team_moves) > 2:
+                    move_summary += f" 외 {len(team_moves) - 2}건"
+                status = (
+                    f"완료 · {move_summary}"
+                    if team_moves
+                    else "완료 · 엔트리 유지"
+                )
+                self._progress(
+                    team,
+                    status,
+                    (
+                        f"1군 {first_count}명 · 2군 {len(roster)-first_count}명 · "
+                        f"부상 {injured}명 · 편성 {team_lineup_count}건"
+                        + (
+                            f" · {' / '.join(team_moves)}"
+                            if team_moves else ""
+                        )
+                    ),
+                    "done",
+                )
 
             events = SEASON_EVENTS.get(simulation_date, ())
-            queued_count = self._save_events_and_ai_queue(connection, day, events, profiles)
+            self._progress(
+                status="구단 소식과 다음 일정을 수신함에 정리하고 있습니다.",
+                state="global",
+            )
+            queued_count = self._save_events_and_ai_queue(
+                connection, day, events, profiles, by_team, states, phase_name
+            )
+            ManagerEventService.generate_daily(
+                connection,
+                self.save_id,
+                self.managed_team,
+                simulation_date,
+                players,
+                states,
+                injuries=injury_events,
+                schedule_events=events,
+            )
             if events:
                 _sim_log(f"일정 이벤트 {len(events)}건 반영 · Qwen 검토 대기 {queued_count}건")
             self.repository.add_league_news(connection, self.save_id, day, decisions)
@@ -164,11 +394,204 @@ class LeagueSimulationService:
                 "roster_decision_count": len(decisions), "lineup_assignment_count": lineup_count,
                 "ai_queue_count": queued_count, "changed_teams": sorted({d["team"] for d in decisions}),
                 "season_phase": phase_name, "schedule_event_count": len(events),
+                "activated_rookie_count": activated_rookies,
             }
             self._add_daily_report(connection, summary)
             self.repository.complete_run(connection, self.save_id, day, summary)
             _sim_log(f"{day} 트랜잭션 저장 완료 · 엔트리 이동 {len(decisions)}건 · 전체 편성 {lineup_count}건")
             return summary
+
+    def _activate_incoming_rookies(self, connection, simulation_date):
+        """입단 예정일이 되면 공식 지명 신인을 각 구단 2군에 합류시킨다."""
+        day = simulation_date.isoformat()
+        rows = connection.execute(
+            """
+            SELECT * FROM incoming_rookies
+            WHERE save_id=? AND status='incoming' AND arrival_date<=?
+            ORDER BY overall_pick
+            """,
+            (self.save_id, day),
+        ).fetchall()
+        if not rows:
+            return 0
+
+        player_columns = {
+            row["name"]
+            for row in connection.execute(
+                "PRAGMA playerdb.table_info(players)"
+            ).fetchall()
+        }
+        for column, declaration in (
+            ("draft_year", "INTEGER"),
+            ("draft_pick", "INTEGER"),
+            ("school", "TEXT DEFAULT ''"),
+            ("arrival_date", "TEXT"),
+        ):
+            if column not in player_columns:
+                connection.execute(
+                    f"ALTER TABLE playerdb.players ADD COLUMN "
+                    f"{column} {declaration}"
+                )
+
+        for rookie in rows:
+            ratings = self._rookie_ratings(rookie)
+            values = {
+                "player_uid": (
+                    f"DRAFT-{rookie['draft_year']}-"
+                    f"{int(rookie['overall_pick']):03d}"
+                ),
+                "kbo_player_id": (
+                    f"DRAFT-{rookie['draft_year']}-"
+                    f"{int(rookie['overall_pick']):03d}"
+                ),
+                "team": rookie["team"],
+                "name": rookie["player_name"],
+                "pos": rookie["position_group"],
+                "age": 22 if "대" in rookie["school"] else 19,
+                "birth_date": "",
+                "bats_throws": "",
+                "career": f"{rookie['school']}-{rookie['team']}",
+                **ratings,
+                "status": 0,
+                "lineup_pos": 0,
+                "role": "신인 육성",
+                "salary": 3000,
+                "snapshot_date": day,
+                "position_group": rookie["position_group"],
+                "is_rookie": 1,
+                "is_foreign": 0,
+                "profile_complete": 0,
+                "source_note": (
+                    "2026 KBO 신인 드래프트 공식 지명 · "
+                    "프로 표본 미확보"
+                ),
+                "source_url": rookie["source_url"],
+                "draft_year": rookie["draft_year"],
+                "draft_pick": rookie["overall_pick"],
+                "school": rookie["school"],
+                "arrival_date": day,
+            }
+            player_schema = {
+                row["name"]: dict(row)
+                for row in connection.execute(
+                    "PRAGMA playerdb.table_info(players)"
+                ).fetchall()
+            }
+            self._fill_required_player_values(values, player_schema)
+            columns = tuple(values)
+            connection.execute(
+                f"""
+                INSERT OR IGNORE INTO playerdb.players
+                ({', '.join(columns)})
+                VALUES ({', '.join('?' for _ in columns)})
+                """,
+                tuple(values[column] for column in columns),
+            )
+            connection.execute(
+                """
+                UPDATE incoming_rookies
+                SET status='activated'
+                WHERE save_id=? AND draft_year=? AND overall_pick=?
+                """,
+                (
+                    self.save_id, rookie["draft_year"],
+                    rookie["overall_pick"],
+                ),
+            )
+
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO daily_news (
+                save_id, news_date, category, headline, body, created_at
+            ) VALUES (?, ?, 'KBO', ?, ?, CURRENT_TIMESTAMP)
+            """,
+            (
+                self.save_id, day,
+                f"2026 신인 선수 {len(rows)}명 구단 합류",
+                "2025년 9월 신인 드래프트에서 지명된 선수들이 각 구단 "
+                "2군 선수단에 합류했습니다. 프로 표본이 없는 능력치는 "
+                "지명 순위와 포지션을 바탕으로 보수적으로 평가되며, 향후 "
+                "훈련과 실전 기록에 따라 조정됩니다.",
+            ),
+        )
+        _sim_log(f"2026 신인 자동 합류 · {len(rows)}명")
+        return len(rows)
+
+    @staticmethod
+    def _fill_required_player_values(values, schema):
+        """세이브마다 다른 players 필수 열을 스키마에 맞춰 보완한다."""
+        for column, info in schema.items():
+            if column in values or column == "id":
+                continue
+            if (
+                not int(info.get("notnull") or 0)
+                or info.get("dflt_value") is not None
+            ):
+                continue
+            column_type = str(info.get("type") or "").upper()
+            if "INT" in column_type:
+                values[column] = 0
+            elif any(
+                kind in column_type
+                for kind in ("REAL", "FLOA", "DOUB", "NUM")
+            ):
+                values[column] = 0.0
+            else:
+                values[column] = ""
+
+    def _rookie_ratings(self, rookie):
+        """프로 표본이 없는 신인은 지명 순위 기반의 보수적 초기값을 쓴다."""
+        pick = int(rookie["overall_pick"])
+        round_no = int(rookie["round_no"])
+        seed = _stable_number(
+            self.save_id, rookie["draft_year"], pick, modulo=2 ** 31
+        )
+        base = max(6, min(12, 12 - (round_no - 1) // 2))
+
+        def value(offset, adjustment=0):
+            noise = ((seed >> offset) % 3) - 1
+            return max(1, min(20, base + adjustment + noise))
+
+        ratings: dict[str, object] = {
+            "con": value(0),
+            "pow": value(2),
+            "eye": value(4),
+            "def": value(6),
+        }
+        hitter_columns = (
+            "contact", "power", "plate_discipline", "bat_control",
+            "timing", "bunt", "speed", "baserunning_judgment",
+            "fielding_range", "catching", "throwing_power",
+            "throwing_accuracy", "fielding_judgment", "composure",
+            "leadership", "aggressiveness",
+        )
+        pitcher_columns = (
+            "pitcher_velocity", "pitcher_stuff", "pitcher_command",
+            "pitcher_movement", "pitcher_stamina",
+            "pitcher_pitchability", "pitcher_strikeout",
+            "pitcher_walk_control", "pitcher_composure",
+        )
+        if rookie["position_group"] == "P":
+            ratings.update({column: None for column in hitter_columns})
+            ratings.update({
+                column: value(index * 2, 1 if index < 2 else 0)
+                for index, column in enumerate(pitcher_columns)
+            })
+        else:
+            ratings.update({
+                column: value(
+                    index * 2,
+                    2 if column == "catching"
+                    and rookie["position_group"] == "C"
+                    else 1 if column in (
+                        "fielding_range", "fielding_judgment"
+                    ) and rookie["position_group"] in ("C", "IF")
+                    else 0,
+                )
+                for index, column in enumerate(hitter_columns)
+            })
+            ratings.update({column: None for column in pitcher_columns})
+        return ratings
 
     @staticmethod
     def _group_players(players):
@@ -199,6 +622,21 @@ class LeagueSimulationService:
                 "stability": values.get("club_identity", 3),
                 "risk_tolerance": values.get("financial_management", 3),
             }
+            style = TEAM_INFO[team].get("front_office_style", "")
+            if "우승" in style or "즉시 전력" in style:
+                profile["win_now"] += 1
+            if "육성" in style or "유망주" in style or "성장" in style:
+                profile["development"] += 1
+            if "과감" in style or "적극" in style or "트레이드" in style:
+                profile["roster_aggression"] += 1
+            if "안정" in style or "연속성" in style or "조직력" in style:
+                profile["stability"] += 1
+            if "효율" in style or "재정" in style or "가치" in style:
+                profile["risk_tolerance"] -= 1
+            profile = {
+                key: max(1, min(5, int(value)))
+                for key, value in profile.items()
+            }
             profiles[team] = profile
             connection.execute(
                 """INSERT INTO team_ai_profiles
@@ -211,6 +649,27 @@ class LeagueSimulationService:
                  profile["stability"], profile["risk_tolerance"], now),
             )
         return profiles
+
+    def _load_recent_decisions(self, connection, simulation_date):
+        cutoff = (simulation_date - timedelta(days=21)).isoformat()
+        rows = connection.execute(
+            """
+            SELECT decision_date, team, player_id, action, reason
+            FROM team_roster_decisions
+            WHERE save_id=? AND decision_date>=?
+            ORDER BY decision_date DESC, id DESC
+            """,
+            (self.save_id, cutoff),
+        ).fetchall()
+        result = defaultdict(list)
+        seen = set()
+        for row in rows:
+            key = (row["team"], row["player_id"])
+            if key in seen:
+                continue
+            seen.add(key)
+            result[row["team"]].append(dict(row))
+        return result
 
     def _advance_player_states(self, connection, players, simulation_date):
         day, (phase, _) = simulation_date.isoformat(), phase_for(simulation_date)
@@ -387,31 +846,101 @@ class LeagueSimulationService:
         for level in (1, 0):
             batting, pitching = self.lineup_engine.build(players, states, level, profile["development"])
             if not overwrite and level == 1:
-                saved_batting = sorted(
-                    (p for p in players if int(p.get("status") or 0) == 1
-                     and int(p.get("lineup_pos") or 0) > 0
-                     and p.get("position_group") != "P"
-                     and states[p["id"]]["injury_days"] == 0),
-                    key=lambda p: int(p["lineup_pos"]),
-                )
-                if saved_batting:
-                    batting = [
-                        {"batting_order": int(p["lineup_pos"]), "player_id": p["id"],
-                         "player_name": p["name"], "defensive_position": p.get("pos") or "DH",
-                         "selection_score": round(availability_score(p, states[p["id"]], profile["development"]), 2)}
-                        for p in saved_batting[:9]
-                    ]
-                saved_pitching = [p for p in players if int(p.get("status") or 0) == 1
-                                  and p.get("position_group") == "P"
-                                  and p.get("role") and p.get("role") != "선수"
-                                  and states[p["id"]]["injury_days"] == 0]
-                if saved_pitching:
-                    pitching = [
-                        {"role_order": index + 1, "role": p["role"], "player_id": p["id"],
-                         "player_name": p["name"],
-                         "selection_score": round(availability_score(p, states[p["id"]], profile["development"]), 2)}
-                        for index, p in enumerate(saved_pitching)
-                    ]
+                active_tactic = connection.execute(
+                    """
+                    SELECT batting_json, pitching_json
+                    FROM team_tactic_versions
+                    WHERE save_id=? AND team=? AND is_active=1
+                    ORDER BY updated_at DESC LIMIT 1
+                    """,
+                    (self.save_id, team),
+                ).fetchone()
+                players_by_id = {int(player["id"]): player for player in players}
+                if active_tactic:
+                    tactic_batting = []
+                    for item in json.loads(active_tactic["batting_json"] or "[]"):
+                        player = players_by_id.get(int(item["player_id"]))
+                        if (
+                            player
+                            and int(player.get("status") or 0) == 1
+                            and player.get("position_group") != "P"
+                            and player.get("pos") != "P"
+                            and states[player["id"]]["injury_days"] == 0
+                        ):
+                            tactic_batting.append(
+                                {
+                                    "batting_order": int(item["order"]),
+                                    "player_id": player["id"],
+                                    "player_name": player["name"],
+                                    "defensive_position": item.get("position") or player.get("pos") or "DH",
+                                    "selection_score": round(
+                                        availability_score(
+                                            player, states[player["id"]], profile["development"]
+                                        ),
+                                        2,
+                                    ),
+                                }
+                            )
+                    tactic_pitching = []
+                    for item in json.loads(active_tactic["pitching_json"] or "[]"):
+                        player = players_by_id.get(int(item["player_id"]))
+                        if (
+                            player
+                            and int(player.get("status") or 0) == 1
+                            and (
+                                player.get("position_group") == "P"
+                                or player.get("pos") == "P"
+                            )
+                            and states[player["id"]]["injury_days"] == 0
+                        ):
+                            tactic_pitching.append(
+                                {
+                                    "role_order": int(item["role_order"]),
+                                    "role": item["role"],
+                                    "player_id": player["id"],
+                                    "player_name": player["name"],
+                                    "selection_score": round(
+                                        availability_score(
+                                            player, states[player["id"]], profile["development"]
+                                        ),
+                                        2,
+                                    ),
+                                }
+                            )
+                    if tactic_batting:
+                        batting = sorted(
+                            tactic_batting, key=lambda item: item["batting_order"]
+                        )
+                    if tactic_pitching:
+                        pitching = sorted(
+                            tactic_pitching, key=lambda item: item["role_order"]
+                        )
+                else:
+                    saved_batting = sorted(
+                        (p for p in players if int(p.get("status") or 0) == 1
+                         and int(p.get("lineup_pos") or 0) > 0
+                         and p.get("position_group") != "P"
+                         and states[p["id"]]["injury_days"] == 0),
+                        key=lambda p: int(p["lineup_pos"]),
+                    )
+                    if saved_batting:
+                        batting = [
+                            {"batting_order": int(p["lineup_pos"]), "player_id": p["id"],
+                             "player_name": p["name"], "defensive_position": p.get("pos") or "DH",
+                             "selection_score": round(availability_score(p, states[p["id"]], profile["development"]), 2)}
+                            for p in saved_batting[:9]
+                        ]
+                    saved_pitching = [p for p in players if int(p.get("status") or 0) == 1
+                                      and p.get("position_group") == "P"
+                                      and p.get("role") and p.get("role") != "선수"
+                                      and states[p["id"]]["injury_days"] == 0]
+                    if saved_pitching:
+                        pitching = [
+                            {"role_order": index + 1, "role": p["role"], "player_id": p["id"],
+                             "player_name": p["name"],
+                             "selection_score": round(availability_score(p, states[p["id"]], profile["development"]), 2)}
+                            for index, p in enumerate(saved_pitching)
+                        ]
             connection.execute("DELETE FROM team_lineups WHERE save_id=? AND lineup_date=? AND team=? AND squad_level=?", (self.save_id, day, team, level))
             connection.execute("DELETE FROM team_pitching_roles WHERE save_id=? AND assignment_date=? AND team=? AND squad_level=?", (self.save_id, day, team, level))
             for item in batting:
@@ -428,19 +957,139 @@ class LeagueSimulationService:
                 count += 1
         return count
 
-    def _save_events_and_ai_queue(self, connection, day, events, profiles):
+    def _save_events_and_ai_queue(
+        self, connection, day, events, profiles, by_team, states, phase,
+    ):
         queued = 0
         for team in TEAM_INFO:
             for event in events:
                 self.repository.save_schedule_event(connection, self.save_id, day, team, event)
                 if team == self.managed_team or event.get("importance") != "high":
                     continue
-                context = {"event": event, "profile": profiles[team], "instruction": "구단 성향과 선수단 상태에 맞는 실행안을 생성"}
+                context = self._team_ai_context(
+                    connection, day, team, event, profiles[team],
+                    by_team.get(team, ()), states, phase,
+                )
                 cursor = connection.execute(
                     "INSERT OR IGNORE INTO team_ai_decision_queue (save_id,decision_date,team,decision_type,context_json) VALUES (?,?,?,?,?)",
                     (self.save_id, day, team, event["category"], json.dumps(context, ensure_ascii=False)))
                 queued += cursor.rowcount
         return queued
+
+    def _team_ai_context(
+        self, connection, day, team, event, profile, players, states, phase,
+    ):
+        """작은 로컬 모델이 근거 있는 결정을 내릴 수 있는 압축 구단 보고서."""
+        healthy = [
+            player for player in players
+            if int(states[player["id"]]["injury_days"]) == 0
+        ]
+        ranked = sorted(
+            healthy,
+            key=lambda player: player_ability_score(player),
+            reverse=True,
+        )
+        prospects = sorted(
+            (player for player in healthy if int(player.get("age") or 99) <= 27),
+            key=lambda player: (
+                player_ability_score(player)
+                + max(0, 27 - int(player.get("age") or 27)) * .3
+            ),
+            reverse=True,
+        )
+        group_summary = {}
+        for group in POSITION_MINIMUMS:
+            group_players = [
+                player for player in healthy
+                if player.get("position_group") == group
+            ]
+            first = [
+                player for player in group_players
+                if int(player.get("status") or 0) == 1
+            ]
+            group_summary[group] = {
+                "first_team": len(first),
+                "total": len(group_players),
+                "top3_ability": round(
+                    sum(
+                        sorted(
+                            (player_ability_score(p) for p in group_players),
+                            reverse=True,
+                        )[:3]
+                    ) / max(1, min(3, len(group_players))),
+                    1,
+                ),
+                "minimum_first_team": POSITION_MINIMUMS[group],
+            }
+        recent = [
+            {
+                "date": row["decision_date"],
+                "player": row["player_name"],
+                "action": row["action"],
+                "reason": row["reason"],
+            }
+            for row in connection.execute(
+                """
+                SELECT decision_date, player_name, action, reason
+                FROM team_roster_decisions
+                WHERE save_id=? AND team=? AND decision_date<?
+                ORDER BY decision_date DESC, id DESC LIMIT 6
+                """,
+                (self.save_id, team, day),
+            )
+        ]
+
+        def player_brief(player):
+            state = states[player["id"]]
+            return {
+                "name": player["name"],
+                "position": player.get("pos") or player.get("position_group"),
+                "age": int(player.get("age") or 0),
+                "squad": "1군" if player.get("status") else "2군",
+                "ability": round(player_ability_score(player), 1),
+                "condition": int(state["condition"]),
+                "salary_10k_krw": int(player.get("salary") or 0),
+            }
+
+        info = TEAM_INFO[team]
+        return {
+            "event": event,
+            "club": {
+                "team": team,
+                "general_manager": info.get("general_manager"),
+                "season_goal": info.get("season_goal"),
+                "long_term_goal": info.get("long_term_goal"),
+                "front_office_style": info.get("front_office_style"),
+            },
+            "simulation": {"date": day, "phase": phase},
+            "profile_1_to_5": profile,
+            "roster": {
+                "first_team": sum(
+                    int(player.get("status") or 0) == 1 for player in players
+                ),
+                "second_team": sum(
+                    int(player.get("status") or 0) == 0 for player in players
+                ),
+                "injured": sum(
+                    int(states[player["id"]]["injury_days"]) > 0
+                    for player in players
+                ),
+                "payroll_10k_krw": sum(
+                    int(player.get("salary") or 0) for player in players
+                ),
+                "position_depth": group_summary,
+                "key_players": [player_brief(player) for player in ranked[:5]],
+                "prospects": [
+                    player_brief(player) for player in prospects[:5]
+                ],
+            },
+            "recent_roster_decisions": recent,
+            "instruction": (
+                "이 자료에 존재하는 선수와 수치만 근거로 한 가지 실행안을 "
+                "정한다. 구단 철학, 당장의 약점, 장기 목표, 비용과 위험을 "
+                "함께 비교하고 최근 결정을 불필요하게 뒤집지 않는다."
+            ),
+        }
 
     @staticmethod
     def _team_state(team, players, states, phase):

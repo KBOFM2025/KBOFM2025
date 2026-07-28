@@ -7,7 +7,7 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(scriptDirectory, "..");
 const csvPath = path.join(projectRoot, "data", "source", "kbo_2025_hitter_abilities.csv");
 const databasePath = path.join(projectRoot, "data", "players.db");
-const backupPath = path.join(projectRoot, "data", "players.before-hitter-abilities-v2.db");
+const backupPath = path.join(projectRoot, "data", "players.before-hitter-abilities-v7.db");
 
 const ratingColumns = [
   "contact", "power", "plate_discipline", "bat_control",
@@ -17,10 +17,22 @@ const futureColumns = [
   "fielding_range", "catching", "throwing_power", "throwing_accuracy",
   "fielding_judgment", "composure", "leadership", "aggressiveness",
 ];
+const metadataColumns = [
+  "hitter_advanced_public_player_id", "hitter_advanced_wrc_plus",
+  "hitter_advanced_sfr", "hitter_advanced_war", "hitter_advanced_source_url",
+  "hitter_rating_confidence", "hitter_rating_detail_json",
+];
 const extraColumns = {
   ...Object.fromEntries([...ratingColumns, ...futureColumns].map((column) => [column, "INTEGER"])),
   ability_source_level: "TEXT",
   ability_formula_version: "TEXT",
+  hitter_advanced_public_player_id: "TEXT",
+  hitter_advanced_wrc_plus: "REAL",
+  hitter_advanced_sfr: "REAL",
+  hitter_advanced_war: "REAL",
+  hitter_advanced_source_url: "TEXT",
+  hitter_rating_confidence: "TEXT",
+  hitter_rating_detail_json: "TEXT",
 };
 
 function parseCsv(text) {
@@ -72,15 +84,10 @@ if (ids.size !== rows.length || ids.has("")) throw new Error("KBO player IDs mus
 const versions = new Set(rows.map((row) => row.formula_version));
 if (versions.size !== 1 || versions.has("")) throw new Error("Expected one non-empty formula version");
 for (const row of rows) {
-  for (const column of ratingColumns) {
+  for (const column of [...ratingColumns, ...futureColumns]) {
     const rating = Number(row[column]);
     if (!Number.isInteger(rating) || rating < 1 || rating > 20) {
       throw new Error(`Rating out of range: ${row.kbo_player_id} ${column}=${row[column]}`);
-    }
-  }
-  for (const column of futureColumns) {
-    if ((row[column] ?? "").trim() !== "") {
-      throw new Error(`Future ability must be blank: ${row.kbo_player_id} ${column}`);
     }
   }
 }
@@ -122,10 +129,11 @@ try {
     throw new Error(`Ability IDs do not match hitter roster (missing=${missing.length}, unknown=${unknown.length})`);
   }
 
-  const ratingAssignments = ratingColumns.map((column) => `${column} = ?`).join(", ");
-  const futureAssignments = futureColumns.map((column) => `${column} = NULL`).join(", ");
+  const abilityColumns = [...ratingColumns, ...futureColumns];
+  const assignments = [...abilityColumns, ...metadataColumns].map((column) => `${column} = ?`).join(", ");
   const update = database.prepare(`
-    UPDATE players SET ${ratingAssignments}, ${futureAssignments},
+    UPDATE players SET ${assignments},
+      salary = COALESCE(?, salary),
       ability_source_level = ?, ability_formula_version = ?
     WHERE kbo_player_id = ? AND position_group <> 'P'
   `);
@@ -139,7 +147,18 @@ try {
   let updated = 0;
   try {
     for (const row of rows) {
-      const values = ratingColumns.map((column) => Number(row[column]));
+      const values = abilityColumns.map((column) => Number(row[column]));
+      values.push(
+        row.advanced_public_player_id || null,
+        row.advanced_wrc_plus === "" ? null : Number(row.advanced_wrc_plus),
+        row.advanced_sfr === "" ? null : Number(row.advanced_sfr),
+        row.advanced_war === "" ? null : Number(row.advanced_war),
+        row.advanced_source_url || null,
+        row.rating_confidence || null,
+        row.rating_detail_json || null,
+      );
+      const verifiedSalary = (row.salary_10k_krw ?? "").trim();
+      values.push(verifiedSalary === "" ? null : Number(verifiedSalary));
       values.push(row.source_level ?? "", formulaVersion, row.kbo_player_id);
       updated += Number(update.run(...values).changes);
     }
@@ -152,8 +171,13 @@ try {
   }
 
   const imported = database.prepare("SELECT COUNT(*) AS count FROM players WHERE position_group <> 'P' AND ability_formula_version = ?").get(formulaVersion).count;
-  const pitcherValues = database.prepare(`SELECT COUNT(*) AS count FROM players WHERE position_group = 'P' AND (${ratingColumns.map((column) => `${column} IS NOT NULL`).join(" OR ")})`).get().count;
-  const populatedFutureValues = database.prepare(`SELECT COUNT(*) AS count FROM players WHERE ${futureColumns.map((column) => `${column} IS NOT NULL`).join(" OR ")}`).get().count;
+  const pitcherValues = database.prepare(`SELECT COUNT(*) AS count FROM players WHERE position_group = 'P' AND (${abilityColumns.map((column) => `${column} IS NOT NULL`).join(" OR ")})`).get().count;
+  const populatedFutureValues = database.prepare(`SELECT COUNT(*) AS count FROM players WHERE position_group <> 'P' AND ${futureColumns.map((column) => `${column} IS NOT NULL`).join(" AND ")}`).get().count;
+  const salaryLookup = database.prepare("SELECT salary FROM players WHERE kbo_player_id = ? AND position_group <> 'P'");
+  const verifiedSalaryRows = rows.filter((row) => (row.salary_10k_krw ?? "").trim() !== "");
+  const salaryMismatches = verifiedSalaryRows.filter((row) =>
+    Number(salaryLookup.get(row.kbo_player_id)?.salary) !== Number(row.salary_10k_krw)
+  );
   const defenseViewColumns = database.prepare("PRAGMA table_info(player_defense_abilities)").all().map((row) => row.name);
   const mentalViewColumns = database.prepare("PRAGMA table_info(player_mental_abilities)").all().map((row) => row.name);
   database.prepare("ATTACH DATABASE ? AS before_db").run(backupPath);
@@ -164,9 +188,22 @@ try {
     WHERE current.con <> previous.con OR current.pow <> previous.pow
        OR current.eye <> previous.eye OR current.def <> previous.def
   `).get().count;
+  const changedNewAbilityValues = database.prepare(`
+    SELECT COUNT(*) AS count
+    FROM players current
+    JOIN before_db.players previous ON previous.kbo_player_id = current.kbo_player_id
+    WHERE current.position_group <> 'P'
+      AND (${futureColumns.map((column) => `current.${column} IS NOT previous.${column}`).join(" OR ")})
+  `).get().count;
+  const changedSalaryValues = database.prepare(`
+    SELECT COUNT(*) AS count
+    FROM players current
+    JOIN before_db.players previous ON previous.kbo_player_id = current.kbo_player_id
+    WHERE current.position_group <> 'P' AND current.salary IS NOT previous.salary
+  `).get().count;
   database.exec("DETACH DATABASE before_db");
-  if (Number(imported) !== 317 || Number(pitcherValues) !== 0 || Number(populatedFutureValues) !== 0 || Number(changedLegacyValues) !== 0) {
-    throw new Error(`Verification failed: hitters=${imported}, pitcher_values=${pitcherValues}, future_values=${populatedFutureValues}, changed_legacy=${changedLegacyValues}`);
+  if (Number(imported) !== 317 || Number(pitcherValues) !== 0 || Number(populatedFutureValues) !== 317 || Number(changedLegacyValues) !== 0 || salaryMismatches.length !== 0) {
+    throw new Error(`Verification failed: hitters=${imported}, pitcher_values=${pitcherValues}, future_values=${populatedFutureValues}, changed_legacy=${changedLegacyValues}, salary_mismatches=${salaryMismatches.length}`);
   }
   if (!futureColumns.slice(0, 5).every((column) => defenseViewColumns.includes(column)) ||
       !futureColumns.slice(5).every((column) => mentalViewColumns.includes(column))) {
@@ -180,7 +217,7 @@ try {
            composure, leadership, aggressiveness
     FROM players WHERE kbo_player_id = ?
   `).get(sampleRow.kbo_player_id);
-  console.log(`COMPLETE hitters=${imported} pitchers_with_new_values=${pitcherValues} future_values=${populatedFutureValues} changed_legacy=${changedLegacyValues} formula=${formulaVersion}`);
+  console.log(`COMPLETE hitters=${imported} pitchers_with_new_values=${pitcherValues} future_values=${populatedFutureValues} verified_salaries=${verifiedSalaryRows.length} changed_new_abilities=${changedNewAbilityValues} changed_salaries=${changedSalaryValues} changed_legacy=${changedLegacyValues} formula=${formulaVersion}`);
   console.log(`SAMPLE ${JSON.stringify(sample)}`);
   console.log(`BACKUP ${backupPath}`);
 } finally {

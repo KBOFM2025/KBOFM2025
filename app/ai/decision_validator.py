@@ -1,8 +1,34 @@
 """생성 모델의 출력을 게임에 반영하기 전에 검증하고 정규화한다."""
 
+import re
+
 
 class InvalidDecision(ValueError):
     pass
+
+
+def level_constraints_from_feedback(feedback):
+    """AI 자유문장에서 재협상에 사용할 단계 범위를 추출한다."""
+    text = str(feedback or "")
+    constraints = {}
+    minimum = re.search(r"최소\s*([1-5])\s*단계|([1-5])\s*단계\s*이상", text)
+    maximum = re.search(r"최대\s*([1-5])\s*단계|([1-5])\s*단계\s*이하", text)
+    if minimum:
+        constraints["required_min_level"] = int(
+            minimum.group(1) or minimum.group(2)
+        )
+    if maximum:
+        constraints["required_max_level"] = int(
+            maximum.group(1) or maximum.group(2)
+        )
+    if not constraints:
+        target = re.search(
+            r"([1-5])\s*단계(?:로|까지)\s*(?:조정|상향|하향|변경|복귀)",
+            text,
+        )
+        if target:
+            constraints["required_level"] = int(target.group(1))
+    return constraints
 
 
 def validate_board_review(payload, objective_keys):
@@ -18,6 +44,10 @@ def validate_board_review(payload, objective_keys):
         status = str(item.get("status", "")).strip()
         feedback = str(item.get("feedback", "")).strip()[:120]
         if key in expected and status in {"ok", "adjust"} and feedback:
+            constraints = (
+                level_constraints_from_feedback(feedback)
+                if status == "adjust" else {}
+            )
             reason, separator, adjustment = feedback.partition(";")
             reason = reason.strip().rstrip(". ")
             if status == "adjust":
@@ -32,7 +62,12 @@ def validate_board_review(payload, objective_keys):
                     "단장 및 이사회는 이 협의안을 수용합니다. "
                     f"이유는 {reason}이기 때문입니다."
                 )
-            by_key[key] = {"objective_key": key, "status": status, "feedback": feedback}
+            by_key[key] = {
+                "objective_key": key,
+                "status": status,
+                "feedback": feedback,
+                **constraints,
+            }
     if set(by_key) != set(expected):
         raise InvalidDecision("AI가 5개 협의 항목 모두에 답하지 않았습니다.")
     return {"reviews": [by_key[key] for key in expected], "source": "local_ai"}

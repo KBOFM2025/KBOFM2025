@@ -71,6 +71,7 @@ def build_board_submission_context(team_name, club_name, manager_data, profile, 
                 "selected_level": card.selected_level,
                 "gm_proposed_level": card.gm_proposed_level,
                 "changed_by_manager": card.selected_level != card.gm_proposed_level,
+                "previous_review": dict(card.response or {}),
             }
             for card in cards
         ],

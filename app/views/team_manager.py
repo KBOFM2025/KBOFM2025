@@ -5,9 +5,11 @@ from PySide6.QtGui import QFont
 
 from app.config import TEAM_COLORS, TEAM_EMOJIS
 from app.transitions import FadeStackTransition, fade_widget_in
-from app.views.team_manage import FirstTeamTab, SecondTeamTab, SetLineupTab
+from app.views.team_manage import FirstTeamTab, SecondTeamTab
 from app.views.team_manage.player_profile import PlayerProfilePage
 from database import PLAYERS_DB_PATH
+
+
 class MyTeamManager(QWidget):
     def __init__(self, team_name="NC 다이노스", parent_window=None, display_name=None, db_path=None):  # 💡 parent_window(main.py) 인자 추가
         super().__init__()
@@ -16,6 +18,11 @@ class MyTeamManager(QWidget):
         self.parent_window = parent_window  # 뒤로가기(페이지 전환)를 제어하기 위한 부모 객체 저장
         self.colors = TEAM_COLORS.get(team_name, TEAM_COLORS["NC 다이노스"])
         self.db_path = db_path or PLAYERS_DB_PATH
+        self.reserve_team_label = (
+            "C팀(퓨처스)"
+            if self.team_key == "NC 다이노스"
+            else "퓨처스팀(2군)"
+        )
         
         self.players = []
         self.load_players_from_db()
@@ -24,7 +31,7 @@ class MyTeamManager(QWidget):
         c = self.colors
         self.setStyleSheet(f"""
             QWidget {{ background-color: {c['bg_dark']}; }}
-            QLabel {{ color: {c['text']}; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
+            QLabel {{ color: {c['text']}; font-family: 'Malgun Gothic', 'Segoe UI'; }}
             QTabWidget::pane {{
                 border: 1px solid {c['card_bg']};
                 background-color: {c['bg_dark']};
@@ -33,15 +40,15 @@ class MyTeamManager(QWidget):
             QTabBar::tab {{
                 background-color: {c['card_bg']};
                 color: #9ca3af;
-                padding: 14px 26px;
-                font-size: 15px;
+                padding: 8px 18px;
+                font-size: 12px;
                 font-weight: 600;
                 border: 1px solid {c['card_bg']};
                 border-bottom: none;
                 border-top-left-radius: 6px;
                 border-top-right-radius: 6px;
                 margin-right: 4px;
-                font-family: 'Noto Sans KR', 'Malgun Gothic';
+                font-family: 'Malgun Gothic', 'Segoe UI';
             }}
             QTabBar::tab:selected {{
                 background-color: {c['tab_selected']};
@@ -58,10 +65,10 @@ class MyTeamManager(QWidget):
                 background-color: {c['card_bg']};
                 color: {c['text']};
                 border: 1px solid {c['accent']};
-                border-radius: 6px;
-                padding: 10px 18px;
-                font-family: 'Noto Sans KR', 'Malgun Gothic';
-                font-size: 15px;
+                border-radius: 3px;
+                padding: 7px 13px;
+                font-family: 'Malgun Gothic', 'Segoe UI';
+                font-size: 11px;
                 font-weight: 600;
             }}
             QPushButton#btn_back:hover {{
@@ -78,8 +85,8 @@ class MyTeamManager(QWidget):
 
         self.roster_page = QWidget()
         main_layout = QVBoxLayout(self.roster_page)
-        main_layout.setContentsMargins(30, 26, 30, 30)
-        main_layout.setSpacing(18)
+        main_layout.setContentsMargins(12, 9, 12, 12)
+        main_layout.setSpacing(7)
 
         # ----------------------------------------------------
         # 💡 상단 헤더 영역 (타이틀 + 우측 뒤로가기 버튼 가로 배치)
@@ -88,7 +95,7 @@ class MyTeamManager(QWidget):
         
         # 선택한 구단에 맞는 타이틀
         title = QLabel(f"🏟️ {self.selected_team} 구단 관리실")
-        title.setFont(QFont("Noto Sans KR", 23, QFont.Bold))
+        title.setFont(QFont("Malgun Gothic", 17, QFont.Bold))
         title.setStyleSheet(f"color: {c['accent_light']};")
         header_layout.addWidget(title)
         
@@ -102,21 +109,28 @@ class MyTeamManager(QWidget):
         header_layout.addWidget(self.btn_back)
         
         main_layout.addLayout(header_layout)
-        # ----------------------------------------------------
+
+        self.roster_summary = QLabel()
+        self.roster_summary.setStyleSheet(
+            "color: #9fb0bf; background: rgba(17, 25, 34, 180); "
+            "border: 1px solid #31404d; border-radius: 2px; "
+            "padding: 6px 10px; font-size: 10px; font-weight: 650;"
+        )
+        main_layout.addWidget(self.roster_summary)
 
         self.tabs = QTabWidget()
         
         self.tab1 = FirstTeamTab(self)
         self.tab2 = SecondTeamTab(self)
-        self.tab3 = SetLineupTab(self)
         
         # 구단 성격에 어울리는 대표 아이콘 분기 설정
         emoji_main = TEAM_EMOJIS.get(self.team_key, "⚾")
         emoji_sub = "🌱"
         
         self.tabs.addTab(self.tab1, f"{emoji_main} 1군 엔트리")
-        self.tabs.addTab(self.tab2, f"{emoji_sub} C팀(2군) 육성")
-        self.tabs.addTab(self.tab3, "📋 라인업 & 타순")
+        self.tabs.addTab(
+            self.tab2, f"{emoji_sub} {self.reserve_team_label} 육성"
+        )
         self.tabs.currentChanged.connect(self.on_tab_changed)
         
         main_layout.addWidget(self.tabs)
@@ -203,12 +217,83 @@ class MyTeamManager(QWidget):
             )
         self.load_players_from_db()
 
+    def apply_tactic_to_db(self, batting, pitching):
+        """선택한 전술을 현재 1군 타순과 투수 보직에 적용한다."""
+        with sqlite3.connect(self.db_path) as connection:
+            connection.execute(
+                "UPDATE players SET lineup_pos=0 WHERE team=? AND status=1",
+                (self.team_key,),
+            )
+            connection.execute(
+                """
+                UPDATE players SET role=''
+                WHERE team=? AND status=1
+                  AND (pos='P' OR position_group='P')
+                """,
+                (self.team_key,),
+            )
+            for item in batting:
+                connection.execute(
+                    """
+                    UPDATE players SET lineup_pos=?
+                    WHERE id=? AND team=? AND status=1
+                    """,
+                    (item["order"], item["player_id"], self.team_key),
+                )
+            for item in pitching:
+                connection.execute(
+                    """
+                    UPDATE players SET role=?
+                    WHERE id=? AND team=? AND status=1
+                    """,
+                    (item["role"], item["player_id"], self.team_key),
+                )
+        if self.parent_window and self.parent_window.save_id is not None:
+            current_date = self.parent_window.current_date
+            date_text = (
+                current_date.isoformat()
+                if hasattr(current_date, "isoformat")
+                else str(current_date)
+            )
+            self.parent_window.save_database.save_user_tactic(
+                self.parent_window.save_id,
+                date_text,
+                self.team_key,
+                batting,
+                pitching,
+            )
+        self.load_players_from_db()
+
     def on_tab_changed(self, index):
         self.refresh_all()
         fade_widget_in(self.tabs.currentWidget())
 
     def refresh_all(self):
-        self.load_players_from_db() 
+        self.load_players_from_db()
+        first_team = [p for p in self.players if int(p.get("status") or 0) == 1]
+        reserve_team = [p for p in self.players if int(p.get("status") or 0) == 0]
+        first_pitchers = sum(
+            p.get("position_group") == "P" or p.get("pos") == "P"
+            for p in first_team
+        )
+        injured = sum(
+            int(p.get("sim_injury_days") or 0) > 0 for p in self.players
+        )
+        self.tabs.setTabText(
+            0,
+            f"{TEAM_EMOJIS.get(self.team_key, '⚾')} "
+            f"1군 엔트리  {len(first_team)}",
+        )
+        self.tabs.setTabText(
+            1,
+            f"🌱 {self.reserve_team_label}  {len(reserve_team)}",
+        )
+        self.roster_summary.setText(
+            "초기 편성 2025.10.31 최종 등록 명단  ·  현재 "
+            f"1군 {len(first_team)}명 "
+            f"(투수 {first_pitchers} · 야수 {len(first_team) - first_pitchers})  ·  "
+            f"{self.reserve_team_label} {len(reserve_team)}명  ·  "
+            f"부상 관리 {injured}명"
+        )
         self.tab1.refresh()
         self.tab2.refresh()
-        self.tab3.refresh()

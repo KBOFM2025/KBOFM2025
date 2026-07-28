@@ -84,7 +84,8 @@ python main.py
 하루 진행에 필요한 선수 상태·훈련·부상·1군/2군 편성은 빠른 시뮬레이션 엔진이 처리하고,
 응답 생성 시간이 필요한 구단 AI 판단은 백그라운드에서 실행됩니다.
 
-- 권장 모델: `Qwen3-1.7B-Q4_K_M.gguf`
+- 기본 권장 모델: `Qwen3-4B-Q4_K_M.gguf`
+- 저사양 폴백: `Qwen3-1.7B-Q4_K_M.gguf`
 - 로컬 서버: `llama.cpp`의 OpenAI 호환 서버
 - 기본 주소: `http://127.0.0.1:8080/v1`
 - 응답 검증: 잘못된 JSON과 허용되지 않은 결정 차단
@@ -96,8 +97,9 @@ python main.py
 ## AI 모델 다운로드
 
 GGUF 모델 가중치는 용량과 배포 정책 때문에 GitHub 저장소에 포함하지 않습니다. 저장소를 받은 뒤
-[ggml-org의 Qwen3-1.7B GGUF 페이지](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF)에서
-`Qwen3-1.7B-Q4_K_M.gguf`를 내려받아 `models` 폴더에 넣어야 합니다.
+[ggml-org의 Qwen3-4B GGUF 페이지](https://huggingface.co/ggml-org/Qwen3-4B-GGUF)에서
+`Qwen3-4B-Q4_K_M.gguf`를 내려받아 `models` 폴더에 넣는 것을 권장합니다.
+4B 파일이 없으면 실행 스크립트는 1.7B 파일을 자동으로 사용합니다.
 
 ### 방법 1: Hugging Face CLI 사용 권장
 
@@ -106,7 +108,7 @@ GGUF 모델 가중치는 용량과 배포 정책 때문에 GitHub 저장소에 �
 ```powershell
 python -m pip install --upgrade huggingface_hub
 New-Item -ItemType Directory -Force models | Out-Null
-hf download ggml-org/Qwen3-1.7B-GGUF Qwen3-1.7B-Q4_K_M.gguf --local-dir models
+hf download ggml-org/Qwen3-4B-GGUF Qwen3-4B-Q4_K_M.gguf --local-dir models
 ```
 
 ### 방법 2: PowerShell로 직접 다운로드
@@ -114,22 +116,23 @@ hf download ggml-org/Qwen3-1.7B-GGUF Qwen3-1.7B-Q4_K_M.gguf --local-dir models
 ```powershell
 New-Item -ItemType Directory -Force models | Out-Null
 Invoke-WebRequest `
-  -Uri "https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf?download=true" `
-  -OutFile "models/Qwen3-1.7B-Q4_K_M.gguf"
+  -Uri "https://huggingface.co/ggml-org/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf?download=true" `
+  -OutFile "models/Qwen3-4B-Q4_K_M.gguf"
 ```
 
 다운로드 결과를 확인합니다.
 
 ```powershell
-Get-Item models/Qwen3-1.7B-Q4_K_M.gguf | Select-Object Name, Length
+Get-Item models/Qwen3-4B-Q4_K_M.gguf | Select-Object Name, Length
 ```
 
-파일 크기는 약 1.28GB입니다. 다음 경로와 파일명이 정확해야 제공 스크립트가 인식합니다.
+Q4_K_M 파일 크기는 약 2.5GB입니다. 권장 배치는 다음과 같습니다.
 
 ```text
 KBOFM2025/
 └─ models/
-   └─ Qwen3-1.7B-Q4_K_M.gguf
+   ├─ Qwen3-4B-Q4_K_M.gguf
+   └─ Qwen3-1.7B-Q4_K_M.gguf  # 선택 폴백
 ```
 
 ## llama.cpp 설치 및 AI 실행

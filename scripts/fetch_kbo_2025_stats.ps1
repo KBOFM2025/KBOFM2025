@@ -3,6 +3,7 @@ param(
     [string]$HitterOutputPath = "data/source/kbo_2025_first_team_hitting.csv",
     [string]$PitcherOutputPath = "data/source/kbo_2025_first_team_pitching.csv",
     [string]$FuturesHitterOutputPath = "data/source/kbo_2025_futures_hitting.csv",
+    [string]$FuturesPitcherOutputPath = "data/source/kbo_2025_futures_pitching.csv",
     [int]$BatchSize = 8
 )
 
@@ -50,7 +51,7 @@ function Read-SeasonRows {
 function Convert-InningsToOuts {
     param([string]$Innings)
     if ([string]::IsNullOrWhiteSpace($Innings) -or $Innings -eq "-") { return 0 }
-    $normalized = $Innings.Trim().Replace("⅓", " 1/3").Replace("⅔", " 2/3")
+    $normalized = $Innings.Trim().Replace([string][char]0x2153, " 1/3").Replace([string][char]0x2154, " 2/3")
     $match = [regex]::Match($normalized, '^(\d+)(?:\s+([12])/3)?$')
     if (-not $match.Success) {
         $fractionOnly = [regex]::Match($normalized, '^([12])/3$')
@@ -173,6 +174,7 @@ try {
     $firstTeamHitting = @(Fetch-StatSet $client $hitters "/Record/Player/HitterDetail/Total.aspx?playerId={id}" $hitterColumns "hitter")
     $firstTeamPitching = @(Fetch-StatSet $client $pitchers "/Record/Player/PitcherDetail/Total.aspx?playerId={id}" $pitcherColumns "pitcher")
     $futuresHitting = @(Fetch-StatSet $client $hitters "/Futures/Player/HitterTotal.aspx?playerId={id}" $hitterColumns "hitter")
+    $futuresPitching = @(Fetch-StatSet $client $pitchers "/Futures/Player/PitcherTotal.aspx?playerId={id}" $pitcherColumns "pitcher")
 }
 finally {
     $client.Dispose()
@@ -182,5 +184,6 @@ finally {
 $firstTeamHitting | Export-Csv $HitterOutputPath -NoTypeInformation -Encoding UTF8
 $firstTeamPitching | Export-Csv $PitcherOutputPath -NoTypeInformation -Encoding UTF8
 $futuresHitting | Export-Csv $FuturesHitterOutputPath -NoTypeInformation -Encoding UTF8
+$futuresPitching | Export-Csv $FuturesPitcherOutputPath -NoTypeInformation -Encoding UTF8
 
-Write-Output "COMPLETE hitters=$($hitters.Count)/$($firstTeamHitting.Count) pitchers=$($pitchers.Count)/$($firstTeamPitching.Count) futures_hitters=$($hitters.Count)/$($futuresHitting.Count)"
+Write-Output "COMPLETE hitters=$($hitters.Count)/$($firstTeamHitting.Count) pitchers=$($pitchers.Count)/$($firstTeamPitching.Count) futures_hitters=$($hitters.Count)/$($futuresHitting.Count) futures_pitchers=$($pitchers.Count)/$($futuresPitching.Count)"

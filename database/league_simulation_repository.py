@@ -118,6 +118,21 @@ SIMULATION_SCHEMA = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS team_tactic_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        save_id INTEGER NOT NULL,
+        team TEXT NOT NULL,
+        name TEXT NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 0,
+        batting_json TEXT NOT NULL DEFAULT '[]',
+        pitching_json TEXT NOT NULL DEFAULT '[]',
+        game_plan_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(save_id, team, name)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS team_training_plans (
         save_id INTEGER NOT NULL,
         plan_date TEXT NOT NULL,
@@ -154,6 +169,96 @@ SIMULATION_SCHEMA = (
         status TEXT NOT NULL DEFAULT 'ready_for_qwen',
         result_json TEXT NOT NULL DEFAULT '{}',
         UNIQUE(save_id, decision_date, team, decision_type)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS incoming_rookies (
+        save_id INTEGER NOT NULL,
+        draft_year INTEGER NOT NULL,
+        event_date TEXT NOT NULL,
+        overall_pick INTEGER NOT NULL,
+        round_no INTEGER NOT NULL,
+        team TEXT NOT NULL,
+        player_name TEXT NOT NULL,
+        position_group TEXT NOT NULL,
+        position_name TEXT NOT NULL,
+        school TEXT NOT NULL,
+        is_early_draft INTEGER NOT NULL DEFAULT 0,
+        arrival_date TEXT NOT NULL DEFAULT '2026-01-01',
+        status TEXT NOT NULL DEFAULT 'incoming',
+        source_url TEXT NOT NULL DEFAULT '',
+        PRIMARY KEY(save_id, draft_year, overall_pick)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS second_draft_settings (
+        save_id INTEGER PRIMARY KEY,
+        mode TEXT NOT NULL DEFAULT 'ai',
+        status TEXT NOT NULL DEFAULT 'not_prepared',
+        prepared_at TEXT,
+        completed_at TEXT,
+        source_note TEXT NOT NULL DEFAULT ''
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS second_draft_pool (
+        save_id INTEGER NOT NULL,
+        player_id INTEGER NOT NULL,
+        kbo_player_id TEXT NOT NULL DEFAULT '',
+        player_name TEXT NOT NULL,
+        original_team TEXT NOT NULL,
+        position_group TEXT NOT NULL DEFAULT '',
+        age INTEGER NOT NULL DEFAULT 0,
+        entry_year INTEGER,
+        service_year INTEGER,
+        roster_status INTEGER NOT NULL DEFAULT 0,
+        salary INTEGER NOT NULL DEFAULT 0,
+        overall REAL NOT NULL DEFAULT 0,
+        potential REAL NOT NULL DEFAULT 0,
+        protection_score REAL NOT NULL DEFAULT 0,
+        classification TEXT NOT NULL,
+        reason TEXT NOT NULL DEFAULT '',
+        component_json TEXT NOT NULL DEFAULT '{}',
+        PRIMARY KEY(save_id, player_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS second_draft_results (
+        save_id INTEGER NOT NULL,
+        mode TEXT NOT NULL,
+        round_no INTEGER NOT NULL,
+        pick_order INTEGER NOT NULL,
+        selecting_team TEXT NOT NULL,
+        original_team TEXT NOT NULL,
+        player_id INTEGER,
+        kbo_player_id TEXT NOT NULL DEFAULT '',
+        player_name TEXT NOT NULL,
+        position_group TEXT NOT NULL DEFAULT '',
+        fee INTEGER NOT NULL DEFAULT 0,
+        note TEXT NOT NULL DEFAULT '',
+        PRIMARY KEY(save_id, mode, pick_order)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS manager_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        save_id INTEGER NOT NULL,
+        event_date TEXT NOT NULL,
+        category TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        headline TEXT NOT NULL,
+        body TEXT NOT NULL,
+        priority TEXT NOT NULL DEFAULT 'normal',
+        requires_action INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'open',
+        choices_json TEXT NOT NULL DEFAULT '[]',
+        payload_json TEXT NOT NULL DEFAULT '{}',
+        resolution_key TEXT,
+        result_text TEXT NOT NULL DEFAULT '',
+        is_read INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        resolved_at TEXT,
+        UNIQUE(save_id, event_date, event_type, headline)
     )
     """,
 )

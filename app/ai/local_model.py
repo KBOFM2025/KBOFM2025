@@ -51,6 +51,10 @@ class LocalModelClient:
         request_type = context.get("request_type")
         is_batch_review = request_type == "board_vision_batch_review"
         is_team_batch = request_type == "team_daily_batch"
+        is_player_meeting = (
+            request_type == "manager_negotiation_turn"
+            and context.get("event_type") == "player_complaint"
+        )
         body = {
             "model": self.model,
             "messages": [
@@ -64,11 +68,20 @@ class LocalModelClient:
                     ),
                 },
             ],
-            "temperature": 0.35 if is_batch_review or is_team_batch else 0.7,
-            "top_p": 0.8,
+            "temperature": (
+                0.35 if is_batch_review or is_team_batch
+                else 0.55 if is_player_meeting
+                else 0.7
+            ),
+            "top_p": 0.85 if is_player_meeting else 0.8,
             "top_k": 20,
             "presence_penalty": 1.2,
-            "max_tokens": 480 if is_team_batch else 360 if is_batch_review else 220,
+            "max_tokens": (
+                480 if is_team_batch
+                else 360 if is_batch_review
+                else 180 if is_player_meeting
+                else 220
+            ),
             "stream": False,
             "response_format": {"type": "json_object"},
             "chat_template_kwargs": {"enable_thinking": False},

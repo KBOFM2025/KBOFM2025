@@ -1,14 +1,19 @@
 """전체 뉴스와 현재 날짜의 구단 브리핑 화면."""
 
+from datetime import timedelta
+
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QFrame,
     QButtonGroup,
     QHBoxLayout,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QPushButton,
     QScrollArea,
+    QSplitter,
     QVBoxLayout,
     QWidget,
 )
@@ -39,7 +44,7 @@ class NewsCard(QFrame):
 
         headline_label = QLabel(headline)
         headline_label.setWordWrap(True)
-        headline_label.setFont(QFont("Noto Sans KR", 19, QFont.Bold))
+        headline_label.setFont(QFont("Malgun Gothic", 19, QFont.Bold))
         layout.addWidget(headline_label)
 
         body_label = QLabel(body)
@@ -61,7 +66,7 @@ class NewsCard(QFrame):
                 border-radius: 9px;
             }}
             QFrame#MedicalNewsCard:hover {{ border-color: #ff6b78; }}
-            QLabel {{ color: {colors['text']}; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
+            QLabel {{ color: {colors['text']}; font-family: 'Malgun Gothic', 'Segoe UI'; }}
         """)
 
 
@@ -69,6 +74,7 @@ class NewsFeedPage(QWidget):
     """게임에 누적되는 전체 구단·리그 뉴스 피드."""
 
     notification_count_changed = Signal(int)
+    second_draft_requested = Signal(str)
 
     def __init__(
         self,
@@ -113,12 +119,12 @@ class NewsFeedPage(QWidget):
         ]
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(16)
+        layout.setContentsMargins(7, 6, 7, 7)
+        layout.setSpacing(6)
 
         header = QHBoxLayout()
-        title = QLabel("📰 KBO 뉴스 센터")
-        title.setFont(QFont("Noto Sans KR", 26, QFont.Bold))
+        title = QLabel("KBO 뉴스 센터")
+        title.setFont(QFont("Malgun Gothic", 18, QFont.Bold))
         header.addWidget(title)
         header.addStretch()
         self.article_count = QLabel()
@@ -130,7 +136,7 @@ class NewsFeedPage(QWidget):
         header.addWidget(self.read_all_button)
         layout.addLayout(header)
         subtitle = QLabel("구단 공식 발표와 리그 주요 소식을 시간순으로 확인합니다.")
-        subtitle.setStyleSheet("color: #a6b5c5; font-size: 14px;")
+        subtitle.setStyleSheet("color: #8f9ba7; font-size: 11px;")
         layout.addWidget(subtitle)
 
         filters = QHBoxLayout()
@@ -149,15 +155,67 @@ class NewsFeedPage(QWidget):
         self.filter_group.idClicked.connect(self.refresh_news)
         layout.addLayout(filters)
 
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
-        layout.addWidget(self.scroll, 1)
+        self.news_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.news_list = QListWidget()
+        self.news_list.setObjectName("NewsList")
+        self.news_list.setMinimumWidth(310)
+        self.news_list.setMaximumWidth(470)
+        self.news_list.currentRowChanged.connect(self._show_article)
+        self.news_splitter.addWidget(self.news_list)
+
+        detail = QFrame()
+        detail.setObjectName("NewsDetail")
+        detail_layout = QVBoxLayout(detail)
+        detail_layout.setContentsMargins(16, 13, 16, 16)
+        detail_layout.setSpacing(8)
+        detail_meta = QHBoxLayout()
+        self.detail_category = QLabel("뉴스")
+        self.detail_category.setObjectName("NewsDetailCategory")
+        detail_meta.addWidget(self.detail_category)
+        detail_meta.addStretch()
+        self.detail_date = QLabel()
+        self.detail_date.setObjectName("NewsDetailDate")
+        detail_meta.addWidget(self.detail_date)
+        detail_layout.addLayout(detail_meta)
+        self.detail_headline = QLabel("기사를 선택하세요")
+        self.detail_headline.setObjectName("NewsDetailHeadline")
+        self.detail_headline.setWordWrap(True)
+        detail_layout.addWidget(self.detail_headline)
+        self.detail_body = QLabel("왼쪽 목록에서 확인할 소식을 선택할 수 있습니다.")
+        self.detail_body.setObjectName("NewsDetailBody")
+        self.detail_body.setWordWrap(True)
+        self.detail_body.setAlignment(Qt.AlignmentFlag.AlignTop)
+        detail_layout.addWidget(self.detail_body, 1)
+        detail_actions = QHBoxLayout()
+        detail_actions.addStretch()
+        self.detail_action_button = QPushButton()
+        self.detail_action_button.setObjectName("NewsArticleAction")
+        self.detail_action_button.setVisible(False)
+        self.detail_action_button.clicked.connect(
+            self._activate_selected_article
+        )
+        detail_actions.addWidget(self.detail_action_button)
+        detail_layout.addLayout(detail_actions)
+        self.news_splitter.addWidget(detail)
+        self.news_splitter.setStretchFactor(0, 0)
+        self.news_splitter.setStretchFactor(1, 1)
+        self.news_splitter.setSizes([380, 900])
+        layout.addWidget(self.news_splitter, 1)
         self.setStyleSheet(f"""
-            QPushButton#NewsFilter {{ color: #aab7c5; background: #171e26; border: 1px solid #384654; border-radius: 6px; padding: 8px 18px; font-weight: 700; }}
-            QPushButton#NewsFilter:hover, QPushButton#NewsFilter:checked {{ color: white; background: {colors['accent']}; border-color: {colors['accent_light']}; }}
-            QPushButton#NewsReadAll {{ color: white; background: {colors['accent']}; border: none; border-radius: 6px; padding: 8px 15px; font-weight: 700; }}
+            QPushButton#NewsFilter {{ color: #aab7c5; background: #171e26; border: 1px solid #384654; border-radius: 0; padding: 4px 13px; font-weight: 700; }}
+            QPushButton#NewsFilter:hover, QPushButton#NewsFilter:checked {{ color: white; background: #252d36; border-bottom: 2px solid {colors['accent_light']}; }}
+            QPushButton#NewsReadAll {{ color: white; background: {colors['accent']}; border: 1px solid {colors['accent_light']}; border-radius: 0; padding: 4px 12px; font-weight: 700; }}
+            QPushButton#NewsArticleAction {{ color: white; background: {colors['accent']}; border: 1px solid {colors['accent_light']}; border-radius: 0; padding: 8px 18px; font-weight: 800; }}
+            QPushButton#NewsArticleAction:hover {{ background: {colors['accent_light']}; }}
+            QListWidget#NewsList {{ color: #dce4ec; background: #151a20; border: 1px solid #39434e; outline: none; font-size: 12px; }}
+            QListWidget#NewsList::item {{ min-height: 48px; padding: 7px 10px; border-bottom: 1px solid #303943; }}
+            QListWidget#NewsList::item:hover {{ background: #202831; }}
+            QListWidget#NewsList::item:selected {{ color: white; background: #252d36; border-left: 3px solid {colors['accent_light']}; }}
+            QFrame#NewsDetail {{ background: #151a20; border: 1px solid #39434e; }}
+            QLabel#NewsDetailCategory {{ color: {colors['accent_light']}; font-size: 11px; font-weight: 700; }}
+            QLabel#NewsDetailDate {{ color: #7f8b97; font-size: 11px; }}
+            QLabel#NewsDetailHeadline {{ color: white; border-top: 1px solid #39434e; padding-top: 11px; font-size: 20px; font-weight: 700; }}
+            QLabel#NewsDetailBody {{ color: #c2ccd5; font-size: 13px; padding-top: 6px; }}
         """)
         self.refresh_news()
 
@@ -199,23 +257,115 @@ class NewsFeedPage(QWidget):
         unread = self.save_database.unread_daily_news_count(self.save_id) if self.save_database and self.save_id is not None else 0
         self.read_all_button.setEnabled(unread > 0)
         self.notification_count_changed.emit(unread)
-        feed = QWidget()
-        feed.setStyleSheet("background: transparent;")
-        feed_layout = QVBoxLayout(feed)
-        feed_layout.setContentsMargins(0, 4, 6, 4)
-        feed_layout.setSpacing(12)
-        for item in articles:
-            feed_layout.addWidget(NewsCard(
-                item["category"], item["headline"], item["body"],
-                item["news_date"].replace("-", "."), self.colors,
-            ))
+        self.visible_articles = articles
+        self.news_list.blockSignals(True)
+        self.news_list.clear()
+        previous_date = None
+        first_article_row = None
+        for article_index, item in enumerate(articles):
+            date_key = item["news_date"]
+            if date_key != previous_date:
+                header = QListWidgetItem(
+                    self._news_date_group_title(date_key)
+                )
+                header.setFlags(Qt.ItemFlag.NoItemFlags)
+                header.setForeground(QColor("#8f9dac"))
+                header.setBackground(QColor("#0f1419"))
+                header_font = header.font()
+                header_font.setBold(True)
+                header_font.setPointSize(10)
+                header.setFont(header_font)
+                header.setData(Qt.ItemDataRole.UserRole, None)
+                self.news_list.addItem(header)
+                previous_date = date_key
+            row_item = QListWidgetItem(
+                f"{item['category']}\n{item['headline']}"
+            )
+            row_item.setData(
+                Qt.ItemDataRole.UserRole, article_index
+            )
+            self.news_list.addItem(row_item)
+            if first_article_row is None:
+                first_article_row = self.news_list.count() - 1
+        self.news_list.blockSignals(False)
         if not articles:
-            empty = QLabel("해당 조건의 뉴스가 없습니다.")
-            empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            empty.setStyleSheet("color: #718096; padding: 60px;")
-            feed_layout.addWidget(empty)
-        feed_layout.addStretch()
-        self.scroll.setWidget(feed)
+            self.detail_category.setText("뉴스")
+            self.detail_date.clear()
+            self.detail_headline.setText("해당 조건의 뉴스가 없습니다")
+            self.detail_body.setText("다른 분류를 선택해 확인하세요.")
+            self.detail_action_button.setVisible(False)
+        else:
+            self.news_list.setCurrentRow(first_article_row)
+            self._show_article(first_article_row)
+
+    def _show_article(self, row):
+        article_index = self._article_index_for_row(row)
+        if article_index is None:
+            return
+        item = self.visible_articles[article_index]
+        self.detail_category.setText(item["category"])
+        self.detail_date.setText(item["news_date"].replace("-", "."))
+        self.detail_headline.setText(item["headline"])
+        self.detail_body.setText(item["body"])
+        draft_view = self._second_draft_view(item)
+        self.detail_action_button.setVisible(draft_view is not None)
+        if draft_view == "results":
+            self.detail_action_button.setText("2차 드래프트 결과 확인  ›")
+        elif draft_view:
+            self.detail_action_button.setText("지명 가능 명단 확인  ›")
+
+    def _activate_selected_article(self):
+        row = self.news_list.currentRow()
+        article_index = self._article_index_for_row(row)
+        if article_index is None:
+            return
+        item = self.visible_articles[article_index]
+        draft_view = self._second_draft_view(item)
+        if draft_view is None:
+            return
+        if (
+            item.get("id") is not None
+            and not item.get("is_read")
+            and self.save_database
+            and self.save_id is not None
+        ):
+            self.save_database.mark_daily_news_read(
+                self.save_id, item["id"]
+            )
+            item["is_read"] = 1
+            self.notification_count_changed.emit(
+                self.save_database.unread_daily_news_count(self.save_id)
+            )
+        self.second_draft_requested.emit(draft_view)
+
+    def _article_index_for_row(self, row):
+        if row < 0:
+            return None
+        item = self.news_list.item(row)
+        if item is None:
+            return None
+        value = item.data(Qt.ItemDataRole.UserRole)
+        return int(value) if value is not None else None
+
+    def _news_date_group_title(self, date_key):
+        formatted = str(date_key).replace("-", ".")
+        if self.current_date and self.current_date.isoformat() == date_key:
+            return f"오늘  ·  {formatted}"
+        if (
+            self.current_date
+            and (self.current_date - timedelta(days=1)).isoformat() == date_key
+        ):
+            return f"어제  ·  {formatted}"
+        return formatted
+
+    @staticmethod
+    def _second_draft_view(item):
+        headline = str(item.get("headline") or "")
+        if headline.startswith("2차 드래프트 보호선수 및 지명 대상 명단 확정"):
+            return "available"
+        if headline.startswith("2025 KBO 2차 드래프트 종료"):
+            return "results"
+        return None
 
     def mark_all_read(self):
         if self.save_database and self.save_id is not None:
@@ -255,7 +405,7 @@ class DailyNewsCard(QFrame):
 
         headline = QLabel(news["headline"])
         headline.setWordWrap(True)
-        headline.setFont(QFont("Noto Sans KR", 18, QFont.Bold))
+        headline.setFont(QFont("Malgun Gothic", 18, QFont.Bold))
         layout.addWidget(headline)
 
         body = QLabel(news["body"])
@@ -288,7 +438,7 @@ class DailyNewsCard(QFrame):
                 border: 1px solid #263b52;
                 border-radius: 9px;
             }}
-            QLabel {{ color: {colors['text']}; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
+            QLabel {{ color: {colors['text']}; font-family: 'Malgun Gothic', 'Segoe UI'; }}
             QPushButton#ConfirmNewsButton {{
                 color: white;
                 background-color: {colors['accent']};
@@ -345,7 +495,7 @@ class DailyNewsPage(QWidget):
 
         header = QHBoxLayout()
         title = QLabel("📅 일자별 소식")
-        title.setFont(QFont("Noto Sans KR", 26, QFont.Bold))
+        title.setFont(QFont("Malgun Gothic", 26, QFont.Bold))
         header.addWidget(title)
         header.addStretch()
         self.read_all_button = QPushButton("모두 확인")

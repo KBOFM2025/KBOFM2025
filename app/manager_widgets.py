@@ -116,14 +116,14 @@ class ManagerStyleCard(QToolButton):
 
         text_rect = card_rect.adjusted(18, card_rect.height() - 92, -18, -16)
         painter.setPen(QColor("#ffffff"))
-        painter.setFont(QFont("Noto Sans KR", 19, QFont.Bold))
+        painter.setFont(QFont("Malgun Gothic", 19, QFont.Bold))
         painter.drawText(
             text_rect.adjusted(0, 0, 0, -30),
             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom,
             self.manager_name,
         )
         painter.setPen(QColor("#bcd1e5"))
-        painter.setFont(QFont("Noto Sans KR", 12, QFont.DemiBold))
+        painter.setFont(QFont("Malgun Gothic", 12, QFont.DemiBold))
         painter.drawText(
             text_rect.adjusted(0, 44, 0, 0),
             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
@@ -144,7 +144,7 @@ class AbilitySliderControl(QWidget):
 
         header = QHBoxLayout()
         title_label = QLabel(title)
-        title_label.setFont(QFont("Noto Sans KR", 14, QFont.Bold))
+        title_label.setFont(QFont("Malgun Gothic", 14, QFont.Bold))
         header.addWidget(title_label)
         header.addStretch()
         self.value_label = QLabel("0")
@@ -205,7 +205,7 @@ class ManagerRadarChart(QWidget):
         painter.drawRoundedRect(panel, 14, 14)
 
         painter.setPen(QColor("#dbe7f3"))
-        painter.setFont(QFont("Noto Sans KR", 15, QFont.Bold))
+        painter.setFont(QFont("Malgun Gothic", 15, QFont.Bold))
         painter.drawText(
             QRectF(panel.left(), panel.top() + 15, panel.width(), 28),
             Qt.AlignmentFlag.AlignCenter,
@@ -248,7 +248,7 @@ class ManagerRadarChart(QWidget):
         painter.setBrush(QColor(25, 118, 210, 105))
         painter.drawPolygon(value_polygon)
 
-        painter.setFont(QFont("Noto Sans KR", 11, QFont.DemiBold))
+        painter.setFont(QFont("Malgun Gothic", 11, QFont.DemiBold))
         for index, label in enumerate(labels):
             label_point = point_at(index, 1.25)
             label_rect = QRectF(label_point.x() - 55, label_point.y() - 12, 110, 24)

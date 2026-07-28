@@ -110,7 +110,7 @@ class ManagerWelcomePage(QWidget):
         headline = QLabel(f"{club_name}, {manager_name} 신임 감독 선임")
         headline.setObjectName("Headline")
         headline.setWordWrap(True)
-        headline.setFont(QFont("Noto Sans KR", 34, QFont.Bold))
+        headline.setFont(QFont("Malgun Gothic", 34, QFont.Bold))
         outer.addWidget(headline)
 
         welcome = QLabel(f"반갑습니다, {manager_name} 감독님.")
@@ -220,7 +220,7 @@ class ManagerWelcomePage(QWidget):
     def _style(colors):
         return f"""
             QWidget#WelcomeNewsPage {{ background-color: #07111f; }}
-            QLabel {{ color: #dbe7f3; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
+            QLabel {{ color: #dbe7f3; font-family: 'Malgun Gothic', 'Segoe UI'; }}
             QLabel#Publication {{ color: {colors['accent_light']}; font-size: 15px; font-weight: 700; }}
             QLabel#PublishedAt {{ color: #8495a8; font-size: 14px; }}
             QFrame#NewsRule {{ background-color: {colors['accent']}; border: none; }}
@@ -237,6 +237,6 @@ class ManagerWelcomePage(QWidget):
             QLabel#BriefingTitle {{ color: {colors['accent_light']}; font-size: 14px; font-weight: 700; }}
             QLabel#Fact {{ color: #f8fafc; background-color: rgba(7, 17, 31, 150); border-radius: 7px; padding: 12px; font-size: 14px; }}
             QLabel#Hint {{ color: #8495a8; font-size: 14px; }}
-            QPushButton#ContinueButton {{ color: white; background-color: {colors['accent']}; border: 1px solid {colors['accent_light']}; border-radius: 8px; padding: 15px 28px; font-family: 'Noto Sans KR', 'Malgun Gothic'; font-size: 16px; font-weight: 700; }}
+            QPushButton#ContinueButton {{ color: white; background-color: {colors['accent']}; border: 1px solid {colors['accent_light']}; border-radius: 8px; padding: 15px 28px; font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 16px; font-weight: 700; }}
             QPushButton#ContinueButton:hover {{ background-color: {colors['accent_light']}; }}
         """

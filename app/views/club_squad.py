@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.config import TEAM_EMOJIS
-from app.views.team_manage.player_profile import _display_rating
+from app.player_ratings import core_rating_values
 from database import PLAYERS_DB_PATH
 
 
@@ -41,13 +41,14 @@ class ClubSquadPage(QWidget):
         self.save_database = save_database
         self.save_id = save_id
         self.players = self._load_players()
+        self.incoming_rookies = self._load_incoming_rookies()
         self.simulation_states = self._load_simulation_states()
         self.visible_players = []
         self.status_buttons = {}
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(22, 18, 22, 22)
-        layout.setSpacing(12)
+        layout.setContentsMargins(7, 6, 7, 7)
+        layout.setSpacing(5)
         header = QFrame()
         header.setObjectName("SquadHeader")
         header_layout = QHBoxLayout(header)
@@ -56,12 +57,12 @@ class ClubSquadPage(QWidget):
         back.clicked.connect(self.back_requested.emit)
         header_layout.addWidget(back)
         emblem = QLabel(TEAM_EMOJIS.get(team_name, "⚾"))
-        emblem.setFont(QFont("Segoe UI Emoji", 30))
+        emblem.setFont(QFont("Segoe UI Emoji", 22))
         header_layout.addWidget(emblem)
         heading = QVBoxLayout()
         title = QLabel(f"{team_name} 선수단")
         title.setObjectName("SquadTitle")
-        title.setFont(QFont("Noto Sans KR", 25, QFont.Bold))
+        title.setFont(QFont("Malgun Gothic", 19, QFont.Bold))
         heading.addWidget(title)
         self.summary = QLabel()
         heading.addWidget(self.summary)
@@ -83,7 +84,7 @@ class ClubSquadPage(QWidget):
         basis = QFrame()
         basis.setObjectName("RosterBasis")
         basis_layout = QHBoxLayout(basis)
-        basis_layout.setContentsMargins(14, 9, 14, 9)
+        basis_layout.setContentsMargins(9, 5, 9, 5)
         basis_title = QLabel("2025 최종 선수단 편성")
         basis_title.setObjectName("RosterBasisTitle")
         basis_layout.addWidget(basis_title)
@@ -96,7 +97,11 @@ class ClubSquadPage(QWidget):
 
         filters = QHBoxLayout()
         self.status_group = QButtonGroup(self)
-        for index, (label, value) in enumerate((("1군 선수단", 1), ("2군 선수단", 0))):
+        for index, (label, value) in enumerate((
+            ("1군 선수단", 1),
+            ("2군 선수단", 0),
+            ("2026 입단 예정", 2),
+        )):
             button = QPushButton(label)
             button.setObjectName("RosterButton")
             button.setCheckable(True)
@@ -126,12 +131,12 @@ class ClubSquadPage(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
-        self.table.verticalHeader().setDefaultSectionSize(36)
+        self.table.verticalHeader().setDefaultSectionSize(29)
         self.table.cellDoubleClicked.connect(self._open_player)
         self.table.cellClicked.connect(lambda row, column: self._open_player(row) if column == 0 else None)
         header_view = self.table.horizontalHeader()
         header_view.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
-        self.table.setColumnWidth(0, 150)
+        self.table.setColumnWidth(0, 118)
         for column in (1, 2, 3, 4, 5, 6, 9):
             header_view.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         for column in (7, 8):
@@ -152,6 +157,9 @@ class ClubSquadPage(QWidget):
         button = self.status_group.checkedButton()
         roster_status = int(button.property("roster_status")) if button else 1
         position = self.position_combo.currentData()
+        if roster_status == 2:
+            self._show_incoming_rookies(position)
+            return
         self.visible_players = [
             p for p in self.players
             if int(bool(p.get("status"))) == roster_status
@@ -163,7 +171,13 @@ class ClubSquadPage(QWidget):
         second_count = len(self.players) - first_count
         self.status_buttons[1].setText(f"1군 선수단  {first_count}")
         self.status_buttons[0].setText(f"2군 선수단  {second_count}")
-        self.roster_counts.setText(f"1군 {first_count}명  ·  2군 {second_count}명  ·  전체 {len(self.players)}명")
+        self.status_buttons[2].setText(
+            f"2026 입단 예정  {len(self.incoming_rookies)}"
+        )
+        self.roster_counts.setText(
+            f"1군 {first_count}명  ·  2군 {second_count}명  ·  "
+            f"입단 예정 {len(self.incoming_rookies)}명"
+        )
         self.summary.setText(f"{roster_name} 라인업 · {len(self.visible_players)}명 · 선수를 누르면 전체 보고서로 이동")
         self.table.setRowCount(len(self.visible_players))
         for row, player in enumerate(self.visible_players):
@@ -186,6 +200,7 @@ class ClubSquadPage(QWidget):
     def refresh_players(self):
         """콜업·강등 결과를 포함해 현재 선수 DB에서 명단을 다시 읽는다."""
         self.players = self._load_players()
+        self.incoming_rookies = self._load_incoming_rookies()
         self.simulation_states = self._load_simulation_states()
         self._apply_filter()
 
@@ -193,6 +208,56 @@ class ClubSquadPage(QWidget):
         if self.save_database is None or self.save_id is None:
             return {}
         return self.save_database.get_player_simulation_states(self.save_id, self.team_name)
+
+    def _load_incoming_rookies(self):
+        if self.save_database is None or self.save_id is None:
+            return []
+        return self.save_database.list_incoming_rookies(
+            self.save_id, self.team_name
+        )
+
+    def _show_incoming_rookies(self, position):
+        self.visible_players = [
+            {**rookie, "_incoming_rookie": True}
+            for rookie in self.incoming_rookies
+            if not position or rookie["position_group"] == position
+        ]
+        first_count = sum(
+            1 for player in self.players if int(bool(player.get("status"))) == 1
+        )
+        second_count = len(self.players) - first_count
+        self.status_buttons[1].setText(f"1군 선수단  {first_count}")
+        self.status_buttons[0].setText(f"2군 선수단  {second_count}")
+        self.status_buttons[2].setText(
+            f"2026 입단 예정  {len(self.incoming_rookies)}"
+        )
+        self.roster_counts.setText(
+            f"1군 {first_count}명  ·  2군 {second_count}명  ·  "
+            f"입단 예정 {len(self.incoming_rookies)}명"
+        )
+        self.summary.setText(
+            f"2025년 9월 17일 신인 드래프트 · "
+            f"{len(self.visible_players)}명 · 2026년 1월 1일 합류 예정"
+        )
+        self.table.setRowCount(len(self.visible_players))
+        for row, rookie in enumerate(self.visible_players):
+            values = (
+                rookie["player_name"],
+                rookie["position_name"],
+                "-",
+                "미평가",
+                "-",
+                "-",
+                "-",
+                rookie["school"],
+                f"{rookie['round_no']}R · 전체 {rookie['overall_pick']}순위",
+                "입단 예정",
+            )
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(str(value))
+                if column:
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.table.setItem(row, column, item)
 
     def _load_assignments(self, roster_status):
         if self.save_database is None or self.save_id is None:
@@ -203,30 +268,30 @@ class ClubSquadPage(QWidget):
 
     @staticmethod
     def _ratings(player):
-        if player.get("position_group") == "P":
-            return [_display_rating(player.get(key), True) for key in ("con", "pow", "eye", "def") if player.get(key) is not None]
-        return [player.get(key) for key in ("contact", "power", "plate_discipline", "fielding_judgment") if player.get(key) is not None]
+        return core_rating_values(player)
 
     def _open_player(self, row, _column=None):
         if 0 <= row < len(self.visible_players):
-            self.player_requested.emit(self.visible_players[row])
+            player = self.visible_players[row]
+            if not player.get("_incoming_rookie"):
+                self.player_requested.emit(player)
 
     @staticmethod
     def _style(colors):
         return f"""
-            QWidget {{ color: #dce6ef; background-color: #11161d; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
+            QWidget {{ color: #dce6ef; background-color: #11161d; font-family: 'Malgun Gothic', 'Segoe UI'; }}
             QFrame#SquadHeader {{ background-color: #202630; border-bottom: 2px solid {colors['accent']}; }}
-            QFrame#RosterBasis {{ background-color: #171e26; border: 1px solid #3b4652; border-left: 4px solid {colors['accent_light']}; border-radius: 5px; }}
+            QFrame#RosterBasis {{ background-color: #171e26; border: 1px solid #3b4652; border-left: 3px solid {colors['accent_light']}; border-radius: 0; }}
             QLabel#RosterBasisTitle {{ color: white; font-weight: 800; padding-right: 10px; }}
             QLabel#RosterCounts {{ color: {colors['accent_light']}; font-weight: 800; }}
             QLabel#SquadTitle {{ color: white; }}
-            QPushButton#BackButton, QPushButton#RosterButton {{ color: white; background-color: #202630; border: 1px solid #46515d; border-radius: 6px; padding: 9px 22px; font-weight: 700; }}
+            QPushButton#BackButton, QPushButton#RosterButton {{ color: white; background-color: #202630; border: 1px solid #46515d; border-radius: 0; padding: 5px 16px; font-weight: 700; }}
             QPushButton#BackButton:hover, QPushButton#RosterButton:hover, QPushButton#RosterButton:checked {{ background-color: {colors['accent']}; border-color: {colors['accent_light']}; }}
-            QComboBox#PositionCombo {{ color: white; background-color: #202630; border: 1px solid {colors['accent']}; border-radius: 5px; padding: 7px 28px 7px 10px; min-width: 100px; }}
+            QComboBox#PositionCombo {{ color: white; background-color: #202630; border: 1px solid #46515d; border-radius: 0; padding: 4px 25px 4px 8px; min-width: 92px; }}
             QComboBox#PositionCombo QAbstractItemView {{ color: white; background-color: #202630; selection-background-color: {colors['accent']}; }}
-            QPushButton#SectionActive, QPushButton#SectionButton {{ color: #c8d2dc; background-color: #1b2027; border: none; border-bottom: 2px solid #46515d; padding: 9px 24px; font-size: 14px; font-weight: 700; }}
+            QPushButton#SectionActive, QPushButton#SectionButton {{ color: #c8d2dc; background-color: #1b2027; border: none; border-bottom: 2px solid #46515d; border-radius: 0; padding: 5px 18px; font-size: 12px; font-weight: 700; }}
             QPushButton#SectionActive {{ color: white; border-bottom-color: {colors['accent_light']}; background-color: #252c35; }}
             QPushButton#SectionButton:hover {{ color: white; background-color: #252c35; border-bottom-color: {colors['accent']}; }}
             QTableWidget {{ background-color: #151a20; alternate-background-color: #1d232b; border: 1px solid #38424d; selection-background-color: {colors['accent']}; }}
-            QHeaderView::section {{ color: white; background-color: #252c35; border: none; border-bottom: 1px solid #46515d; padding: 9px; font-weight: 700; }}
+            QHeaderView::section {{ color: white; background-color: #252c35; border: none; border-bottom: 1px solid #46515d; padding: 5px; font-weight: 700; }}
         """

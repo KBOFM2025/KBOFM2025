@@ -9,6 +9,7 @@ data/kbo_fm_saves.db
 data/kbo_fm_saves.db-*
 data/saves/
 data/players.before-*.db
+data/source/kbo_2025_salary_roster.xlsx
 image/players/local/*
 !image/players/local/.gitkeep
 models/*.gguf
@@ -20,5 +21,6 @@ models/**/*.safetensors
 data/ai_logs/*.jsonl
 data/ai_logs/*.log
 data/ai_logs/*.pid
+data/logs/
 *.sqlite-wal
 *.sqlite-shm

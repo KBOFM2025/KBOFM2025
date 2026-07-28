@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import sqlite3
 import sys
 from collections import Counter, defaultdict
@@ -12,8 +13,9 @@ ROSTER_IMPORT_VERSION = "kbo-2025-10-31-v1"
 ROSTER_SNAPSHOT_DATE = "2025-10-31"
 ROSTER_FILE_NAME = "kbo_2025_final_roster.csv"
 HITTER_ABILITIES_FILE_NAME = "kbo_2025_hitter_abilities.csv"
+PITCHER_ABILITIES_FILE_NAME = "kbo_2025_pitcher_abilities.csv"
 FINAL_FIRST_TEAM_FILE_NAME = "kbo_2025_final_first_team.csv"
-FINAL_FIRST_TEAM_VERSION = "kbo-2025-regular-season-final-first-team-v1"
+FINAL_FIRST_TEAM_VERSION = "kbo-2025-regular-season-final-first-team-v2"
 
 
 def _roster_source_path():
@@ -30,6 +32,14 @@ def _hitter_abilities_source_path():
         return external
     bundle_root = Path(getattr(sys, "_MEIPASS", DATA_DIR.parent))
     return bundle_root / "data" / "source" / HITTER_ABILITIES_FILE_NAME
+
+
+def _pitcher_abilities_source_path():
+    external = DATA_DIR / "source" / PITCHER_ABILITIES_FILE_NAME
+    if external.exists():
+        return external
+    bundle_root = Path(getattr(sys, "_MEIPASS", DATA_DIR.parent))
+    return bundle_root / "data" / "source" / PITCHER_ABILITIES_FILE_NAME
 
 
 def _final_first_team_source_path():
@@ -76,6 +86,48 @@ CREATE_PLAYERS_TABLE = """
         aggressiveness INTEGER,
         ability_source_level TEXT,
         ability_formula_version TEXT,
+        hitter_advanced_public_player_id TEXT,
+        hitter_advanced_wrc_plus REAL,
+        hitter_advanced_sfr REAL,
+        hitter_advanced_war REAL,
+        hitter_advanced_source_url TEXT,
+        hitter_rating_confidence TEXT,
+        hitter_rating_detail_json TEXT,
+        pitcher_velocity INTEGER,
+        pitcher_stuff INTEGER,
+        pitcher_command INTEGER,
+        pitcher_movement INTEGER,
+        pitcher_stamina INTEGER,
+        pitcher_pitchability INTEGER,
+        pitcher_strikeout INTEGER,
+        pitcher_walk_control INTEGER,
+        pitcher_composure INTEGER,
+        pitch_four_seam INTEGER,
+        pitch_sinker INTEGER,
+        pitch_cutter INTEGER,
+        pitch_changeup INTEGER,
+        pitch_slider INTEGER,
+        pitch_curve INTEGER,
+        pitch_splitter INTEGER,
+        pitch_sweeper INTEGER,
+        pitch_knuckleball INTEGER,
+        pitcher_repertoire TEXT,
+        pitcher_source_level TEXT,
+        pitcher_confidence TEXT,
+        pitcher_formula_version TEXT,
+        pitcher_sample_tbf INTEGER,
+        pitcher_sample_ip REAL,
+        pitcher_avg_velocity REAL,
+        pitcher_k_stuff_plus REAL,
+        pitcher_k_location_plus REAL,
+        pitcher_whiff_rate REAL,
+        pitcher_csw_rate REAL,
+        pitcher_k_rate REAL,
+        pitcher_bb_rate REAL,
+        pitcher_hr_rate REAL,
+        pitcher_fip REAL,
+        pitcher_pitch_detail_json TEXT,
+        pitcher_tracking_source_url TEXT,
         status INTEGER DEFAULT 1,
         lineup_pos INTEGER DEFAULT 0,
         role TEXT DEFAULT '선수',
@@ -86,7 +138,11 @@ CREATE_PLAYERS_TABLE = """
         is_foreign INTEGER NOT NULL DEFAULT 0,
         profile_complete INTEGER NOT NULL DEFAULT 0,
         source_note TEXT DEFAULT '',
-        source_url TEXT DEFAULT ''
+        source_url TEXT DEFAULT '',
+        draft_year INTEGER,
+        draft_pick INTEGER,
+        school TEXT DEFAULT '',
+        arrival_date TEXT
     )
 """
 
@@ -112,6 +168,10 @@ ROSTER_COLUMNS = {
     "profile_complete": "INTEGER NOT NULL DEFAULT 0",
     "source_note": "TEXT DEFAULT ''",
     "source_url": "TEXT DEFAULT ''",
+    "draft_year": "INTEGER",
+    "draft_pick": "INTEGER",
+    "school": "TEXT DEFAULT ''",
+    "arrival_date": "TEXT",
 }
 
 PLAYER_ABILITY_COLUMNS = {
@@ -133,6 +193,51 @@ PLAYER_ABILITY_COLUMNS = {
     "aggressiveness": "INTEGER",
     "ability_source_level": "TEXT",
     "ability_formula_version": "TEXT",
+    "hitter_advanced_public_player_id": "TEXT",
+    "hitter_advanced_wrc_plus": "REAL",
+    "hitter_advanced_sfr": "REAL",
+    "hitter_advanced_war": "REAL",
+    "hitter_advanced_source_url": "TEXT",
+    "hitter_rating_confidence": "TEXT",
+    "hitter_rating_detail_json": "TEXT",
+    "pitcher_velocity": "INTEGER", "pitcher_stuff": "INTEGER",
+    "pitcher_command": "INTEGER", "pitcher_movement": "INTEGER",
+    "pitcher_stamina": "INTEGER", "pitcher_pitchability": "INTEGER",
+    "pitcher_strikeout": "INTEGER", "pitcher_walk_control": "INTEGER",
+    "pitcher_composure": "INTEGER", "pitch_four_seam": "INTEGER",
+    "pitch_sinker": "INTEGER", "pitch_cutter": "INTEGER",
+    "pitch_changeup": "INTEGER", "pitch_slider": "INTEGER",
+    "pitch_curve": "INTEGER", "pitch_splitter": "INTEGER",
+    "pitch_sweeper": "INTEGER", "pitch_knuckleball": "INTEGER",
+    "pitcher_repertoire": "TEXT", "pitcher_source_level": "TEXT",
+    "pitcher_confidence": "TEXT", "pitcher_formula_version": "TEXT",
+    "pitcher_sample_tbf": "INTEGER", "pitcher_sample_ip": "REAL",
+    "pitcher_avg_velocity": "REAL", "pitcher_k_stuff_plus": "REAL",
+    "pitcher_k_location_plus": "REAL", "pitcher_whiff_rate": "REAL",
+    "pitcher_csw_rate": "REAL", "pitcher_k_rate": "REAL",
+    "pitcher_bb_rate": "REAL", "pitcher_hr_rate": "REAL",
+    "pitcher_fip": "REAL", "pitcher_pitch_detail_json": "TEXT",
+    "pitcher_tracking_source_url": "TEXT",
+}
+
+PITCHER_RATING_COLUMNS = (
+    "pitcher_velocity", "pitcher_stuff", "pitcher_command", "pitcher_movement",
+    "pitcher_stamina", "pitcher_pitchability", "pitcher_strikeout",
+    "pitcher_walk_control", "pitcher_composure", "pitch_four_seam",
+    "pitch_sinker", "pitch_cutter", "pitch_changeup", "pitch_slider",
+    "pitch_curve", "pitch_splitter", "pitch_sweeper", "pitch_knuckleball",
+)
+
+PITCHER_CSV_TO_DB = {
+    "repertoire": "pitcher_repertoire", "source_level": "pitcher_source_level",
+    "confidence": "pitcher_confidence", "formula_version": "pitcher_formula_version",
+    "sample_tbf": "pitcher_sample_tbf", "sample_ip": "pitcher_sample_ip",
+    "avg_velocity": "pitcher_avg_velocity", "k_stuff_plus": "pitcher_k_stuff_plus",
+    "k_location_plus": "pitcher_k_location_plus", "whiff_rate": "pitcher_whiff_rate",
+    "csw_rate": "pitcher_csw_rate", "k_rate": "pitcher_k_rate",
+    "bb_rate": "pitcher_bb_rate", "hr_rate": "pitcher_hr_rate",
+    "fip": "pitcher_fip", "pitch_detail_json": "pitcher_pitch_detail_json",
+    "tracking_source_url": "pitcher_tracking_source_url",
 }
 
 HITTER_RATING_COLUMNS = (
@@ -144,6 +249,18 @@ EMPTY_FUTURE_COLUMNS = (
     "fielding_range", "catching", "throwing_power", "throwing_accuracy",
     "fielding_judgment", "composure", "leadership", "aggressiveness",
 )
+
+ALL_HITTER_ABILITY_COLUMNS = HITTER_RATING_COLUMNS + EMPTY_FUTURE_COLUMNS
+
+HITTER_CSV_TO_DB = {
+    "advanced_public_player_id": "hitter_advanced_public_player_id",
+    "advanced_wrc_plus": "hitter_advanced_wrc_plus",
+    "advanced_sfr": "hitter_advanced_sfr",
+    "advanced_war": "hitter_advanced_war",
+    "advanced_source_url": "hitter_advanced_source_url",
+    "rating_confidence": "hitter_rating_confidence",
+    "rating_detail_json": "hitter_rating_detail_json",
+}
 
 DEFENSE_ABILITY_COLUMNS = (
     "fielding_range", "catching", "throwing_power",
@@ -182,6 +299,19 @@ def _create_hitter_ability_import_history(connection):
     connection.execute(
         """
         CREATE TABLE IF NOT EXISTS hitter_ability_imports (
+            formula_version TEXT PRIMARY KEY,
+            player_count INTEGER NOT NULL,
+            source_path TEXT NOT NULL,
+            imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+
+def _create_pitcher_ability_import_history(connection):
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS pitcher_ability_imports (
             formula_version TEXT PRIMARY KEY,
             player_count INTEGER NOT NULL,
             source_path TEXT NOT NULL,
@@ -314,7 +444,7 @@ def _read_hitter_abilities():
         raise ValueError("Hitter ability rows must have one non-empty formula version")
 
     for row in rows:
-        for column in HITTER_RATING_COLUMNS:
+        for column in ALL_HITTER_ABILITY_COLUMNS:
             try:
                 rating = int(row[column])
             except (KeyError, TypeError, ValueError) as error:
@@ -324,11 +454,6 @@ def _read_hitter_abilities():
             if rating < 1 or rating > 20:
                 raise ValueError(
                     f"Rating out of range: {row['kbo_player_id']} {column}={rating}"
-                )
-        for column in EMPTY_FUTURE_COLUMNS:
-            if row.get(column, "").strip():
-                raise ValueError(
-                    f"Future ability must be blank: {row['kbo_player_id']} {column}"
                 )
     return rows, versions.pop()
 
@@ -350,7 +475,12 @@ def _import_hitter_abilities(connection):
     db_ids = {
         row["kbo_player_id"]
         for row in connection.execute(
-            "SELECT kbo_player_id FROM players WHERE position_group <> 'P'"
+            """
+            SELECT kbo_player_id
+            FROM players
+            WHERE position_group <> 'P'
+              AND kbo_player_id NOT LIKE 'DRAFT-%'
+            """
         )
     }
     if csv_ids != db_ids:
@@ -359,17 +489,34 @@ def _import_hitter_abilities(connection):
             f"(missing={len(db_ids - csv_ids)}, unknown={len(csv_ids - db_ids)})"
         )
 
-    assignments = ", ".join(f"{column} = ?" for column in HITTER_RATING_COLUMNS)
-    null_assignments = ", ".join(f"{column} = NULL" for column in EMPTY_FUTURE_COLUMNS)
+    db_columns = list(ALL_HITTER_ABILITY_COLUMNS) + list(HITTER_CSV_TO_DB.values())
+    assignments = ", ".join(f"{column} = ?" for column in db_columns)
     statement = connection.cursor()
     updated = 0
     for row in rows:
-        values = [int(row[column]) for column in HITTER_RATING_COLUMNS]
-        values.extend((row.get("source_level", ""), formula_version, row["kbo_player_id"]))
+        values: list[object] = [
+            int(row[column]) for column in ALL_HITTER_ABILITY_COLUMNS
+        ]
+        for csv_column in HITTER_CSV_TO_DB:
+            raw = row.get(csv_column, "").strip()
+            if csv_column in {"advanced_wrc_plus", "advanced_sfr", "advanced_war"}:
+                values.append(float(raw) if raw else None)
+            else:
+                values.append(raw or None)
+        salary_text = row.get("salary_10k_krw", "").strip()
+        values.extend(
+            (
+                int(salary_text) if salary_text else None,
+                row.get("source_level", ""),
+                formula_version,
+                row["kbo_player_id"],
+            )
+        )
         statement.execute(
             f"""
             UPDATE players
-            SET {assignments}, {null_assignments},
+            SET {assignments},
+                salary = COALESCE(?, salary),
                 ability_source_level = ?, ability_formula_version = ?
             WHERE kbo_player_id = ? AND position_group <> 'P'
             """,
@@ -386,6 +533,106 @@ def _import_hitter_abilities(connection):
         VALUES (?, ?, ?, CURRENT_TIMESTAMP)
         """,
         (formula_version, len(rows), str(_hitter_abilities_source_path())),
+    )
+    return True
+
+
+def _read_pitcher_abilities():
+    source_path = _pitcher_abilities_source_path()
+    if not source_path.exists():
+        return [], ""
+    with source_path.open("r", encoding="utf-8-sig", newline="") as source:
+        rows = list(csv.DictReader(source))
+    if len(rows) != 319:
+        raise ValueError(f"Expected 319 pitcher ability rows, got {len(rows)}")
+    player_ids = [row["kbo_player_id"] for row in rows]
+    if any(not value for value in player_ids) or len(set(player_ids)) != 319:
+        raise ValueError("Pitcher ability KBO player IDs must be present and unique")
+    versions = {row.get("formula_version", "").strip() for row in rows}
+    if len(versions) != 1 or not next(iter(versions)):
+        raise ValueError("Pitcher ability rows must have one formula version")
+    for row in rows:
+        for column in PITCHER_RATING_COLUMNS:
+            value = row.get(column, "").strip()
+            if not value:
+                continue
+            rating = int(value)
+            if rating < 1 or rating > 20:
+                raise ValueError(f"Pitcher rating out of range: {player_ids} {column}={rating}")
+    return rows, versions.pop()
+
+
+def _import_pitcher_abilities(connection):
+    rows, formula_version = _read_pitcher_abilities()
+    if not rows:
+        return False
+
+    # 최초 반영 뒤에는 2025 신인 드래프트 선수가 DB에 추가된다. 실행할
+    # 때마다 공식 명단과 확장된 게임 명단을 다시 대조하면 다음 실행부터
+    # 신인 투수 수만큼 불일치하므로, 동일 산식은 다시 가져오지 않는다.
+    if connection.execute(
+        "SELECT 1 FROM pitcher_ability_imports WHERE formula_version = ?",
+        (formula_version,),
+    ).fetchone():
+        return True
+
+    csv_ids = {row["kbo_player_id"] for row in rows}
+    db_ids = {
+        str(row["kbo_player_id"])
+        for row in connection.execute(
+            """
+            SELECT kbo_player_id
+            FROM players
+            WHERE position_group = 'P'
+              AND kbo_player_id NOT LIKE 'DRAFT-%'
+            """
+        )
+    }
+    if csv_ids != db_ids:
+        raise ValueError(
+            "Pitcher ability IDs do not match the current pitcher roster "
+            f"(missing={len(db_ids - csv_ids)}, unknown={len(csv_ids - db_ids)})"
+        )
+    db_columns = list(PITCHER_RATING_COLUMNS) + list(PITCHER_CSV_TO_DB.values())
+    statement = connection.cursor()
+    updated = 0
+    for row in rows:
+        values = []
+        for column in PITCHER_RATING_COLUMNS:
+            raw = row.get(column, "").strip()
+            values.append(int(raw) if raw else None)
+        for csv_column in PITCHER_CSV_TO_DB:
+            raw = row.get(csv_column, "").strip()
+            if csv_column in {"sample_tbf"}:
+                values.append(int(raw) if raw else None)
+            elif csv_column in {"sample_ip", "avg_velocity", "k_stuff_plus", "k_location_plus", "whiff_rate", "csw_rate", "k_rate", "bb_rate", "hr_rate", "fip"}:
+                values.append(float(raw) if raw else None)
+            else:
+                values.append(raw)
+        salary_text = row.get("salary_10k_krw", "").strip()
+        values.extend((
+            int(salary_text) if salary_text else None,
+            row.get("source_level", ""), formula_version, row["kbo_player_id"],
+        ))
+        statement.execute(
+            f"""
+            UPDATE players SET {', '.join(f'{column} = ?' for column in db_columns)},
+                salary = COALESCE(?, salary), ability_source_level = ?,
+                ability_formula_version = ?
+            WHERE kbo_player_id = ? AND position_group = 'P'
+            """,
+            values,
+        )
+        updated += statement.rowcount
+    if updated != len(rows):
+        raise ValueError(
+            f"Expected to update {len(rows)} pitchers, updated {updated}"
+        )
+    connection.execute(
+        """INSERT OR REPLACE INTO pitcher_ability_imports
+           (formula_version, player_count, source_path, imported_at)
+           VALUES (?, ?, ?, CURRENT_TIMESTAMP)""",
+        (formula_version, len(rows), str(_pitcher_abilities_source_path())),
     )
     return True
 
@@ -516,6 +763,119 @@ def _seed_missing_teams(connection):
             connection.executemany(INSERT_PLAYER, build_roster_rows(team_name))
 
 
+def _import_2025_draft_players(connection):
+    """최종 보류명단에서 빠진 2025 지명 선수까지 구단 2군에 보존한다."""
+    source_path = DATA_DIR / "source" / "kbo_2025_rookie_draft.csv"
+    if not source_path.exists():
+        return 0
+    with source_path.open("r", encoding="utf-8-sig", newline="") as source:
+        rookies = list(csv.DictReader(source))
+    schema = {
+        row["name"]: dict(row)
+        for row in connection.execute("PRAGMA table_info(players)").fetchall()
+    }
+    inserted = 0
+    for rookie in rookies:
+        existing = connection.execute(
+            "SELECT id FROM players WHERE team=? AND name=?",
+            (rookie["team"], rookie["name"]),
+        ).fetchone()
+        if existing:
+            connection.execute(
+                """
+                UPDATE players SET
+                    is_rookie=1, draft_year=2025, draft_pick=?,
+                    school=?, source_note=CASE
+                        WHEN source_note='' THEN ?
+                        ELSE source_note
+                    END
+                WHERE id=?
+                """,
+                (
+                    int(rookie["overall_pick"]), rookie["school"],
+                    "2025 KBO 신인 드래프트 공식 지명",
+                    existing["id"],
+                ),
+            )
+            continue
+        round_no = int(rookie["round"])
+        seed = int.from_bytes(
+            hashlib.sha256(
+                f"2025:{rookie['overall_pick']}:{rookie['name']}".encode(
+                    "utf-8"
+                )
+            ).digest()[:4],
+            "big",
+        )
+        base = max(6, min(12, 12 - (round_no - 1) // 2))
+        ratings = [
+            max(1, min(20, base + ((seed >> offset) % 3) - 1))
+            for offset in (0, 2, 4, 6)
+        ]
+        age = 22 if "대" in rookie["school"] else 19
+        values = {
+            "player_uid": f"DRAFT-2025-{int(rookie['overall_pick']):03d}",
+            "kbo_player_id": f"DRAFT-2025-{int(rookie['overall_pick']):03d}",
+            "team": rookie["team"],
+            "name": rookie["name"],
+            "pos": rookie["position_group"],
+            "age": age,
+            "birth_date": "",
+            "bats_throws": "",
+            "career": f"{rookie['school']}-{rookie['team']}",
+            "con": ratings[0],
+            "pow": ratings[1],
+            "eye": ratings[2],
+            "def": ratings[3],
+            "status": 0,
+            "lineup_pos": 0,
+            "role": "신인 육성",
+            "salary": 3000,
+            "snapshot_date": ROSTER_SNAPSHOT_DATE,
+            "position_group": rookie["position_group"],
+            "is_rookie": 1,
+            "is_foreign": 0,
+            "profile_complete": 0,
+            "source_note": (
+                "2025 KBO 신인 드래프트 공식 지명 · 프로 표본 미확보"
+            ),
+            "source_url": rookie["source_url"],
+            "draft_year": 2025,
+            "draft_pick": int(rookie["overall_pick"]),
+            "school": rookie["school"],
+            "arrival_date": "2025-01-01",
+        }
+        _fill_required_player_values(values, schema)
+        columns = tuple(
+            column for column in values if column in schema
+        )
+        connection.execute(
+            f"""
+            INSERT INTO players ({', '.join(columns)})
+            VALUES ({', '.join('?' for _ in columns)})
+            """,
+            tuple(values[column] for column in columns),
+        )
+        inserted += 1
+    return inserted
+
+
+def _fill_required_player_values(values, schema):
+    """DB 변형본의 필수 열을 허위 프로필 없이 안전한 빈 값으로 채운다."""
+    for column, info in schema.items():
+        if column in values or column == "id":
+            continue
+        if not int(info.get("notnull") or 0) or info.get("dflt_value") is not None:
+            continue
+        column_type = str(info.get("type") or "").upper()
+        if "INT" in column_type:
+            values[column] = 0
+        elif any(kind in column_type for kind in ("REAL", "FLOA", "DOUB", "NUM")):
+            values[column] = 0.0
+        else:
+            values[column] = ""
+
+
 def ensure_player_database():
     """게임 수치는 보존하면서 2025-10-31 KBO 소속 선수와 공식 프로필을 반영한다."""
     connection = sqlite3.connect(PLAYERS_DB_PATH)
@@ -525,11 +885,14 @@ def ensure_player_database():
         _migrate_columns(connection)
         _create_import_history(connection)
         _create_hitter_ability_import_history(connection)
+        _create_pitcher_ability_import_history(connection)
         _create_first_team_import_history(connection)
         if not _import_official_roster(connection):
             _seed_missing_teams(connection)
         _import_hitter_abilities(connection)
+        _import_pitcher_abilities(connection)
         _import_final_first_team(connection)
+        _import_2025_draft_players(connection)
         _create_ability_views(connection)
         connection.execute("CREATE INDEX IF NOT EXISTS idx_players_team ON players(team)")
         connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_players_uid ON players(player_uid)")
@@ -546,6 +909,19 @@ def ensure_final_roster_assignments(db_path=PLAYERS_DB_PATH):
     try:
         _create_first_team_import_history(connection)
         changed = _import_final_first_team(connection)
+        connection.commit()
+        return changed
+    finally:
+        connection.close()
+
+
+def ensure_2025_draft_players(db_path=PLAYERS_DB_PATH):
+    """기존 감독 세이브 DB에도 공식 2025 지명 선수 110명을 보장한다."""
+    connection = sqlite3.connect(db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        _migrate_columns(connection)
+        changed = _import_2025_draft_players(connection)
         connection.commit()
         return changed
     finally:

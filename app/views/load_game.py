@@ -32,7 +32,7 @@ class LoadGameDialog(QDialog):
         layout.setSpacing(14)
 
         title = QLabel("저장된 구단")
-        title.setFont(QFont("Noto Sans KR", 28, QFont.Bold))
+        title.setFont(QFont("Malgun Gothic", 28, QFont.Bold))
         layout.addWidget(title)
 
         subtitle = QLabel("계속 운영할 구단을 선택하세요.")
@@ -48,7 +48,7 @@ class LoadGameDialog(QDialog):
                 border: 1px solid #30445c;
                 border-radius: 9px;
                 padding: 8px;
-                font-family: 'Noto Sans KR', 'Malgun Gothic';
+                font-family: 'Malgun Gothic', 'Segoe UI';
                 font-size: 16px;
             }
             QListWidget::item { padding: 14px 12px; border-radius: 6px; }

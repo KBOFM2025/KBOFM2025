@@ -9,7 +9,7 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 $culture = [System.Globalization.CultureInfo]::InvariantCulture
-$formulaVersion = "kbo-hitter-abilities-v2-compressed"
+$formulaVersion = "kbo-hitter-abilities-v5-calibrated"
 
 function Test-Number {
     param([object]$Value)
@@ -36,26 +36,9 @@ function Get-Percentile {
 
 function Convert-ToRating {
     param([double]$Percentile, [int]$Adjustment = 0)
-    $rating = if ($Percentile -lt 0.001) { 1 }
-        elseif ($Percentile -lt 0.003) { 2 }
-        elseif ($Percentile -lt 0.010) { 3 }
-        elseif ($Percentile -lt 0.025) { 4 }
-        elseif ($Percentile -lt 0.050) { 5 }
-        elseif ($Percentile -lt 0.100) { 6 }
-        elseif ($Percentile -lt 0.170) { 7 }
-        elseif ($Percentile -lt 0.250) { 8 }
-        elseif ($Percentile -lt 0.370) { 9 }
-        elseif ($Percentile -lt 0.550) { 10 }
-        elseif ($Percentile -lt 0.650) { 11 }
-        elseif ($Percentile -lt 0.750) { 12 }
-        elseif ($Percentile -lt 0.840) { 13 }
-        elseif ($Percentile -lt 0.900) { 14 }
-        elseif ($Percentile -lt 0.950) { 15 }
-        elseif ($Percentile -lt 0.975) { 16 }
-        elseif ($Percentile -lt 0.990) { 17 }
-        elseif ($Percentile -lt 0.997) { 18 }
-        elseif ($Percentile -lt 0.9995) { 19 }
-        else { 20 }
+    # KBO 1군 표본의 중앙값은 12, Futures 표본은 아래의 -2 보정으로
+    # 중앙값 10이 된다. 압축됐던 상위 타자의 변별력을 1~20 범위에 복원한다.
+    $rating = [int][Math]::Round(12.0 + ($Percentile - 0.5) * 20.0)
     $rating += $Adjustment
     return [Math]::Max(1, [Math]::Min(20, $rating))
 }

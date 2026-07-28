@@ -1,15 +1,22 @@
 """시작 화면, 새 게임 생성, 메인 대시보드 창 구현."""
 
-import sys
+import traceback
 from datetime import date, timedelta
+from time import monotonic
 
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QSize, Qt, Signal
+from PySide6.QtCore import (
+    QEasingCurve,
+    QPropertyAnimation,
+    QSize,
+    Qt,
+    QTimer,
+    Signal,
+)
 from PySide6.QtGui import (
     QFont,
     QPixmap,
 )
 from PySide6.QtWidgets import (
-    QApplication,
     QButtonGroup,
     QDialog,
     QFrame,
@@ -46,31 +53,51 @@ from app.config import (
 )
 from app.constants import APP_TITLE
 from app.manager_widgets import AbilitySliderControl, ManagerRadarChart, ManagerStyleCard
-from app.styles import GLOBAL_STYLE, START_STYLE, UI_FONT_FAMILY
+from app.styles import START_STYLE, UI_FONT_FAMILY
 from app.transitions import FadeStackTransition
 from app.utils import manager_data_from_save, resource_path
 from app.views.league_rank import LeagueRankTab
 from app.views.load_game import LoadGameDialog
 from app.views.calendar_bar import CalendarBar
+from app.views.day_advance_overlay import DayAdvanceOverlay
 from app.views.board_vision import BoardVisionPage
 from app.views.manager_welcome import ManagerWelcomePage
+from app.views.manager_event import ManagerEventPage
+from app.views.player_meeting import PlayerMeetingPage
+from app.views.trade_negotiation import TradeNegotiationPage
 from app.views.news_center import DailyNewsPage, NewsFeedPage
 from app.views.season_calendar import SeasonCalendarPage
 from app.views.team_manager import MyTeamManager
 from app.views.team_roster_preview import TeamRosterPreviewWidget
 from app.views.player_search import PlayerSearchPage
 from app.views.team_manage.player_profile import PlayerProfilePage
+from app.views.team_manage.set_lineup import SetLineupTab
 from app.views.club_info import ClubInfoPage
 from app.views.club_squad import ClubSquadPage
-from app.services.league_simulation import LeagueSimulationService
+from app.views.second_draft import SecondDraftPage
+from app.services.day_advance_worker import DayAdvanceWorker
+from app.services.manager_events import ManagerEventService
+from app.services.second_draft import SecondDraftService
 from app.services.team_ai_processor import TeamAIDecisionWorker
 from app.ai.local_model import stop_owned_local_ai_server
 from database import (
     PLAYERS_DB_PATH,
     SaveDatabase,
     ensure_final_roster_assignments,
+    ensure_2025_draft_players,
     ensure_player_database,
 )
+
+
+class ClickableLabel(QLabel):
+    """버튼처럼 동작하지만 긴 구단명 줄바꿈을 유지하는 라벨."""
+
+    clicked = Signal()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
 
 
 class NewGameWizard(QWidget):
@@ -308,7 +335,7 @@ class NewGameWizard(QWidget):
                 border: 1px solid #263b52;
                 border-radius: 10px;
                 padding: 7px;
-                font-family: 'Noto Sans KR', 'Malgun Gothic';
+                font-family: 'Malgun Gothic', 'Segoe UI';
                 font-size: 15px;
                 font-weight: 600;
             }
@@ -896,14 +923,15 @@ class NewGameWizard(QWidget):
 
 
 class StartWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, save_database=None, database_ready=False):
         super().__init__()
         self.game_window = None
         self._start_transitioning = False
         self._start_target_widget = None
         self._start_animation = None
-        ensure_player_database()
-        self.save_database = SaveDatabase()
+        if not database_ready:
+            ensure_player_database()
+        self.save_database = save_database or SaveDatabase()
         self.setWindowTitle(APP_TITLE)
         self.setMinimumSize(1100, 720)
         self.resize(1400, 880)
@@ -1090,16 +1118,29 @@ class StartWindow(QMainWindow):
             QMessageBox.warning(self, "불러오기 실패", "저장 정보를 찾을 수 없습니다.")
             return
 
-        self.game_window = MainWindow(
-            save["base_team"],
-            save["club_name"],
-            start_window=self,
-            save_database=self.save_database,
-            save_id=save["id"],
-            manager_data=manager_data_from_save(save),
-            start_point=save.get("start_point", DEFAULT_START_POINT),
-            current_date=save.get("current_date"),
-        )
+        try:
+            self.game_window = MainWindow(
+                save["base_team"],
+                save["club_name"],
+                start_window=self,
+                save_database=self.save_database,
+                save_id=save["id"],
+                manager_data=manager_data_from_save(save),
+                start_point=save.get("start_point", DEFAULT_START_POINT),
+                current_date=save.get("current_date"),
+            )
+        except Exception as error:
+            details = traceback.format_exc()
+            print(f"[불러오기 오류]\n{details}", flush=True)
+            QMessageBox.critical(
+                self,
+                "불러오기 실패",
+                "저장 데이터는 삭제되지 않았습니다.\n"
+                "게임 화면을 준비하는 중 오류가 발생했습니다.\n\n"
+                f"{type(error).__name__}: {error}",
+            )
+            self.game_window = None
+            return
         self.game_window.show()
         self.close()
 
@@ -1137,9 +1178,14 @@ class MainWindow(QMainWindow):
             else None
         )
         if self.player_db_path:
+            self.save_database.sync_manager_hitter_abilities(self.save_id)
             ensure_final_roster_assignments(self.player_db_path)
-        self._league_simulation_service = None
+            ensure_2025_draft_players(self.player_db_path)
         self._team_ai_worker = None
+        self._day_advance_worker = None
+        self._day_advance_target = None
+        self._day_advance_started_at = 0.0
+        self._day_advance_warning = None
         self.last_simulation_summary = None
         self.manager_data = manager_data or {
             "manager_name": "무명 감독",
@@ -1155,6 +1201,7 @@ class MainWindow(QMainWindow):
         self._content_transitioning = False
         self._content_target_index = None
         self._content_animation = None
+        self._pending_required_action_count = 0
         self.colors = TEAM_COLORS[base_team]
 
         self.setWindowTitle(f"{APP_TITLE} - {self.club_name}")
@@ -1197,6 +1244,49 @@ class MainWindow(QMainWindow):
         )
         self.root_stack.addWidget(self.global_player_profile)
 
+        self.manager_event_service = ManagerEventService(
+            self.save_database.db_path,
+            self.player_db_path or PLAYERS_DB_PATH,
+        )
+        # 협상 화면은 루트 스택의 다른 페이지처럼 메인 창 구성 단계에서
+        # 한 번만 만들고, 이벤트를 열 때 데이터와 표시 페이지만 바꾼다.
+        self.manager_event_page = ManagerEventPage(
+            self.colors,
+            self.manager_event_service,
+            self.save_id,
+        )
+        self.manager_event_page.back_requested.connect(
+            self._close_manager_event
+        )
+        self.manager_event_page.event_resolved.connect(
+            self._manager_event_resolved
+        )
+        self.root_stack.addWidget(self.manager_event_page)
+        self.player_meeting_page = PlayerMeetingPage(
+            self.colors,
+            self.manager_event_service,
+            self.save_id,
+        )
+        self.player_meeting_page.back_requested.connect(
+            self._close_manager_event
+        )
+        self.player_meeting_page.event_resolved.connect(
+            self._manager_event_resolved
+        )
+        self.root_stack.addWidget(self.player_meeting_page)
+        self.trade_negotiation_page = TradeNegotiationPage(
+            self.colors,
+            self.manager_event_service,
+            self.save_id,
+        )
+        self.trade_negotiation_page.back_requested.connect(
+            self._close_manager_event
+        )
+        self.trade_negotiation_page.event_resolved.connect(
+            self._manager_event_resolved
+        )
+        self.root_stack.addWidget(self.trade_negotiation_page)
+
         self.main_widget = QWidget()
         self.root_stack.addWidget(self.main_widget)
 
@@ -1218,19 +1308,29 @@ class MainWindow(QMainWindow):
         body_layout.addWidget(self.sidebar)
 
         self.content_stack = QStackedWidget()
+        appointment_date = start_point_date(self.start_point)
         self.league_home = LeagueRankTab(
             self.colors, self.selected_team, db_path=self.player_db_path,
             save_database=self.save_database, save_id=self.save_id,
+            appointment_date=appointment_date,
         )
         self.league_home.board_vision_requested.connect(self.open_board_vision)
+        self.league_home.required_action_count_changed.connect(
+            self._update_progress_gate
+        )
         self.league_home.club_info_requested.connect(
             lambda team_name: self._open_searched_club_info(team_name, 0)
+        )
+        self.league_home.player_requested.connect(
+            lambda player: self._open_full_player_profile(player, return_page=0)
+        )
+        self.league_home.manager_event_requested.connect(
+            self._open_manager_event
         )
         if self.board_vision_page.reviewed:
             self.league_home.mark_board_vision_reviewed()
         self.content_stack.addWidget(self.league_home)
 
-        appointment_date = start_point_date(self.start_point)
         self.news_feed = NewsFeedPage(
             self.club_name,
             self.selected_team,
@@ -1243,9 +1343,18 @@ class MainWindow(QMainWindow):
             self.save_id,
         )
         self.news_feed.notification_count_changed.connect(self.update_news_notification_badge)
+        self.news_feed.second_draft_requested.connect(
+            lambda view: self._open_second_draft(view, 1)
+        )
         self.league_home.notification_count_changed.connect(self.update_news_notification_badge)
         self.league_home.news_requested.connect(lambda: self.switch_page(1))
+        self.league_home.second_draft_requested.connect(
+            lambda view: self._open_second_draft(view, 0)
+        )
+        self.league_home.squad_requested.connect(lambda: self.switch_page(3))
+        self.league_home.calendar_requested.connect(self._open_season_calendar)
         self.league_home.refresh_notifications()
+        self.league_home.set_game_date(self.current_date)
         self.news_feed.refresh_news()
         self.content_stack.addWidget(self.news_feed)
 
@@ -1286,6 +1395,9 @@ class MainWindow(QMainWindow):
         self.calendar_bar.search_selected.connect(self._open_global_search_result)
         self.calendar_bar.search_submitted.connect(self._open_global_search_page)
 
+        self.tactics_page = SetLineupTab(self.my_team_manager)
+        self.content_stack.addWidget(self.tactics_page)
+
         self.club_info_page = ClubInfoPage(
             self.selected_team,
             self.club_name,
@@ -1295,14 +1407,22 @@ class MainWindow(QMainWindow):
         )
         self.club_info_page.back_requested.connect(self._close_club_info)
         self.club_info_page.squad_requested.connect(self._open_club_squad)
+        self.club_info_page.player_requested.connect(
+            lambda player, page=self.club_info_page:
+            self._open_full_player_profile(player, page)
+        )
         self.root_stack.addWidget(self.club_info_page)
         self.club_info_pages = {self.selected_team: self.club_info_page}
         self.club_squad_pages = {}
         self._club_info_return_page = 0
+        self.second_draft_page = None
 
         body_layout.addWidget(self.content_stack)
 
         self.apply_team_theme()
+        self.day_advance_overlay = DayAdvanceOverlay(
+            self.colors, self.selected_team, self.root_stack
+        )
         self.root_stack.setCurrentWidget(
             self.welcome_page if self.show_welcome else self.main_widget
         )
@@ -1349,8 +1469,13 @@ class MainWindow(QMainWindow):
         self.content_stack.setCurrentIndex(4)
         self._apply_content_page(4)
 
-    def _open_full_player_profile(self, player, return_widget=None):
+    def _open_full_player_profile(self, player, return_widget=None, return_page=None):
         self._player_profile_return_widget = return_widget
+        self._player_profile_return_page = (
+            self.content_stack.currentIndex()
+            if return_widget is None and return_page is None
+            else return_page
+        )
         self.global_player_profile.set_player(player)
         self.root_transition.to_widget(self.global_player_profile)
 
@@ -1360,13 +1485,56 @@ class MainWindow(QMainWindow):
             self._player_profile_return_widget = None
             self.root_transition.to_widget(return_widget)
             return
+        return_page = getattr(self, "_player_profile_return_page", 4)
+        self._player_profile_return_page = None
         self.root_transition.to_widget(
             self.main_widget,
-            after_switch=lambda: self.switch_page(4),
+            after_switch=lambda: self.switch_page(return_page),
         )
 
+    def _open_manager_event(self, event_id):
+        event = self.save_database.get_manager_event(
+            self.save_id, int(event_id)
+        )
+        if event is None:
+            QMessageBox.warning(
+                self, "구단 업무", "해당 업무를 찾을 수 없습니다."
+            )
+            return
+        if event.get("event_type") == "player_complaint":
+            target_page = self.player_meeting_page
+        elif event.get("event_type") == "trade_offer":
+            target_page = self.trade_negotiation_page
+        else:
+            target_page = self.manager_event_page
+        target_page.save_id = self.save_id
+        target_page.set_event(event)
+        self.root_stack.setCurrentWidget(target_page)
+        self.league_home.refresh_notifications()
+
+    def _close_manager_event(self):
+        self.root_stack.setCurrentWidget(self.main_widget)
+        self.switch_page(0)
+
+    def _manager_event_resolved(self):
+        governance_state = self.save_database.load_governance_state(
+            self.save_id
+        )
+        if governance_state:
+            self.board_vision_page.restore_state(governance_state)
+        self.league_home.refresh_notifications()
+        self.news_feed.refresh_news()
+        self.player_search.players = self.player_search._load_players()
+        self.player_search.search()
+        self.calendar_bar.set_search_entries(
+            TEAM_INFO.keys(), self.player_search.players
+        )
+        self.my_team_manager.refresh_all()
+        for page in self.club_squad_pages.values():
+            page.refresh_players()
+
     def _open_club_info(self):
-        self._club_info_return_page = 0
+        self._club_info_return_page = self.content_stack.currentIndex()
         self.btn_club_info.setChecked(True)
         self.root_transition.to_widget(self.club_info_page)
 
@@ -1382,6 +1550,10 @@ class MainWindow(QMainWindow):
             )
             page.back_requested.connect(self._close_club_info)
             page.squad_requested.connect(self._open_club_squad)
+            page.player_requested.connect(
+                lambda player, club_page=page:
+                self._open_full_player_profile(player, club_page)
+            )
             self.club_info_pages[team_name] = page
             self.root_stack.addWidget(page)
         self._club_info_return_page = return_page
@@ -1418,17 +1590,84 @@ class MainWindow(QMainWindow):
             after_switch=lambda: self.switch_page(return_page),
         )
 
+    def _open_second_draft(self, view="available", return_page=1):
+        """명단 발표·결과 소식에서만 2차 드래프트 전체 화면을 연다."""
+        if self.save_id is None:
+            return
+        service = SecondDraftService(
+            self.save_database,
+            self.save_id,
+            self.player_db_path or PLAYERS_DB_PATH,
+        )
+        state = service.settings()
+        if state.get("status") == "not_prepared":
+            return
+        if state.get("status") != "completed":
+            service.set_mode("ai")
+        self._second_draft_return_page = return_page
+        if self.second_draft_page is None:
+            self.second_draft_page = SecondDraftPage(
+                self.colors,
+                self.save_database,
+                self.save_id,
+                self.player_db_path or PLAYERS_DB_PATH,
+                self.current_date,
+            )
+            self.second_draft_page.back_requested.connect(
+                self._close_second_draft
+            )
+            self.second_draft_page.player_requested.connect(
+                lambda player: self._open_full_player_profile(
+                    player, self.second_draft_page
+                )
+            )
+            self.root_stack.addWidget(self.second_draft_page)
+        else:
+            self.second_draft_page.set_game_date(self.current_date)
+        self.second_draft_page.show_view(view)
+        self.root_transition.to_widget(self.second_draft_page)
+
+    def _close_second_draft(self):
+        self.root_transition.to_widget(
+            self.main_widget,
+            after_switch=lambda: self.switch_page(
+                getattr(self, "_second_draft_return_page", 1)
+            ),
+        )
+
+    def _refresh_after_second_draft(self):
+        """지명 직후 검색·선수단·뉴스를 새 소속 구단 기준으로 갱신한다."""
+        self.player_search.players = self.player_search._load_players()
+        self.player_search.search()
+        self.calendar_bar.set_search_entries(
+            TEAM_INFO.keys(), self.player_search.players
+        )
+        for page in self.club_squad_pages.values():
+            page.refresh_players()
+        if self.my_team_manager:
+            self.my_team_manager.refresh_all()
+        self._refresh_news_pages()
+
     def open_dashboard(self):
         """취임 기사를 확인한 뒤 메인 수신함으로 이동한다."""
         self.root_transition.to_widget(
             self.main_widget,
-            after_switch=lambda: self.switch_page(0),
+            after_switch=self._show_initial_inbox,
         )
+
+    def _show_initial_inbox(self):
+        self.switch_page(0)
+        self._update_progress_gate(len(self.league_home.pending_required_messages()))
 
     def finish_board_vision(self):
         """협의 완료 상태를 수신함에 표시하고 메인 화면으로 돌아간다."""
         self.board_vision_page.mark_reviewed()
         self.league_home.mark_board_vision_reviewed()
+        if self.save_id is None:
+            self.save_game(show_message=False)
+        self.save_database.save_governance_state(
+            self.save_id, self.board_vision_page.export_state()
+        )
         self.root_transition.to_widget(
             self.main_widget,
             after_switch=lambda: self.switch_page(0),
@@ -1437,27 +1676,33 @@ class MainWindow(QMainWindow):
     def create_sidebar(self):
         sidebar = QWidget()
         sidebar.setObjectName("Sidebar")
-        sidebar.setFixedWidth(220)
+        sidebar.setFixedWidth(184)
 
         layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(9, 12, 9, 12)
-        layout.setSpacing(4)
+        layout.setContentsMargins(0, 0, 0, 8)
+        layout.setSpacing(0)
 
         logo = QLabel(TEAM_EMOJIS.get(self.selected_team, "🏟️"))
-        logo.setFont(QFont("Arial", 30))
+        logo.setFont(QFont("Arial", 20))
         logo.setAlignment(Qt.AlignCenter)
+        logo.setFixedHeight(40)
+        logo.setObjectName("SidebarCrest")
         layout.addWidget(logo)
 
-        team_label = QLabel(self.club_name)
+        team_label = ClickableLabel(self.club_name)
+        team_label.setObjectName("SidebarClubLink")
         team_label.setWordWrap(True)
-        team_label.setFont(QFont(UI_FONT_FAMILY, 15, QFont.Bold))
+        team_label.setFont(QFont(UI_FONT_FAMILY, 13, QFont.Bold))
         team_label.setAlignment(Qt.AlignCenter)
-        team_label.setStyleSheet(f"color: {self.colors['accent_light']}; margin-top: 2px;")
+        team_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        team_label.setToolTip("구단 상세 정보 열기")
+        team_label.clicked.connect(self._open_club_info)
+        team_label.setStyleSheet(f"color: {self.colors['accent_light']}; padding: 0 8px;")
         layout.addWidget(team_label)
 
         base_label = QLabel(f"기준 구단 · {self.selected_team}")
         base_label.setAlignment(Qt.AlignCenter)
-        base_label.setStyleSheet("color: #748396; font-size: 12px;")
+        base_label.setStyleSheet("color: #74808d; font-size: 10px;")
         layout.addWidget(base_label)
 
         manager_label = QLabel(
@@ -1466,42 +1711,56 @@ class MainWindow(QMainWindow):
         )
         manager_label.setWordWrap(True)
         manager_label.setAlignment(Qt.AlignCenter)
-        manager_label.setStyleSheet("color: #98a7b7; font-size: 12px; padding: 5px 0 9px 0;")
+        manager_label.setStyleSheet("color: #98a3ae; font-size: 10px; padding: 3px 8px 10px 8px; border-bottom: 1px solid #303841;")
         layout.addWidget(manager_label)
+
+        club_section = QLabel("구단")
+        club_section.setProperty("sidebarSection", True)
+        layout.addWidget(club_section)
 
         self.btn_home = QPushButton("▣  수신함")
         self.btn_home.setCheckable(True)
+        self.btn_home.setText("수신함")
         self.btn_home.setChecked(True)
         self.btn_home.clicked.connect(lambda: self.switch_page(0))
         layout.addWidget(self.btn_home)
 
         self.btn_news = QPushButton("▤  구단 뉴스")
         self.btn_news.setCheckable(True)
+        self.btn_news.setText("구단 뉴스")
         self.btn_news.clicked.connect(lambda: self.switch_page(1))
         layout.addWidget(self.btn_news)
 
         self.btn_daily_news = QPushButton("▦  일정")
         self.btn_daily_news.setCheckable(True)
+        self.btn_daily_news.setText("일정")
         self.btn_daily_news.clicked.connect(self._open_season_calendar)
         layout.addWidget(self.btn_daily_news)
 
         self.btn_manage = QPushButton("♟  선수단")
         self.btn_manage.setCheckable(True)
+        self.btn_manage.setText("선수단")
         self.btn_manage.clicked.connect(lambda: self.switch_page(3))
         layout.addWidget(self.btn_manage)
 
         self.btn_search = QPushButton("⌕  탐색")
         self.btn_search.setCheckable(True)
+        self.btn_search.setText("탐색")
         self.btn_search.clicked.connect(lambda: self.switch_page(4))
         layout.addWidget(self.btn_search)
 
         self.btn_club_info = QPushButton("▰  구단 정보")
         self.btn_club_info.setCheckable(True)
+        self.btn_club_info.setText("구단 정보")
         self.btn_club_info.clicked.connect(self._open_club_info)
         layout.addWidget(self.btn_club_info)
 
+        self.btn_tactics = QPushButton("전술")
+        self.btn_tactics.setCheckable(True)
+        self.btn_tactics.clicked.connect(lambda: self.switch_page(5))
+        layout.addWidget(self.btn_tactics)
+
         for title in (
-            "⌁  전술",
             "◉  데이터 센터",
             "♟  스태프",
             "▲  훈련",
@@ -1509,67 +1768,167 @@ class MainWindow(QMainWindow):
             "⇄  이적",
             "₩  재정",
         ):
-            placeholder = QPushButton(title)
+            placeholder = QPushButton(title.split("  ", 1)[-1])
             placeholder.setProperty("placeholder", True)
+            placeholder.setEnabled(False)
             placeholder.setToolTip("후속 개발에서 구현될 메뉴입니다.")
             layout.addWidget(placeholder)
         layout.addStretch()
 
         self.btn_save = QPushButton("▣  게임 저장")
         self.btn_save.setObjectName("SaveButton")
+        self.btn_save.setText("게임 저장")
         self.btn_save.clicked.connect(lambda: self.save_game())
         layout.addWidget(self.btn_save)
 
         self.btn_start = QPushButton("↩  시작 화면")
         self.btn_start.setObjectName("StartButton")
+        self.btn_start.setText("시작 화면")
         self.btn_start.clicked.connect(self.return_to_start)
         layout.addWidget(self.btn_start)
         return sidebar
 
     def advance_to_next_day(self):
-        """10개 구단의 하루를 트랜잭션으로 처리한 뒤 화면 날짜를 갱신한다."""
+        """상단 진행 패널과 함께 다음 날짜 시뮬레이션을 시작한다."""
+        pending = self.league_home.pending_required_messages()
+        if pending:
+            self.switch_page(0)
+            message = self.league_home.focus_first_required_message()
+            self._update_progress_gate(len(pending))
+            QMessageBox.information(
+                self,
+                "필수 응답 필요",
+                "날짜를 진행하기 전에 아래 소식을 처리해야 합니다.\n\n"
+                f"{message['headline'] if message else pending[0]['headline']}",
+            )
+            return
+        if (
+            self._day_advance_worker is not None
+            and self._day_advance_worker.isRunning()
+        ):
+            return
         target_date = self.current_date + timedelta(days=1)
         if self.save_id is None:
             self.save_game(show_message=False)
-        if self._league_simulation_service is None:
-            self._league_simulation_service = LeagueSimulationService(
+        self.calendar_bar.next_button.setEnabled(False)
+        self._day_advance_target = target_date
+        self._day_advance_started_at = monotonic()
+        self._day_advance_warning = None
+        self.day_advance_overlay.begin(self.current_date, target_date)
+        self._day_advance_worker = DayAdvanceWorker(
+            self.save_database,
+            self.save_id,
+            self.player_db_path or PLAYERS_DB_PATH,
+            self.selected_team,
+            target_date,
+            self,
+        )
+        self._day_advance_worker.completed.connect(
+            self._day_simulation_completed
+        )
+        self._day_advance_worker.failed.connect(
+            self._day_simulation_failed
+        )
+        self._day_advance_worker.progress.connect(
+            self.day_advance_overlay.update_progress
+        )
+        self._day_advance_worker.start()
+
+    def _wait_for_minimum_day_loading(self, callback):
+        """시뮬레이션이 빨라도 진행 화면을 최소 2초 동안 유지한다."""
+        elapsed_ms = int(
+            (monotonic() - self._day_advance_started_at) * 1000
+        )
+        QTimer.singleShot(max(0, 2000 - elapsed_ms), callback)
+
+    def _day_simulation_completed(self, summary):
+        self.last_simulation_summary = summary
+        self._wait_for_minimum_day_loading(
+            self._apply_completed_day_advance
+        )
+
+    def _day_simulation_failed(self, message):
+        target_date = self._day_advance_target
+        print(
+            f"[리그 시뮬레이션 오류] "
+            f"{target_date.isoformat() if target_date else '-'} · {message}",
+            flush=True,
+        )
+        self._wait_for_minimum_day_loading(
+            lambda reason=message: self.day_advance_overlay.fail(
+                "하루 진행을 완료하지 못했습니다",
+                after_hidden=lambda: self._finish_failed_day_advance(reason),
+            )
+        )
+
+    def _apply_completed_day_advance(self):
+        target_date = self._day_advance_target
+        if target_date is None:
+            return
+        self.current_date = target_date
+        try:
+            SecondDraftService(
                 self.save_database,
                 self.save_id,
                 self.player_db_path or PLAYERS_DB_PATH,
-                self.selected_team,
-            )
-        self.calendar_bar.next_button.setEnabled(False)
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        try:
-            self.last_simulation_summary = self._league_simulation_service.simulate_day(
-                target_date
-            )
+            ).process_date(self.current_date)
         except Exception as error:
-            print(f"[리그 시뮬레이션 오류] {target_date.isoformat()} · {error!r}", flush=True)
-            QMessageBox.critical(
-                self,
-                "리그 진행 오류",
-                "다른 구단을 포함한 하루 진행을 완료하지 못했습니다.\n"
-                "모든 변경은 취소되었습니다.\n\n"
-                f"{error}",
+            print(
+                f"[2차 드래프트 일정 처리 오류] "
+                f"{self.current_date.isoformat()} · {error!r}",
+                flush=True,
             )
-            return
-        finally:
-            QApplication.restoreOverrideCursor()
-            self.calendar_bar.next_button.setEnabled(True)
-
-        self.current_date = target_date
+            self._day_advance_warning = (
+                "리그 날짜는 정상 진행됐지만 2차 드래프트 처리를 완료하지 "
+                f"못했습니다. 다음 날짜 진행 시 자동으로 다시 시도합니다.\n\n{error}"
+            )
         self.calendar_bar.set_game_date(self.current_date, animated=True)
         self.news_feed.set_game_date(self.current_date)
         self.daily_news.set_game_date(self.current_date)
         self.league_home.refresh_notifications()
+        self.league_home.set_game_date(self.current_date)
         self.season_calendar.set_game_date(self.current_date)
+        if self.second_draft_page is not None:
+            self.second_draft_page.set_game_date(self.current_date)
         for page in self.club_squad_pages.values():
             page.save_id = self.save_id
             page.refresh_players()
         if self.my_team_manager:
             self.my_team_manager.refresh_all()
         self._start_team_ai_processing()
+        self.day_advance_overlay.complete(
+            self.current_date,
+            after_hidden=self._finish_day_advance_transition,
+        )
+
+    def _finish_day_advance_transition(self):
+        self.calendar_bar.next_button.setEnabled(True)
+        self._day_advance_target = None
+        worker = self._day_advance_worker
+        self._day_advance_worker = None
+        if worker is not None:
+            worker.deleteLater()
+        if self._day_advance_warning:
+            warning = self._day_advance_warning
+            self._day_advance_warning = None
+            QMessageBox.warning(
+                self, "2차 드래프트 일정 처리", warning
+            )
+
+    def _finish_failed_day_advance(self, reason):
+        self.calendar_bar.next_button.setEnabled(True)
+        self._day_advance_target = None
+        worker = self._day_advance_worker
+        self._day_advance_worker = None
+        if worker is not None:
+            worker.deleteLater()
+        QMessageBox.critical(
+            self,
+            "리그 진행 오류",
+            "다른 구단을 포함한 하루 진행을 완료하지 못했습니다.\n"
+            "모든 변경은 취소되었습니다.\n\n"
+            f"{reason}",
+        )
 
     def _start_team_ai_processing(self):
         """중요 구단 결정을 백그라운드 Qwen 작업으로 넘겨 날짜 진행을 막지 않는다."""
@@ -1589,13 +1948,23 @@ class MainWindow(QMainWindow):
         self.news_feed.set_game_date(self.current_date)
         self.league_home.refresh_notifications()
 
+    def _update_progress_gate(self, required_count):
+        self._pending_required_action_count = int(required_count)
+        self.calendar_bar.set_progress_blocked(self._pending_required_action_count)
+        if self._pending_required_action_count:
+            self.btn_home.setToolTip(
+                f"날짜 진행 전에 처리할 필수 소식이 {self._pending_required_action_count}건 있습니다."
+            )
+        else:
+            self.btn_home.setToolTip("")
+
     def update_news_notification_badge(self, unread_count):
         suffix = f"  ({unread_count})" if unread_count else ""
-        self.btn_home.setText(f"▣  수신함{suffix}")
-        self.btn_news.setText(f"▤  구단 뉴스{suffix}")
+        self.btn_home.setText(f"수신함{suffix}")
+        self.btn_news.setText(f"구단 뉴스{suffix}")
 
     def update_daily_news_badge(self, unread_count):
-        text = "▦  일정"
+        text = "일정"
         if unread_count:
             text += f"  ({unread_count})"
         self.btn_daily_news.setText(text)
@@ -1642,10 +2011,30 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """명시적으로 저장하지 않은 진행 상황은 DB에 기록하지 않는다."""
+        if self._day_advance_target is not None:
+            event.ignore()
+            QMessageBox.information(
+                self,
+                "일정 진행 중",
+                "하루 진행이 끝난 뒤 게임을 종료할 수 있습니다.",
+            )
+            return
         self._shutdown_ai()
         super().closeEvent(event)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        overlay = getattr(self, "day_advance_overlay", None)
+        if overlay is not None:
+            overlay.setGeometry(self.root_stack.rect())
+
     def _shutdown_ai(self):
+        if self.manager_event_page is not None:
+            self.manager_event_page.shutdown_worker()
+        if self.player_meeting_page is not None:
+            self.player_meeting_page.shutdown_worker()
+        if self.trade_negotiation_page is not None:
+            self.trade_negotiation_page.shutdown_worker()
         worker = self._team_ai_worker
         if worker is not None and worker.isRunning():
             print("[상대 구단 Qwen AI] 게임 종료 · 작업 중단 요청", flush=True)
@@ -1707,7 +2096,18 @@ class MainWindow(QMainWindow):
         self.btn_daily_news.setChecked(page_index == 2)
         self.btn_manage.setChecked(page_index == 3)
         self.btn_search.setChecked(page_index == 4)
+        self.btn_tactics.setChecked(page_index == 5)
         self.btn_club_info.setChecked(False)
+        section_titles = {
+            0: ("수신함", "구단 운영과 리그의 주요 메시지"),
+            1: ("구단 뉴스", "KBO 뉴스와 1군 부상 소식"),
+            2: ("일정", "시즌 일정과 구단 일정"),
+            3: ("선수단", "1군·2군 선수단 관리"),
+            4: ("탐색", "구단과 선수를 통합 검색"),
+            5: ("전술", "타순·수비 위치·선발 로테이션·불펜 운용"),
+        }
+        title, context = section_titles.get(page_index, ("구단 운영", self.club_name))
+        self.calendar_bar.set_section(title, context)
         if page_index == 0:
             self.league_home.refresh_notifications()
         if page_index == 1:
@@ -1717,49 +2117,67 @@ class MainWindow(QMainWindow):
             self.my_team_manager.refresh_all()
         else:
             self.sidebar.show()
+        if page_index == 5:
+            self.tactics_page.reload()
 
     def apply_team_theme(self):
         c = self.colors
         self.setStyleSheet(f"""
             QMainWindow {{ background-color: {c['bg_dark']}; }}
             QWidget#Sidebar {{
-                background-color: #151a20;
-                border-right: 1px solid #3a4551;
+                background-color: #10151a;
+                border-right: 1px solid #343d46;
             }}
-            QLabel {{ color: {c['text']}; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
+            QWidget#Sidebar QLabel#SidebarCrest {{
+                background-color: {c['accent']};
+                border-bottom: 1px solid {c['accent_light']};
+            }}
+            QWidget#Sidebar QLabel[sidebarSection="true"] {{
+                color: #6f7c89;
+                background-color: #0d1217;
+                border-top: 1px solid #273039;
+                border-bottom: 1px solid #273039;
+                padding: 7px 10px 5px 10px;
+                font-size: 10px;
+                font-weight: 700;
+            }}
+            QLabel {{ color: {c['text']}; font-family: 'Malgun Gothic', 'Segoe UI'; }}
             QWidget#Sidebar QPushButton {{
                 background-color: transparent;
-                color: #9ca3af;
-                border: 1px solid transparent;
-                min-height: 35px;
-                padding: 7px 12px;
+                color: #aeb7c0;
+                border: 0;
+                border-left: 3px solid transparent;
+                border-bottom: 1px solid #1b2229;
+                min-height: 30px;
+                padding: 2px 10px;
                 text-align: left;
-                font-family: 'Noto Sans KR', 'Malgun Gothic';
-                font-size: 14px;
-                border-radius: 5px;
+                font-family: 'Malgun Gothic', 'Segoe UI';
+                font-size: 12px;
+                border-radius: 0;
                 font-weight: 600;
             }}
             QWidget#Sidebar QPushButton:hover {{
-                background-color: {c['bg_dark']};
+                background-color: #1a2128;
                 color: {c['accent_light']};
             }}
-            QWidget#Sidebar QPushButton:checked {{ background-color: {c['accent']}; color: white; }}
+            QWidget#Sidebar QPushButton:checked {{
+                background-color: #202831;
+                color: white;
+                border-left: 3px solid {c['accent_light']};
+            }}
             QWidget#Sidebar QPushButton[placeholder="true"] {{ color: #83909e; }}
-            QWidget#Sidebar QPushButton[placeholder="true"]:hover {{ color: {c['accent_light']}; border-left: 2px solid {c['accent']}; }}
+            QWidget#Sidebar QPushButton[placeholder="true"]:hover {{ color: {c['accent_light']}; border-left: 3px solid {c['accent']}; }}
             QTableWidget {{
                 background-color: {c['card_bg']};
                 border: 1px solid #1e293b;
                 gridline-color: #1e293b;
-                border-radius: 4px;
+                border-radius: 0;
             }}
         """)
 
 
 def run():
-    app = QApplication(sys.argv)
-    app.setApplicationName(APP_TITLE)
-    app.setFont(QFont(UI_FONT_FAMILY, 11))
-    app.setStyleSheet(GLOBAL_STYLE)
-    start_window = StartWindow()
-    start_window.show()
-    return app.exec()
+    """이전 진입점 호환용 래퍼."""
+    from app.application import run as application_run
+
+    return application_run()

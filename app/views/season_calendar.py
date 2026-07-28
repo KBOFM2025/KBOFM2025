@@ -140,7 +140,7 @@ class SeasonCalendarPage(QWidget):
         accent_light = self.colors["accent_light"]
         return f"""
             SeasonCalendarPage {{ background: #11161c; }}
-            QLabel {{ color: #e9eef4; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
+            QLabel {{ color: #e9eef4; font-family: 'Malgun Gothic', 'Segoe UI'; }}
             QLabel#CalendarTitle {{ font-size: 24px; font-weight: 800; }}
             QLabel#CalendarSubtitle {{ color: #8996a5; font-size: 12px; }}
             QLabel#MonthLabel {{ font-size: 20px; font-weight: 800; }}

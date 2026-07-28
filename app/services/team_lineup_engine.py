@@ -28,12 +28,27 @@ def hitter_rating(player):
 
 
 def pitcher_rating(player):
-    values = _values(player, ("con", "pow", "eye", "def"))
+    values = _values(
+        player,
+        ("pitcher_stuff", "pitcher_command", "pitcher_movement",
+         "pitcher_stamina", "pitcher_pitchability"),
+    )
+    if not values:
+        values = _values(player, ("con", "pow", "eye", "def"))
     return sum(values) / len(values) if values else 10.0
 
 
+def player_ability_score(player):
+    """투수·타자의 1~20 능력치를 같은 기준으로 반환한다."""
+    return (
+        pitcher_rating(player)
+        if player.get("position_group") == "P"
+        else hitter_rating(player)
+    )
+
+
 def availability_score(player, state, development=3):
-    base = pitcher_rating(player) if player.get("position_group") == "P" else hitter_rating(player)
+    base = player_ability_score(player)
     youth = max(0, 29 - int(player.get("age", 29))) * development * 0.025
     return (
         base * 2.2
@@ -131,7 +146,8 @@ class TeamLineupEngine:
         if bullpen:
             closer = max(
                 bullpen,
-                key=lambda player: float(player.get("pow") or 10) * 1.4 + float(player.get("eye") or 10),
+                key=lambda player: float(player.get("pitcher_stuff") or 10) * 1.4
+                + float(player.get("pitcher_composure") or 10),
             )
             bullpen.remove(closer)
             roles.append(("마무리", closer))

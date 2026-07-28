@@ -27,22 +27,24 @@ class CalendarBar(QFrame):
         self.setObjectName("CalendarBar")
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(24, 11, 24, 11)
-        layout.setSpacing(14)
+        layout.setContentsMargins(12, 6, 12, 6)
+        layout.setSpacing(9)
 
-        brand = QLabel("⌂")
+        brand = QLabel("KBO")
         brand.setObjectName("HeaderBrand")
         brand.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        brand.setFixedSize(42, 42)
+        brand.setFixedSize(46, 32)
         layout.addWidget(brand)
 
         title_column = QVBoxLayout()
         title_column.setSpacing(0)
         section = QLabel("수신함")
         section.setObjectName("HeaderTitle")
+        self.section_label = section
         title_column.addWidget(section)
         context = QLabel(f"{club_name}  ·  구단 운영 센터")
         context.setObjectName("HeaderContext")
+        self.context_label = context
         title_column.addWidget(context)
         layout.addLayout(title_column)
 
@@ -52,7 +54,7 @@ class CalendarBar(QFrame):
         self.search_input.setClearButtonEnabled(True)
         self.search_input.setMinimumWidth(360)
         self.search_input.setMaximumWidth(760)
-        self.search_input.setFixedHeight(42)
+        self.search_input.setFixedHeight(32)
         self._search_items = {}
         self._search_model = QStringListModel(self)
         self._search_completer = QCompleter(self._search_model, self)
@@ -62,7 +64,7 @@ class CalendarBar(QFrame):
         self._search_completer.setMaxVisibleItems(12)
         self._search_completer.popup().setStyleSheet(
             f"QAbstractItemView {{ color: #e5edf5; background: #171c22; "
-            f"border: 2px solid {colors['accent']}; padding: 5px; font-size: 14px; "
+            f"border: 1px solid #4b5662; padding: 3px; font-size: 12px; "
             f"outline: 0; selection-color: white; "
             f"selection-background-color: {colors['accent']}; }}"
         )
@@ -72,14 +74,14 @@ class CalendarBar(QFrame):
         layout.addWidget(self.search_input, 1)
         self.search_button = QPushButton("탐색")
         self.search_button.setObjectName("GlobalSearchButton")
-        self.search_button.setFixedHeight(42)
+        self.search_button.setFixedHeight(32)
         self.search_button.clicked.connect(
             lambda _checked=False: self._submit_search()
         )
         layout.addWidget(self.search_button)
 
         self.date_label = QLabel(self._date_text(game_date))
-        self.date_label.setFont(QFont("Noto Sans KR", 19, QFont.Bold))
+        self.date_label.setFont(QFont("Malgun Gothic", 12, QFont.Bold))
         self.date_label.setObjectName("HeaderDate")
         self.date_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(self.date_label)
@@ -91,44 +93,68 @@ class CalendarBar(QFrame):
 
         self.setStyleSheet(f"""
             QFrame#CalendarBar {{
-                background-color: #171c22;
-                border-bottom: 1px solid #3b4652;
+                background-color: #11161c;
+                border-bottom: 2px solid {colors['accent']};
             }}
-            QLabel {{ color: {colors['text']}; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
-            QLabel#HeaderBrand {{ color: white; background-color: {colors['accent']}; border-radius: 21px; font-size: 20px; font-weight: 800; }}
-            QLabel#HeaderTitle {{ color: white; font-size: 20px; font-weight: 700; }}
-            QLabel#HeaderContext {{ color: #8f9cab; font-size: 12px; }}
-            QLabel#HeaderDate {{ color: {colors['accent_light']}; font-size: 16px; padding-right: 10px; }}
+            QLabel {{ color: {colors['text']}; font-family: 'Malgun Gothic', 'Segoe UI'; }}
+            QLabel#HeaderBrand {{ color: white; background-color: {colors['accent']}; border-radius: 1px; font-size: 14px; font-weight: 800; }}
+            QLabel#HeaderTitle {{ color: white; font-size: 14px; font-weight: 700; }}
+            QLabel#HeaderContext {{ color: #84909c; font-size: 10px; }}
+            QLabel#HeaderDate {{ color: #e2e7ec; font-size: 12px; padding: 0 7px; }}
             QLineEdit#GlobalSearch {{
-                color: #f8fafc; background-color: #171c22;
+                color: #f8fafc; background-color: #0d1217;
                 placeholder-text-color: #7f8b98;
-                border: 2px solid {colors['accent']}; border-radius: 5px;
-                padding: 0 14px; font-size: 15px;
+                border: 1px solid #46515d; border-radius: 1px;
+                padding: 0 10px; font-size: 12px;
             }}
-            QLineEdit#GlobalSearch:hover {{ border-color: {colors['accent_light']}; }}
+            QLineEdit#GlobalSearch:hover {{ border-color: #6b7784; }}
             QLineEdit#GlobalSearch:focus {{
-                background-color: #1d242c;
-                border: 3px solid {colors['accent_light']};
+                background-color: #151b22;
+                border: 1px solid {colors['accent_light']};
             }}
             QPushButton#GlobalSearchButton {{
-                color: white; background-color: {colors['accent']};
-                border: 1px solid {colors['accent_light']}; border-radius: 4px;
-                padding: 0 20px; font-size: 14px; font-weight: 700;
+                color: #e7ebef; background-color: #202832;
+                border: 1px solid #4a5662; border-radius: 1px;
+                padding: 0 14px; font-size: 12px; font-weight: 700;
             }}
-            QPushButton#GlobalSearchButton:hover {{ background-color: {colors['accent_light']}; }}
+            QPushButton#GlobalSearchButton:hover {{ background-color: {colors['accent']}; }}
             QPushButton#NextDateButton {{
                 color: white;
                 background-color: {colors['accent']};
                 border: 1px solid {colors['accent_light']};
-                border-radius: 7px;
-                padding: 10px 22px;
-                font-family: 'Noto Sans KR', 'Malgun Gothic';
-                font-size: 15px;
+                border-radius: 1px;
+                min-height: 32px;
+                padding: 0 17px;
+                font-family: 'Malgun Gothic', 'Segoe UI';
+                font-size: 12px;
                 font-weight: 700;
             }}
             QPushButton#NextDateButton:hover {{ background-color: {colors['accent_light']}; }}
+            QPushButton#NextDateButton[progressBlocked="true"] {{
+                color: white; background-color: #9f2734; border-color: #ef6672;
+            }}
+            QPushButton#NextDateButton[progressBlocked="true"]:hover {{ background-color: #bd3341; }}
             QPushButton#NextDateButton:disabled {{ color: #94a3b8; background-color: #334155; border-color: #475569; }}
         """)
+
+    def set_section(self, title, context=None):
+        """Keep the persistent header in sync with the active management area."""
+        self.section_label.setText(title)
+        if context is not None:
+            self.context_label.setText(context)
+
+    def set_progress_blocked(self, required_count):
+        blocked = required_count > 0
+        self.next_button.setProperty("progressBlocked", blocked)
+        self.next_button.setText(
+            f"필수 소식 확인  ({required_count})" if blocked else "다음 날짜  →"
+        )
+        self.next_button.setToolTip(
+            "수신함의 필수 응답 항목을 처리해야 날짜를 진행할 수 있습니다."
+            if blocked else "다음 날짜로 진행합니다."
+        )
+        self.next_button.style().unpolish(self.next_button)
+        self.next_button.style().polish(self.next_button)
 
     def set_search_entries(self, clubs, players):
         """구단과 선수를 하나의 자동완성 드롭다운에 등록한다."""

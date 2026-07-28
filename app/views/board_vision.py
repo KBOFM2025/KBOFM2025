@@ -133,7 +133,6 @@ class ObjectiveCard(QFrame):
         self.selected_level = level
         self.decision = "pending"
         self.conditions = []
-        self.response = {}
         self.trust_delta = 0
         self.gm_delta = 0
         self.result_label.setText(f"{level}단계 · 전달 대기")
@@ -154,13 +153,16 @@ class ObjectiveCard(QFrame):
 
     def apply_board_review(self, review):
         self.decision = "accept" if review["status"] == "ok" else "counter_offer"
-        self.response = dict(review)
+        self.response = {
+            **dict(review),
+            "reviewed_level": self.selected_level,
+        }
         label = "OK" if review["status"] == "ok" else "조정 요청"
         self.result_label.setText(f"{self.selected_level}단계 · {label}")
         self.result_label.setProperty("direction", "positive" if review["status"] == "ok" else "negative")
         self.result_label.style().unpolish(self.result_label)
         self.result_label.style().polish(self.result_label)
-        self.negotiate_button.setText("확인" if review["status"] == "ok" else "재조정")
+        self.negotiate_button.setText("승인 완료" if review["status"] == "ok" else "재조정")
 
 
 class BoardVisionPage(QWidget):
@@ -207,7 +209,7 @@ class BoardVisionPage(QWidget):
         heading.addWidget(eyebrow)
         title = QLabel("구단 비전과 이사회 목표")
         title.setObjectName("PageTitle")
-        title.setFont(QFont("Noto Sans KR", 28, QFont.Bold))
+        title.setFont(QFont("Malgun Gothic", 28, QFont.Bold))
         heading.addWidget(title)
         subtitle = QLabel(
             f"{manager_name} 감독에게 적용될 {club_name} 이사회의 평가 기준입니다."
@@ -354,7 +356,7 @@ class BoardVisionPage(QWidget):
         self.negotiation_target.setWordWrap(True)
         negotiation_layout.addWidget(self.negotiation_target)
         self.current_terms = QLabel(
-            "5개 항목의 단계를 모두 선택한 뒤 한 번에 이사회로 전달합니다."
+            "첫 제출은 5개 전체를 전달하고, 이후에는 조정 요청을 받은 안건만 다시 전달합니다."
         )
         self.current_terms.setObjectName("CurrentTerms")
         self.current_terms.setWordWrap(True)
@@ -393,7 +395,7 @@ class BoardVisionPage(QWidget):
         response_scroll.setWidget(self.board_response)
         negotiation_layout.addWidget(response_scroll, 1)
         self.ai_status = QLabel(
-            "Qwen3-1.7B 로컬 AI 대기"
+            "Qwen3 로컬 AI 대기"
             if self.local_ai_enabled
             else "로컬 AI가 비활성화되어 있습니다"
         )
@@ -458,12 +460,21 @@ class BoardVisionPage(QWidget):
             f"현재 중요도  ·  {card.priority}\n"
             f"평가 기간  ·  {card.period}{selected_text}\n\n{card.description}"
         )
+        approved = card.decision == "accept"
         for button in self.level_buttons:
-            button.setEnabled(True)
+            button.setEnabled(not approved and self._ai_worker is None)
+        if approved:
+            self.board_response.setText(
+                feedback or "이 안건은 이사회 승인이 완료되어 확정되었습니다."
+            )
 
     def _choose_level(self, level):
         card = self.selected_objective
-        if card is None or self._ai_worker is not None:
+        if (
+            card is None
+            or self._ai_worker is not None
+            or card.decision == "accept"
+        ):
             return
         card.stage_level(level)
         self.current_terms.setText(f"선택 단계 · {level}단계 ({LEVELS[level]['label']})\n\n{card.description}")
@@ -477,17 +488,39 @@ class BoardVisionPage(QWidget):
         if not self.local_ai_enabled:
             self.ai_status.setText("KBOFM_AI_ENABLED=1로 로컬 AI를 활성화해야 합니다.")
             return
-        if any(card.selected_level is None for card in self.objective_cards):
-            self.ai_status.setText("5개 항목의 단계를 먼저 모두 선택하십시오.")
+        pending_cards = [
+            card for card in self.objective_cards
+            if card.decision != "accept"
+        ]
+        if not pending_cards:
+            self.continue_requested.emit()
+            return
+        untouched_adjustments = [
+            card for card in pending_cards
+            if card.decision == "counter_offer"
+        ]
+        if untouched_adjustments:
+            self.ai_status.setText(
+                f"조정 요청 {len(untouched_adjustments)}건의 단계를 변경한 뒤 다시 전달하십시오."
+            )
+            return
+        if any(card.selected_level is None for card in pending_cards):
+            self.ai_status.setText(
+                f"재검토 대상 {len(pending_cards)}개 항목의 단계를 먼저 선택하십시오."
+            )
             return
         context = build_board_submission_context(
             self.base_team, self.club_name, self.manager_data,
-            self.governance_profile, self.objective_cards,
+            self.governance_profile, pending_cards,
         )
         self._set_negotiation_busy(True)
         self.accept_button.setEnabled(False)
-        self.board_response.setText("이사회가 5개 안건을 검토하고 있습니다.")
-        self.ai_status.setText("Qwen3-1.7B 검토 중…")
+        self.board_response.setText(
+            f"이사회가 {len(pending_cards)}개 안건을 검토하고 있습니다."
+        )
+        self.ai_status.setText(
+            f"Qwen3 검토 중 · {len(pending_cards)}건"
+        )
         self._ai_worker = BoardReviewWorker(context, self)
         self._ai_worker.review_ready.connect(self._on_board_review)
         self._ai_worker.review_failed.connect(self._on_board_review_failed)
@@ -498,7 +531,9 @@ class BoardVisionPage(QWidget):
         reviews = {item["objective_key"]: item for item in payload["reviews"]}
         response_lines = []
         for card in self.objective_cards:
-            review = reviews[card.objective_key]
+            review = reviews.get(card.objective_key)
+            if review is None:
+                continue
             card.apply_board_review(review)
             status_label = "OK" if review["status"] == "ok" else "조정 요청"
             response_lines.append(
@@ -512,10 +547,19 @@ class BoardVisionPage(QWidget):
                 "board_reply": review["feedback"],
                 "source": "local_ai",
             })
-        adjustments = [c for c in self.objective_cards if c.decision != "accept"]
+        adjustments = [
+            card for card in self.objective_cards
+            if card.decision != "accept"
+        ]
+        approved_count = len(self.objective_cards) - len(adjustments)
         if adjustments:
-            self.ai_status.setText(f"AI 검토 완료 · OK {5-len(adjustments)} / 조정 {len(adjustments)}")
+            self.ai_status.setText(
+                f"AI 검토 완료 · 누적 승인 {approved_count} / 재조정 {len(adjustments)}"
+            )
             self.board_response.setText("\n\n".join(response_lines))
+            self.accept_button.setText(
+                f"조정 {len(adjustments)}건 다시 전달  →"
+            )
         else:
             self.ai_status.setText("AI 검토 완료 · 5개 항목 모두 OK")
             self.board_response.setText(
@@ -528,6 +572,7 @@ class BoardVisionPage(QWidget):
             except RuntimeError:
                 pass
             self.accept_button.clicked.connect(self.continue_requested.emit)
+        self._refresh_card_locks()
 
     def _on_board_review_failed(self, reason):
         self.ai_status.setText(f"로컬 AI 검토 실패 · {reason}")
@@ -549,6 +594,8 @@ class BoardVisionPage(QWidget):
 
     def _apply_negotiation_decision(self, payload):
         pending = self._pending_negotiation
+        if pending is None:
+            return
         card = pending["card"]
         evaluation = pending["evaluation"]
         result = self.governance_engine.resolve_vision_decision(evaluation, payload)
@@ -606,9 +653,29 @@ class BoardVisionPage(QWidget):
 
     def _set_negotiation_busy(self, busy):
         for button in self.level_buttons:
-            button.setEnabled(not busy and self.selected_objective is not None)
+            button.setEnabled(
+                not busy
+                and self.selected_objective is not None
+                and self.selected_objective.decision != "accept"
+            )
         for card in self.objective_cards:
-            card.negotiate_button.setEnabled(not busy)
+            card.negotiate_button.setEnabled(
+                not busy and card.decision != "accept"
+            )
+
+    def _refresh_card_locks(self):
+        """승인된 안건은 확정하고 재조정 대상만 다시 선택할 수 있게 한다."""
+        for card in self.objective_cards:
+            approved = card.decision == "accept"
+            card.negotiate_button.setEnabled(
+                not approved and self._ai_worker is None
+            )
+            if approved:
+                card.negotiate_button.setText("승인 완료")
+        if self.selected_objective is not None:
+            approved = self.selected_objective.decision == "accept"
+            for button in self.level_buttons:
+                button.setEnabled(not approved and self._ai_worker is None)
 
     def _recalculate_confidence(self):
         self.board_confidence = clamp_relationship(
@@ -671,7 +738,33 @@ class BoardVisionPage(QWidget):
         self.reviewed = bool(state.get("reviewed", False))
         self.negotiation_history = list(state.get("negotiation_history", []))
         self._recalculate_confidence()
-        self.ai_status.setText("저장된 구단 협상 상태 복원 완료")
+        self.board_confidence = clamp_relationship(
+            int(state.get("board_confidence", self.board_confidence))
+        )
+        self.gm_relationship = clamp_relationship(
+            int(state.get("gm_relationship", self.gm_relationship))
+        )
+        adjustments = [
+            card for card in self.objective_cards
+            if card.decision != "accept"
+        ]
+        if not adjustments:
+            self.accept_button.setText("단장 검토로 이동  →")
+            try:
+                self.accept_button.clicked.disconnect()
+            except RuntimeError:
+                pass
+            self.accept_button.clicked.connect(self.continue_requested.emit)
+            self.ai_status.setText("저장된 협상 복원 · 5개 항목 모두 승인")
+        else:
+            approved_count = len(self.objective_cards) - len(adjustments)
+            self.accept_button.setText(
+                f"조정 {len(adjustments)}건 다시 전달  →"
+            )
+            self.ai_status.setText(
+                f"저장된 협상 복원 · 승인 {approved_count} / 재조정 {len(adjustments)}"
+            )
+        self._refresh_card_locks()
 
     @staticmethod
     def _fact(title, value):
@@ -684,7 +777,7 @@ class BoardVisionPage(QWidget):
     def _style(colors):
         return f"""
             QWidget#BoardVisionPage, QWidget#Objectives {{ background-color: #09131f; }}
-            QLabel {{ color: #dce6ef; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
+            QLabel {{ color: #dce6ef; font-family: 'Malgun Gothic', 'Segoe UI'; }}
             QLabel#Eyebrow {{ color: {colors['accent_light']}; font-size: 13px; font-weight: 700; }}
             QLabel#PageTitle {{ color: white; }}
             QLabel#Subtitle {{ color: #9badbf; font-size: 15px; }}

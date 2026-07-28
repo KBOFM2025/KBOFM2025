@@ -80,7 +80,7 @@ class TeamRosterPreviewWidget(QFrame):
         heading = QHBoxLayout()
         title_column = QVBoxLayout()
         self.title_label = QLabel()
-        self.title_label.setFont(QFont("Noto Sans KR", 21, QFont.Bold))
+        self.title_label.setFont(QFont("Malgun Gothic", 21, QFont.Bold))
         title_column.addWidget(self.title_label)
         subtitle = QLabel("2025년 10월 31일 기준 · 생년월일은 KBO 공식 프로필 기준")
         subtitle.setStyleSheet("color: #9fb0c2; font-size: 13px;")
@@ -237,7 +237,7 @@ class TeamRosterPreviewWidget(QFrame):
                 border: 1px solid {colors['accent']};
                 border-radius: 12px;
             }}
-            QLabel {{ color: #f8fafc; font-family: 'Noto Sans KR', 'Malgun Gothic'; border: none; }}
+            QLabel {{ color: #f8fafc; font-family: 'Malgun Gothic', 'Segoe UI'; border: none; }}
             QTabWidget::pane {{
                 background-color: #0d1b2a;
                 border: 1px solid #263b52;
@@ -246,18 +246,18 @@ class TeamRosterPreviewWidget(QFrame):
             QTabBar::tab {{
                 color: #9fb2c7; background-color: #101f31;
                 border: 1px solid #30445a; padding: 11px 20px;
-                font-family: 'Noto Sans KR', 'Malgun Gothic'; font-size: 14px; font-weight: 600;
+                font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 14px; font-weight: 600;
             }}
             QTabBar::tab:selected {{ color: white; background-color: {colors['accent']}; }}
             QTableWidget {{
                 color: #dbe7f3; background-color: #0d1b2a;
                 alternate-background-color: #101f31; border: none;
                 selection-background-color: {colors['accent']};
-                font-family: 'Noto Sans KR', 'Malgun Gothic'; font-size: 14px;
+                font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 14px;
             }}
             QHeaderView::section {{
                 color: #dbe7f3; background-color: #162a40; border: none;
                 border-bottom: 1px solid #30445c; padding: 9px;
-                font-family: 'Noto Sans KR', 'Malgun Gothic'; font-size: 13px; font-weight: 600;
+                font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 13px; font-weight: 600;
             }}
         """

@@ -30,7 +30,7 @@ class PlayerSearchPage(QWidget):
         self.filtered_players = []
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(26, 22, 26, 24)
+        root.setContentsMargins(7, 6, 7, 7)
         self.stack = QStackedWidget()
         self.transition = FadeStackTransition(self.stack, self)
         root.addWidget(self.stack)
@@ -38,10 +38,10 @@ class PlayerSearchPage(QWidget):
         self.search_page = QWidget()
         layout = QVBoxLayout(self.search_page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(14)
+        layout.setSpacing(6)
 
         title = QLabel("선수 탐색")
-        title.setFont(QFont("Noto Sans KR", 25, QFont.Bold))
+        title.setFont(QFont("Malgun Gothic", 25, QFont.Bold))
         title.setStyleSheet(f"color: {colors['accent_light']};")
         layout.addWidget(title)
         subtitle = QLabel("이름, 구단, 포지션과 연령대로 KBO 전체 선수를 검색합니다.")
@@ -166,10 +166,10 @@ class PlayerSearchPage(QWidget):
     @staticmethod
     def _style(colors):
         return f"""
-            QWidget {{ background-color: #09131f; color: #dce6ef; font-family: 'Noto Sans KR', 'Malgun Gothic'; }}
-            QFrame#SearchFilters {{ background-color: #101e2e; border: 1px solid #30465d; border-radius: 9px; }}
-            QLineEdit, QComboBox {{ min-height: 34px; background-color: #0c1825; border: 1px solid #30465d; border-radius: 6px; padding: 0 9px; }}
-            QPushButton {{ min-height: 34px; background-color: {colors['accent']}; border-radius: 6px; padding: 0 18px; font-weight: 700; }}
+            QWidget {{ background-color: #09131f; color: #dce6ef; font-family: 'Malgun Gothic', 'Segoe UI'; }}
+            QFrame#SearchFilters {{ background-color: #151b22; border: 1px solid #3a4550; border-radius: 0; }}
+            QLineEdit, QComboBox {{ min-height: 31px; background-color: #0d1319; border: 1px solid #46515d; border-radius: 0; padding: 0 8px; }}
+            QPushButton {{ min-height: 31px; background-color: {colors['accent']}; border-radius: 0; padding: 0 14px; font-weight: 700; }}
             QTableWidget {{ background-color: #0d1b2a; alternate-background-color: #101f31; border: 1px solid #263b52; selection-background-color: {colors['accent']}; }}
             QHeaderView::section {{ background-color: #162a40; border: none; padding: 9px; font-weight: 700; }}
         """

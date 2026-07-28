@@ -35,7 +35,7 @@ BOARD_REVIEW_SCHEMA = {
     "properties": {
         "reviews": {
             "type": "array",
-            "minItems": 5,
+            "minItems": 1,
             "maxItems": 5,
             "items": {
                 "type": "object",
