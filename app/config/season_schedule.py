@@ -1,122 +1,89 @@
-"""2025-26 KBO 오프시즌 달력에 표시할 일정 데이터."""
+"""2025-26 KBO 오프시즌 달력과 게임 진행용 주요 일정."""
 
 from datetime import date
-
 
 CALENDAR_START = date(2025, 11, 1)
 CALENDAR_END = date(2026, 2, 28)
 
-
+# 2026년부터 비활동기간 종료일이 1월 31일에서 1월 24일로 변경됐다.
 SEASON_PHASES = (
-    (date(2025, 11, 1), date(2025, 11, 30), "전력 정비", "보류선수·FA·2차 드래프트"),
+    (date(2025, 11, 1), date(2025, 11, 18), "FA·전력 분석", "FA 공시와 2차 드래프트 준비"),
+    (date(2025, 11, 19), date(2025, 11, 30), "선수단 정리", "2차 드래프트·보류선수 명단"),
     (date(2025, 12, 1), date(2025, 12, 31), "계약과 편성", "외국인 선수·연봉·시즌 일정"),
-    (date(2026, 1, 1), date(2026, 1, 24), "캠프 준비", "메디컬·훈련 계획·캠프 명단"),
+    (date(2026, 1, 1), date(2026, 1, 24), "비활동기간·캠프 준비", "메디컬·훈련 계획·캠프 명단"),
     (date(2026, 1, 25), date(2026, 2, 21), "1차 캠프", "체력·기술 훈련과 선수 평가"),
     (date(2026, 2, 22), date(2026, 2, 28), "2차 캠프", "실전 점검과 연습경기"),
 )
 
+OFFICIAL_SOURCES = {
+    "fa": "https://www.koreabaseball.com/MediaNews/Notice/View.aspx?bdSe=11762",
+    "second_draft": "https://www.koreabaseball.com/MediaNews/Notice/View.aspx?bdSe=11771",
+    "awards": "https://www.koreabaseball.com/MediaNews/Notice/View.aspx?bdSe=11766",
+    "golden_glove": "https://www.koreabaseball.com/MediaNews/Notice/View.aspx?bdSe=11782",
+    "regular_schedule": "https://www.koreabaseball.com/MediaNews/Notice/View.aspx?bdSe=11794",
+    "exhibition": "https://www.koreabaseball.com/MediaNews/Notice/View.aspx?bdSe=11823",
+    "national_team": "https://www.koreabaseball.com/MediaNews/Notice/View.aspx?bdSe=11721",
+}
 
-def _event(category, title, detail, task, importance="normal"):
+
+def _event(event_id, category, title, detail, task, importance="normal", *,
+           event_type="club_task", inbox=True, requires_action=False,
+           source_key=None):
     return {
-        "category": category,
-        "title": title,
-        "detail": detail,
-        "task": task,
-        "importance": importance,
+        "event_id": event_id, "category": category, "title": title,
+        "detail": detail, "task": task, "importance": importance,
+        "event_type": event_type, "inbox": inbox,
+        "requires_action": requires_action,
+        "source_url": OFFICIAL_SOURCES.get(source_key),
     }
 
 
 SEASON_EVENTS = {
-    date(2025, 11, 1): (
-        _event("구단", "감독 업무 시작", "선수단과 프런트의 첫 업무일입니다.", "코칭스태프 및 선수단 현황을 점검하세요.", "high"),
-    ),
+    date(2025, 11, 1): (_event("offseason_open", "구단", "스토브리그 업무 시작", "선수단과 프런트의 2026시즌 준비가 시작됩니다.", "전력·계약·부상 현황을 먼저 점검하세요.", "high", requires_action=True),),
+    date(2025, 11, 3): (_event("roster_audit", "선수단", "보류선수·계약 현황 1차 검토", "FA 자격과 계약 만료, 보류 여부를 함께 검토합니다.", "방출 후보와 우선 협상 선수를 분류하세요.", "high", requires_action=True),),
+    date(2025, 11, 5): (_event("fa_eligible", "KBO", "2026 FA 자격 선수 명단 확인", "FA 자격 대상자가 공시되고 승인 신청 절차가 진행됩니다.", "내부 FA의 잔류 우선순위와 보상 위험을 검토하세요.", event_type="league_notice"),),
     date(2025, 11, 8): (
-        _event("KBO", "2026 FA 승인 선수 공시", "KBO가 FA 자격 승인 선수 21명을 공시합니다.", "영입 후보와 잔류 우선순위를 확정하세요.", "high"),
+        _event("fa_approved", "KBO", "2026 FA 승인 선수 21명 공시", "KBO가 FA 권리를 행사한 21명을 승인 선수로 공시했습니다.", "외부 영입 한도 3명과 보상 조건을 반영해 후보군을 확정하세요.", "high", event_type="official", source_key="fa"),
+        _event("korea_czech_one", "국가대표", "K-BASEBALL SERIES · 대한민국 vs 체코 1차전", "고척스카이돔에서 국가대표 평가전이 열립니다.", "대표 선수의 기용과 컨디션을 확인하세요.", event_type="game", inbox=False, source_key="national_team"),
     ),
     date(2025, 11, 9): (
-        _event("시장", "FA 협상 시작", "공시 다음 날부터 모든 구단이 FA 선수와 협상할 수 있습니다.", "예산과 보상 조건을 확인한 뒤 협상안을 준비하세요.", "high"),
+        _event("fa_market_open", "FA", "2026 FA 협상 시장 개장", "모든 구단이 승인 FA 선수와 협상할 수 있습니다.", "예산과 보상선수 위험을 확인한 뒤 첫 제안을 결정하세요.", "high", event_type="market", requires_action=True, source_key="fa"),
+        _event("korea_czech_two", "국가대표", "K-BASEBALL SERIES · 대한민국 vs 체코 2차전", "고척스카이돔에서 체코와 두 번째 평가전이 열립니다.", "소속 대표 선수의 피로와 경기 내용을 점검하세요.", event_type="game", inbox=False, source_key="national_team"),
     ),
-    date(2025, 11, 12): (
-        _event(
-            "구단",
-            "2차 드래프트 보호선수 명단 확정",
-            "각 구단 AI가 자동 제외 선수를 판정하고 보호선수 최대 35명을 확정합니다.",
-            "명단 발표 소식에서 보호 점수와 지명 가능 명단을 확인하세요.",
-            "high",
-        ),
-    ),
-    date(2025, 11, 19): (
-        _event("KBO", "2025 KBO 2차 드래프트", "구단별 보호선수 외 전력을 보강하는 2차 드래프트가 열립니다.", "지명 후보와 포지션별 우선순위를 최종 확인하세요.", "high"),
-    ),
-    date(2025, 11, 24): (
-        _event("KBO", "2025 KBO 시상식", "정규시즌 MVP와 신인상 등 주요 부문 시상이 진행됩니다.", "수상 선수와 리그 성과를 확인하세요."),
-    ),
-    date(2025, 11, 27): (
-        _event("구단", "11월 전력 정비 결산", "FA와 2차 드래프트 결과를 반영해 전력표를 갱신합니다.", "포지션별 남은 보강 지점을 이사회에 보고하세요.", "high"),
-    ),
-    date(2025, 12, 1): (
-        _event("시장", "외국인 선수 구성 점검", "재계약 및 신규 영입 협상 상황을 확인합니다.", "선발, 불펜, 중심타선 가운데 우선 보강 분야를 결정하세요."),
-    ),
-    date(2025, 12, 9): (
-        _event("KBO", "2025 KBO 골든글러브 시상식", "포지션별 최고 활약 선수의 골든글러브 시상식이 열립니다.", "수상 결과와 경쟁 구단 핵심 전력을 확인하세요."),
-    ),
-    date(2025, 12, 15): (
-        _event("구단", "연봉·계약 중간 점검", "미계약 선수와 외국인 선수 협상 현황을 정리합니다.", "보류 중인 계약의 상한선과 대체 후보를 확정하세요."),
-    ),
-    date(2025, 12, 19): (
-        _event("KBO", "2026 정규시즌 일정 발표", "2026 KBO 정규시즌 경기 일정이 발표됩니다.", "개막 시리즈와 장거리 원정 구간을 분석하세요.", "high"),
-    ),
-    date(2025, 12, 22): (
-        _event("구단", "시즌 운용 계획 회의", "발표된 일정에 맞춰 선발 로테이션과 휴식 구간을 설계합니다.", "4월까지의 투수 운용 초안을 작성하세요."),
-    ),
-    date(2025, 12, 29): (
-        _event("구단", "연말 선수단 평가", "오프시즌 전력 정비 결과와 잔여 과제를 결산합니다.", "1월 캠프 준비 과제를 코칭스태프에 전달하세요."),
-    ),
-    date(2026, 1, 5): (
-        _event("훈련", "개인 컨디셔닝 계획 제출", "선수별 비시즌 훈련 결과와 캠프 목표를 수집합니다.", "부상 이력과 체력 상태를 기준으로 훈련량을 조정하세요."),
-    ),
-    date(2026, 1, 12): (
-        _event("의료", "캠프 전 메디컬 점검", "투수 어깨·팔꿈치와 야수 주요 부위 상태를 확인합니다.", "제한 훈련 대상과 재활조를 분류하세요.", "high"),
-    ),
-    date(2026, 1, 19): (
-        _event("구단", "스프링캠프 명단 확정", "1차 캠프 참가 선수와 코칭스태프를 확정합니다.", "유망주 초청과 포지션 경쟁 구도를 결정하세요.", "high"),
-    ),
-    date(2026, 1, 23): (
-        _event("캠프", "선발대 출국·장비 점검", "캠프 운영진과 장비가 먼저 이동합니다.", "현지 시설, 숙소, 불펜 운영 계획을 확인하세요."),
-    ),
-    date(2026, 1, 25): (
-        _event("캠프", "1차 스프링캠프 시작", "체력 회복과 기본기 강화 중심의 1차 캠프가 시작됩니다.", "선수별 훈련 강도와 평가 항목을 설정하세요.", "high"),
-    ),
-    date(2026, 1, 31): (
-        _event("캠프", "1차 캠프 주간 평가", "첫 주 컨디션과 훈련 적응도를 점검합니다.", "부하가 높은 선수와 페이스가 느린 선수를 조정하세요."),
-    ),
-    date(2026, 2, 4): (
-        _event("KBO", "2026 시범경기 일정 발표", "KBO가 구단별 시범경기 일정을 발표합니다.", "이동 일정과 시범경기 투수 운용안을 준비하세요.", "high"),
-    ),
-    date(2026, 2, 7): (
-        _event("캠프", "불펜·수비 1차 평가", "투수 피칭과 야수 팀 수비 완성도를 점검합니다.", "실전조 승격 후보와 추가 훈련 대상을 정하세요."),
-    ),
-    date(2026, 2, 14): (
-        _event("캠프", "청백전 및 내부 평가전", "첫 내부 실전으로 선수들의 경기 감각을 확인합니다.", "타순과 수비 포지션 경쟁 결과를 기록하세요.", "high"),
-    ),
-    date(2026, 2, 19): (
-        _event("캠프", "2차 캠프 이동 명단 확정", "실전 중심 2차 캠프에 참가할 선수단을 결정합니다.", "1군 경쟁 명단과 잔류 훈련조를 확정하세요.", "high"),
-    ),
-    date(2026, 2, 21): (
-        _event("캠프", "1차 캠프 종료 평가", "체력·기술 훈련 성과를 종합 평가합니다.", "선수별 보고서를 확정하고 2차 캠프 목표를 부여하세요."),
-    ),
-    date(2026, 2, 22): (
-        _event("캠프", "2차 캠프 이동", "선수단이 실전 훈련지로 이동합니다.", "이동 후 회복 훈련과 첫 연습경기 준비를 지시하세요."),
-    ),
-    date(2026, 2, 23): (
-        _event("캠프", "2차 스프링캠프 시작", "연습경기와 실전 전술 중심의 2차 캠프가 시작됩니다.", "개막 엔트리 경쟁 기준을 선수단에 전달하세요.", "high"),
-    ),
-    date(2026, 2, 24): (
-        _event("경기", "첫 실전 점검 구간", "대표팀 및 타 구단과의 연습경기 구간에 들어갑니다.", "선발 후보는 짧은 이닝부터 단계적으로 투입하세요."),
-    ),
-    date(2026, 2, 28): (
-        _event("캠프", "2월 실전 평가", "2차 캠프 첫 주의 투타 실전 내용을 결산합니다.", "3월 시범경기 전 마지막 보완 대상을 정하세요.", "high"),
-    ),
+    date(2025, 11, 12): (_event("second_draft_protect", "구단", "2차 드래프트 보호선수 35인 확정", "육성선수와 자격 제외 선수를 검토해 보호 명단을 완성합니다.", "즉시전력과 유망주의 유출 위험을 비교하세요.", "high", requires_action=True),),
+    date(2025, 11, 15): (_event("korea_japan_one", "국가대표", "K-BASEBALL SERIES · 대한민국 vs 일본 1차전", "도쿄돔에서 한일 국가대표 평가전이 열립니다.", "대표 선수의 경기력과 부상 위험을 확인하세요.", "high", event_type="game", inbox=False, source_key="national_team"),),
+    date(2025, 11, 16): (_event("korea_japan_two", "국가대표", "K-BASEBALL SERIES · 대한민국 vs 일본 2차전", "도쿄돔에서 두 번째 한일 평가전이 열립니다.", "복귀 예정 선수의 피로 회복 계획을 준비하세요.", "high", event_type="game", inbox=False, source_key="national_team"),),
+    date(2025, 11, 19): (_event("second_draft", "KBO", "2025 KBO 2차 드래프트", "10개 구단이 보호선수 외 전력을 대상으로 지명을 진행합니다.", "포지션 수요와 양도금 4억·3억·2억원을 함께 판단하세요.", "high", event_type="official", requires_action=True, source_key="second_draft"),),
+    date(2025, 11, 21): (_event("draft_integration", "선수단", "2차 드래프트 합류·이탈 후속 정리", "지명 결과를 선수단 깊이와 연봉 계획에 반영합니다.", "신입 선수 역할과 대체 보강 지점을 정하세요."),),
+    date(2025, 11, 24): (_event("kbo_awards", "KBO", "2025 KBO 시상식", "정규시즌 MVP·신인상과 개인 부문 수상자가 발표됩니다.", "경쟁 구단 핵심 선수의 위상을 확인하세요.", event_type="official", source_key="awards"),),
+    date(2025, 11, 25): (_event("reserve_submit", "구단", "보류선수 명단 제출 점검", "다음 시즌 계약 권리를 유지할 선수 명단을 최종 검토합니다.", "방출·육성 전환·재계약 대상을 확정하세요.", "high", requires_action=True),),
+    date(2025, 11, 27): (_event("november_review", "구단", "11월 전력 정비 결산", "FA와 2차 드래프트 결과를 전력표에 반영합니다.", "남은 보강 지점을 이사회에 보고하세요."),),
+    date(2025, 11, 30): (_event("reserve_publication", "KBO", "보류선수 명단 공시", "보류 명단을 기준으로 계약 가능 선수와 자유계약선수를 구분합니다.", "시장 선수와 내부 계약 대상을 다시 확인하세요.", "high", event_type="league_notice"),),
+    date(2025, 12, 1): (_event("foreign_market", "외국인", "외국인 선수 시장 집중 조사", "재계약 대상과 신규 후보의 기량·부상·적응 위험을 비교합니다.", "스카우트 보고서로 투타 우선순위를 정하세요.", "high", requires_action=True),),
+    date(2025, 12, 5): (_event("payroll_review", "재정", "선수단 총연봉·계약 예산 점검", "FA와 외국인 협상 이후 남은 예산을 재산정합니다.", "연봉 상한과 추가 보강 여력을 확정하세요."),),
+    date(2025, 12, 9): (_event("golden_glove", "KBO", "2025 KBO 골든글러브 시상식", "포지션별 최고 활약 선수의 수상자가 발표됩니다.", "수상 결과와 포지션별 경쟁력을 확인하세요.", event_type="official", source_key="golden_glove"),),
+    date(2025, 12, 15): (_event("contract_checkpoint", "계약", "연봉·외국인 계약 중간 점검", "미계약 선수와 외국인 선수 협상 현황을 정리합니다.", "계약 상한과 결렬 시 대체 후보를 확정하세요.", "high", requires_action=True),),
+    date(2025, 12, 19): (_event("regular_schedule", "KBO", "2026 정규시즌 일정 발표", "팀당 144경기, 총 720경기 일정이 발표됩니다. 개막일은 3월 28일입니다.", "개막 시리즈와 장거리 원정 구간을 분석하세요.", "high", event_type="official", source_key="regular_schedule"),),
+    date(2025, 12, 22): (_event("season_plan", "전술", "2026 시즌 운용 계획 회의", "일정에 맞춰 선발 로테이션과 휴식 구간을 설계합니다.", "개막 후 첫 달의 투수 운용 초안을 작성하세요."),),
+    date(2025, 12, 29): (_event("year_end_review", "구단", "연말 선수단 평가", "오프시즌 전력 정비 결과와 잔여 과제를 결산합니다.", "1월 캠프 준비 과제를 전달하세요."),),
+    date(2026, 1, 2): (_event("rookie_orientation", "선수단", "신인·신규 합류 선수 오리엔테이션", "신인과 이적 선수에게 구단 운영 원칙을 전달합니다.", "적응 지원과 육성 담당자를 배정하세요."),),
+    date(2026, 1, 5): (_event("conditioning_plan", "훈련", "개인 컨디셔닝 계획 제출", "개인 훈련 결과와 캠프 목표를 수집합니다.", "부상 이력에 맞춰 캠프 훈련량을 조정하세요."),),
+    date(2026, 1, 12): (_event("medical_check", "의료", "캠프 전 메디컬 점검", "투수 어깨·팔꿈치와 야수 주요 부위 상태를 확인합니다.", "제한 훈련 대상과 재활조를 분류하세요.", "high", requires_action=True),),
+    date(2026, 1, 16): (_event("salary_checkpoint", "계약", "연봉 협상 최종 점검", "캠프 출발 전 미계약 국내선수의 협상 진행도를 확인합니다.", "이견이 큰 선수의 후속 대응을 결정하세요."),),
+    date(2026, 1, 19): (_event("camp_roster", "캠프", "스프링캠프 참가 명단 확정", "1차 캠프 참가 선수와 코칭스태프를 확정합니다.", "유망주 초청과 포지션 경쟁 구도를 결정하세요.", "high", requires_action=True),),
+    date(2026, 1, 22): (_event("camp_advance", "캠프", "캠프 선발대·장비 출발", "운영진과 장비가 먼저 이동해 현지 준비를 시작합니다.", "시설·숙소·의료 장비 상태를 확인하세요."),),
+    date(2026, 1, 24): (_event("inactive_period_end", "KBO", "비활동기간 종료", "선수단 단체훈련 재개를 앞둔 마지막 준비일입니다.", "훈련조와 이동 명단을 최종 확인하세요.", "high", event_type="league_notice"),),
+    date(2026, 1, 25): (_event("camp_one_open", "캠프", "10개 구단 1차 스프링캠프 시작", "체력과 기본기 중심의 1차 캠프가 시작됩니다.", "선수별 훈련 강도와 평가 항목을 설정하세요.", "high", requires_action=True),),
+    date(2026, 1, 31): (_event("camp_week_one", "캠프", "1차 캠프 첫 주 평가", "선수들의 컨디션과 훈련 적응도를 점검합니다.", "과부하 선수와 페이스가 느린 선수를 조정하세요."),),
+    date(2026, 2, 4): (_event("exhibition_schedule", "KBO", "2026 시범경기 일정 발표", "3월 12일부터 24일까지 팀당 12경기, 총 60경기로 편성됩니다.", "이동 일정과 투수 운용안을 준비하세요.", "high", event_type="official", source_key="exhibition"),),
+    date(2026, 2, 7): (_event("bullpen_defense_review", "캠프", "불펜·수비 1차 평가", "투수 피칭과 야수 팀 수비 완성도를 점검합니다.", "실전조 승격 후보를 정하세요."),),
+    date(2026, 2, 14): (_event("intrasquad_game", "경기", "청백전·내부 평가전", "첫 내부 실전으로 경기 감각을 확인합니다.", "타순과 수비 경쟁 결과를 기록하세요.", "high"),),
+    date(2026, 2, 19): (_event("camp_two_roster", "캠프", "2차 캠프 이동 명단 확정", "실전 중심 2차 캠프 참가 선수단을 결정합니다.", "1군 경쟁 명단과 잔류조를 확정하세요.", "high", requires_action=True),),
+    date(2026, 2, 21): (_event("camp_one_close", "캠프", "1차 캠프 종료 평가", "체력·기술 훈련 성과를 종합 평가합니다.", "선수별 보고서와 다음 목표를 확정하세요."),),
+    date(2026, 2, 22): (_event("camp_move", "캠프", "2차 캠프 이동", "선수단이 실전 훈련지로 이동합니다.", "회복 훈련과 첫 연습경기를 준비하세요."),),
+    date(2026, 2, 23): (_event("camp_two_open", "캠프", "2차 스프링캠프 시작", "연습경기와 실전 전술 중심 캠프가 시작됩니다.", "개막 엔트리 경쟁 기준을 전달하세요.", "high"),),
+    date(2026, 2, 24): (_event("practice_game_window", "경기", "대외 연습경기 구간 진입", "타 구단·현지 팀과 연습경기로 실전 감각을 끌어올립니다.", "선발 후보를 짧은 이닝부터 투입하세요."),),
+    date(2026, 2, 28): (_event("february_review", "캠프", "2월 실전 평가", "2차 캠프 첫 주의 투타 실전을 결산합니다.", "시범경기 전 마지막 보완 대상을 정하세요.", "high", requires_action=True),),
 }
 
 
@@ -125,3 +92,13 @@ def phase_for(day):
         if start <= day <= end:
             return name, description
     return "시즌 준비", "구단 운영 일정"
+
+
+def events_for(day, *, inbox_only=False):
+    events = SEASON_EVENTS.get(day, ())
+    return tuple(e for e in events if e.get("inbox", True)) if inbox_only else events
+
+
+def next_event_after(day):
+    event_day = min((d for d in SEASON_EVENTS if d > day), default=None)
+    return (event_day, SEASON_EVENTS[event_day]) if event_day else (None, ())

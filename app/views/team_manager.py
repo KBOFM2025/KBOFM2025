@@ -3,7 +3,8 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTabWid
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
-from app.config import TEAM_COLORS, TEAM_EMOJIS
+from app.config import TEAM_COLORS
+from app.team_assets import team_logo_icon
 from app.transitions import FadeStackTransition, fade_widget_in
 from app.views.team_manage import FirstTeamTab, SecondTeamTab
 from app.views.team_manage.player_profile import PlayerProfilePage
@@ -124,12 +125,9 @@ class MyTeamManager(QWidget):
         self.tab2 = SecondTeamTab(self)
         
         # 구단 성격에 어울리는 대표 아이콘 분기 설정
-        emoji_main = TEAM_EMOJIS.get(self.team_key, "⚾")
-        emoji_sub = "🌱"
-        
-        self.tabs.addTab(self.tab1, f"{emoji_main} 1군 엔트리")
+        self.tabs.addTab(self.tab1, team_logo_icon(self.team_key), "1군 엔트리")
         self.tabs.addTab(
-            self.tab2, f"{emoji_sub} {self.reserve_team_label} 육성"
+            self.tab2, f"육성 · {self.reserve_team_label}"
         )
         self.tabs.currentChanged.connect(self.on_tab_changed)
         
@@ -281,7 +279,6 @@ class MyTeamManager(QWidget):
         )
         self.tabs.setTabText(
             0,
-            f"{TEAM_EMOJIS.get(self.team_key, '⚾')} "
             f"1군 엔트리  {len(first_team)}",
         )
         self.tabs.setTabText(

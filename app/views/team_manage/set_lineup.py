@@ -1,9 +1,10 @@
 """FM 스타일 타순·수비·투수 운용 전술 편집 화면."""
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt
+from PySide6.QtCore import QMimeData, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import (
     QBrush,
     QColor,
+    QDrag,
     QFont,
     QIcon,
     QLinearGradient,
@@ -21,6 +22,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QInputDialog,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPushButton,
     QTableWidget,
@@ -139,6 +142,85 @@ def _player_visual(player):
     }
 
 
+PLAYER_MIME_TYPE = "application/x-kbo-player-id"
+
+
+class FirstTeamPlayerPool(QListWidget):
+    """1군 선수를 타순표와 수비 위치로 끌어갈 수 있는 선수 풀."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("firstTeamPool")
+        self.setDragEnabled(True)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.setIconSize(QSize(34, 34))
+        self.setSpacing(2)
+
+    def set_players(self, players):
+        self.clear()
+        for player in sorted(players, key=lambda item: (item.get("pos") == "P", item.get("pos") or "", item.get("name") or "")):
+            condition = int(player.get("sim_condition") or 100)
+            item = QListWidgetItem(
+                f"{player.get('name') or '-'}   {player.get('pos') or '-'}   컨디션 {condition}"
+            )
+            item.setData(Qt.ItemDataRole.UserRole, int(player["id"]))
+            visual = _player_visual(player)
+            if visual["photo"]:
+                item.setIcon(QIcon(visual["photo"]))
+            item.setSizeHint(QSize(210, 42))
+            self.addItem(item)
+
+    def startDrag(self, supported_actions):
+        item = self.currentItem()
+        if item is None:
+            return
+        mime = QMimeData()
+        mime.setData(PLAYER_MIME_TYPE, str(item.data(Qt.ItemDataRole.UserRole)).encode("ascii"))
+        drag = QDrag(self)
+        drag.setMimeData(mime)
+        if not item.icon().isNull():
+            drag.setPixmap(item.icon().pixmap(34, 34))
+        drag.exec(Qt.DropAction.CopyAction)
+
+
+class LineupDropTable(QTableWidget):
+    player_dropped = Signal(int, int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.viewport().setAcceptDrops(True)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.DropOnly)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat(PLAYER_MIME_TYPE):
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat(PLAYER_MIME_TYPE):
+            event.acceptProposedAction()
+        else:
+            super().dragMoveEvent(event)
+
+    def dropEvent(self, event):
+        if not event.mimeData().hasFormat(PLAYER_MIME_TYPE):
+            super().dropEvent(event)
+            return
+        try:
+            player_id = int(bytes(event.mimeData().data(PLAYER_MIME_TYPE)).decode("ascii"))
+        except (TypeError, ValueError):
+            event.ignore()
+            return
+        row = self.indexAt(event.position().toPoint()).row()
+        if row < 0:
+            row = max(0, self.rowCount() - 1)
+        self.player_dropped.emit(player_id, row)
+        event.acceptProposedAction()
+
+
 class BaseballFieldWidget(QWidget):
     """타순 표의 수비 위치를 야구장 위에 표시하는 전술 보드."""
 
@@ -153,6 +235,7 @@ class BaseballFieldWidget(QWidget):
         "C": (0.50, 0.82),
         "DH": (0.15, 0.80),
     }
+    player_dropped = Signal(int, str)
 
     def __init__(self, team_name, parent=None):
         super().__init__(parent)
@@ -163,7 +246,39 @@ class BaseballFieldWidget(QWidget):
             str(resource_path("image", "Stadium", stadium_file))
         )
         self._photo_cache = {}
+        self.setAcceptDrops(True)
         self.setMinimumSize(480, 500)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat(PLAYER_MIME_TYPE):
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat(PLAYER_MIME_TYPE):
+            event.acceptProposedAction()
+        else:
+            super().dragMoveEvent(event)
+
+    def dropEvent(self, event):
+        if not event.mimeData().hasFormat(PLAYER_MIME_TYPE):
+            super().dropEvent(event)
+            return
+        try:
+            player_id = int(bytes(event.mimeData().data(PLAYER_MIME_TYPE)).decode("ascii"))
+        except (TypeError, ValueError):
+            event.ignore()
+            return
+        point = event.position()
+        x = point.x() / max(1, self.width())
+        y = point.y() / max(1, self.height())
+        position = min(
+            self.POSITIONS,
+            key=lambda key: (self.POSITIONS[key][0] - x) ** 2 + (self.POSITIONS[key][1] - y) ** 2,
+        )
+        self.player_dropped.emit(player_id, position)
+        event.acceptProposedAction()
 
     def set_lineup(self, lineup, starter=None):
         self.lineup = dict(lineup)
@@ -605,6 +720,18 @@ class SetLineupTab(QWidget):
             border-radius: 3px; padding: 8px 12px; font-size: 10px;
         }
         QLabel#tacticHint { color: #91a2b1; padding: 1px 3px; font-size: 10px; }
+        QLabel#poolTitle { color: #f0f4f6; font-size: 12px; font-weight: 850; padding-top: 4px; }
+        QLabel#poolHelp { color: #7f929f; font-size: 9px; padding-top: 4px; }
+        QListWidget#firstTeamPool {
+            color: #dce6eb; background: #0e171e; border: 1px solid #344650;
+            border-radius: 4px; outline: none; padding: 4px;
+        }
+        QListWidget#firstTeamPool::item {
+            background: #18242c; border: 1px solid #2f414c; border-radius: 3px;
+            margin: 1px; padding: 3px 8px; font-size: 10px; font-weight: 700;
+        }
+        QListWidget#firstTeamPool::item:hover { background: #223642; border-color: #587183; }
+        QListWidget#firstTeamPool::item:selected { background: #29577a; border-color: #6d9abb; }
         QPushButton {
             background: #26323d; color: #dce5eb; border: 1px solid #43515e;
             border-radius: 2px; padding: 6px 11px; font-weight: 650;
@@ -635,8 +762,8 @@ class SetLineupTab(QWidget):
         QTabWidget::pane { border: 1px solid #34424e; }
         """
 
-    def _new_table(self, headers):
-        table = QTableWidget()
+    def _new_table(self, headers, accepts_players=False):
+        table = LineupDropTable() if accepts_players else QTableWidget()
         table.setColumnCount(len(headers))
         table.setHorizontalHeaderLabels(headers)
         table.setAlternatingRowColors(True)
@@ -668,6 +795,7 @@ class SetLineupTab(QWidget):
         visual_header_layout.addWidget(visual_status)
         visual_column.addWidget(visual_header)
         self.field_widget = BaseballFieldWidget(self.manager.team_key)
+        self.field_widget.player_dropped.connect(self._drop_player_on_field)
         visual_column.addWidget(self.field_widget, 1)
 
         approach = QFrame()
@@ -697,16 +825,29 @@ class SetLineupTab(QWidget):
         lineup_header.addWidget(self.lineup_count_label)
         lineup_column.addLayout(lineup_header)
         self.batting_table = self._new_table(
-            ("타순", "선수", "수비 위치", "컨택", "파워", "선구", "컨디션")
+            ("타순", "선수", "수비 위치", "컨택", "파워", "선구", "컨디션"),
+            accepts_players=True,
         )
+        self.batting_table.player_dropped.connect(self._drop_player_on_batting_order)
         self.batting_table.setRowCount(9)
         self._stretch_table(self.batting_table, 1)
-        lineup_column.addWidget(self.batting_table, 1)
-        lineup_note = QLabel(
-            "선수와 수비 위치를 바꾸면 왼쪽 구장 배치도에 즉시 반영됩니다."
+        lineup_column.addWidget(self.batting_table, 7)
+        pool_header = QHBoxLayout()
+        pool_title = QLabel("1군 선수 풀")
+        pool_title.setObjectName("poolTitle")
+        pool_header.addWidget(pool_title)
+        pool_header.addStretch()
+        pool_help = QLabel("선수를 끌어 타순 또는 수비 위치에 놓으세요")
+        pool_help.setObjectName("poolHelp")
+        pool_header.addWidget(pool_help)
+        lineup_column.addLayout(pool_header)
+        self.first_team_pool = FirstTeamPlayerPool()
+        lineup_column.addWidget(self.first_team_pool, 3)
+        self.lineup_note = QLabel(
+            "투수는 수비 포메이션과 타순에 배치할 수 없습니다. 중복 선수는 새 위치로 자동 이동합니다."
         )
-        lineup_note.setObjectName("tacticHint")
-        lineup_column.addWidget(lineup_note)
+        self.lineup_note.setObjectName("tacticHint")
+        lineup_column.addWidget(self.lineup_note)
         layout.addLayout(lineup_column, 13)
         return page
 
@@ -1038,6 +1179,13 @@ class SetLineupTab(QWidget):
         return batting, pitching
 
     def _populate_editor(self, batting, pitching, game_plan=None):
+        if hasattr(self, "first_team_pool"):
+            self.first_team_pool.set_players(
+                [
+                    player for player in self.manager.players
+                    if int(player.get("status") or 0) == 1
+                ]
+            )
         batting_by_order = {int(item["order"]): item for item in batting}
         for row in range(9):
             order = row + 1
@@ -1108,6 +1256,70 @@ class SetLineupTab(QWidget):
 
     def _find_player(self, player_id):
         return next((p for p in self.manager.players if p["id"] == player_id), None)
+
+    def _drop_player_on_batting_order(self, player_id, row):
+        player = self._find_player(player_id)
+        if not player:
+            return
+        if player.get("pos") == "P" or player.get("position_group") == "P":
+            self.lineup_note.setText("투수는 타순·수비 선수 풀에 배치할 수 없습니다. 투수 운용 탭을 이용하세요.")
+            return
+        self._assign_batter(player_id, max(0, min(row, 8)))
+        self.lineup_note.setText(f"{player['name']}을(를) {row + 1}번 타순에 배치했습니다.")
+
+    def _drop_player_on_field(self, player_id, position):
+        player = self._find_player(player_id)
+        if not player:
+            return
+        if player.get("pos") == "P" or player.get("position_group") == "P":
+            self.lineup_note.setText("투수는 별도의 선발·불펜 탭에서 배치합니다.")
+            return
+        target_row = None
+        for row in range(self.batting_table.rowCount()):
+            combo = self.batting_table.cellWidget(row, 1)
+            if combo and combo.currentData() == player_id:
+                target_row = row
+                break
+        if target_row is None:
+            for row in range(self.batting_table.rowCount()):
+                position_combo = self.batting_table.cellWidget(row, 2)
+                if position_combo and position_combo.currentText() == position:
+                    target_row = row
+                    break
+        if target_row is None:
+            target_row = next(
+                (
+                    row for row in range(self.batting_table.rowCount())
+                    if self.batting_table.cellWidget(row, 1).currentData() is None
+                ),
+                0,
+            )
+        self._assign_batter(player_id, target_row, position)
+        self.lineup_note.setText(f"{player['name']}을(를) {position} 수비 위치에 배치했습니다.")
+
+    def _assign_batter(self, player_id, target_row, position=None):
+        for row in range(self.batting_table.rowCount()):
+            combo = self.batting_table.cellWidget(row, 1)
+            if combo and combo.currentData() == player_id and row != target_row:
+                combo.setCurrentIndex(0)
+        target_combo = self.batting_table.cellWidget(target_row, 1)
+        if target_combo:
+            index = target_combo.findData(player_id)
+            if index >= 0:
+                target_combo.setCurrentIndex(index)
+        if position:
+            position_combo = self.batting_table.cellWidget(target_row, 2)
+            if position_combo:
+                previous_position = position_combo.currentText()
+                for row in range(self.batting_table.rowCount()):
+                    if row == target_row:
+                        continue
+                    other_position = self.batting_table.cellWidget(row, 2)
+                    if other_position and other_position.currentText() == position:
+                        other_position.setCurrentText(previous_position)
+                        break
+                position_combo.setCurrentText(position)
+        self._update_batting_visual()
 
     def _update_batter_stats(self, row, combo):
         player = self._find_player(combo.currentData())

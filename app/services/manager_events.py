@@ -13,7 +13,7 @@ from app.services.negotiation_rules import (
 
 
 INITIAL_EVENT_SCHEDULE = {
-    "2025-11-03": "fa",
+    "2025-11-09": "fa",
     "2025-11-06": "player_meeting",
 }
 
@@ -150,7 +150,60 @@ class ManagerEventService:
         finally:
             connection.close()
 
-    def _trade_response_terms(self, payload, manager_message, round_number):
+    def _team_position_needs(self, team):
+        minimums = {"P": 13, "C": 2, "IF": 6, "OF": 5}
+        connection = sqlite3.connect(self.player_db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            rows = connection.execute(
+                """
+                SELECT COALESCE(position_group, pos) AS position_group,
+                       COUNT(*) AS player_count
+                FROM players
+                WHERE team=? AND COALESCE(status, 0)=1
+                GROUP BY COALESCE(position_group, pos)
+                """,
+                (team,),
+            ).fetchall()
+        finally:
+            connection.close()
+        counts = {str(row["position_group"]): int(row["player_count"]) for row in rows}
+        return {
+            group for group, minimum in minimums.items()
+            if counts.get(group, 0) < minimum
+        }
+
+    @staticmethod
+    def _trade_asset_value(player, destination_needs=()):
+        """능력·나이·계약·연봉·포지션 수요를 합친 100점 내부 가치."""
+        if not player:
+            return 0.0
+        ability = float(overall_rating(player)) * 5.0
+        age = int(player.get("age") or 29)
+        if age <= 22:
+            age_value = 12
+        elif age <= 25:
+            age_value = 9
+        elif age <= 28:
+            age_value = 5
+        elif age <= 31:
+            age_value = 1
+        elif age <= 34:
+            age_value = -4
+        else:
+            age_value = -9
+        contract_years = max(0, int(player.get("contract_years") or 0))
+        control_value = min(8, contract_years * 2)
+        salary = max(0, int(player.get("salary") or player.get("contract_salary") or 0))
+        expected_salary = max(3000, int(ability * 700))
+        efficiency = max(-8, min(8, (expected_salary - salary) / 7000))
+        group = str(player.get("position_group") or player.get("pos") or "")
+        need_value = 7 if group in set(destination_needs) else 0
+        return round(max(10, min(100, ability + age_value + control_value + efficiency + need_value)), 1)
+
+    def _trade_response_terms(
+        self, payload, manager_message, round_number, action=None,
+    ):
         """감독의 의견을 실제 선수·금액 데이터에 맞는 상대 구단 답변으로 바꾼다."""
         message = str(manager_message or "")
         existing = dict(payload.get("trade_terms") or {})
@@ -165,7 +218,11 @@ class ManagerEventService:
         )
         incoming_salary = int(incoming.get("salary") or 0)
         outgoing_salary = int(outgoing.get("salary") or 0)
-        value_gap = max(0, outgoing_rating - incoming_rating)
+        managed_needs = self._team_position_needs(payload.get("managed_team"))
+        counterpart_needs = self._team_position_needs(payload.get("other_team"))
+        incoming_value = self._trade_asset_value(incoming, managed_needs)
+        outgoing_value = self._trade_asset_value(outgoing, counterpart_needs)
+        value_gap = max(0, outgoing_value - incoming_value)
         salary_gap = max(0, outgoing_salary - incoming_salary)
         raw_cash = 8000 + value_gap * 3000 + round(salary_gap * 0.2)
         raw_cash += max(0, int(round_number) - 1) * 2000
@@ -179,6 +236,8 @@ class ManagerEventService:
             "outgoing_rating": outgoing_rating,
             "incoming_salary": incoming_salary,
             "outgoing_salary": outgoing_salary,
+            "incoming_value": incoming_value,
+            "outgoing_value": outgoing_value,
             "additional_incoming_id": None,
             "additional_incoming_name": "",
             "additional_incoming_rating": 0,
@@ -226,26 +285,52 @@ class ManagerEventService:
                 "cash_label": "없음",
             })
 
-        accepts = any(
+        action = str(action or "")
+        accepts = action == "accept" or any(
             term in message
-            for term in ("수락", "받아들이", "진행해", "성사시", "합의하")
+            for term in (
+                "수락", "받아들이", "진행해", "진행하", "성사시", "합의하",
+                "동의한다", "동의해", "이 조건으로", "최종 승인",
+            )
         )
-        rejects = any(
+        rejects = action == "reject" or any(
             term in message
-            for term in ("거절", "철회", "협상 중단", "받지 않")
+            for term in (
+                "거절", "철회", "협상 중단", "받지 않", "진행하지 않",
+                "합의하지 않", "조건이 불가능",
+            )
         )
-        requests_player = any(
+        # "진행하지 않겠습니다" 안의 "진행하"처럼 부정문이 수락으로
+        # 오인되지 않도록 종료 의사를 항상 우선한다.
+        accepts = accepts and not rejects
+        requests_original = action == "original" or (
+            "1대1" in message
+            and any(term in message for term in ("원안", "추가 조건 없이", "현재 두 선수"))
+        )
+        requests_counter_cash_reduction = action == "reduce_cash" or any(
+            term in message for term in ("현금 부담을 낮", "현금 금액이 과", "현금 감액")
+        )
+        requests_remove_counter_player = action == "remove_player" or any(
+            term in message for term in ("추가 선수는 포함할 수 없", "추가 선수 없이")
+        )
+        requests_cash_conversion = action == "protect_prospect" or any(
+            term in message for term in ("유망주는 보호", "현금 보상 방식으로 바꿔")
+        )
+        requests_revaluation = action == "revalue" or all(
+            term in message for term in ("나이", "계약 기간", "연봉")
+        ) or "가치 재검토" in message
+        requests_player = action in {"request_player", "request_mixed"} or any(
             term in message
             for term in ("추가 선수", "다른 선수", "더 좋은 선수", "선수를 포함")
         )
-        requests_mixed = any(
+        requests_mixed = action == "request_mixed" or any(
             term in message
             for term in (
                 "선수+현금", "선수와 현금", "선수랑 현금",
                 "복합 보상", "둘 다", "현금도 함께",
             )
         )
-        requests_future = any(
+        requests_future = action == "request_future" or any(
             term in message
             for term in (
                 "추후 지명", "추후지명", "나중에 지명",
@@ -253,12 +338,16 @@ class ManagerEventService:
             )
         )
         requests_player = requests_player or requests_mixed
-        requests_compensation = requests_player or any(
-            term in message
-            for term in (
-                "추가 보상", "보상 추가", "보상", "현금", "금액",
-                "금전", "얼마", "돈",
-                "지명권", "1라운드", "1라운더",
+        requests_compensation = (
+            action in {"request_cash", "salary_cash"}
+            or requests_player
+            or any(
+                term in message
+                for term in (
+                    "추가 보상", "보상 추가", "보상", "현금", "금액",
+                    "금전", "얼마", "돈",
+                    "지명권", "1라운드", "1라운더",
+                )
             )
         )
 
@@ -280,6 +369,171 @@ class ManagerEventService:
             )
             base["attitude_delta"] = -5
             return base
+        if requests_original:
+            clear_counterpart_demands()
+            clear_user_demands()
+            base.update({
+                "status": "reviewing",
+                "compensation_type": "none",
+                "compensation_direction": "none",
+                "summary": "선수 1대1 교환",
+                "attitude_delta": 3 if abs(incoming_value - outgoing_value) <= 6 else -1,
+            })
+            if abs(incoming_value - outgoing_value) <= 6:
+                base["reply"] = (
+                    f"{payload.get('other_team', '상대 구단')}이 추가 조건을 제외한 "
+                    "1대1 원안으로 돌아가는 데 동의했습니다. 이 조건을 최종 "
+                    "수락하면 트레이드를 진행할 수 있습니다."
+                )
+            else:
+                base["reply"] = (
+                    f"{payload.get('other_team', '상대 구단')}은 두 선수의 내부 자산가치 "
+                    f"차이가 {abs(incoming_value - outgoing_value):.1f}점이라며 1대1 원안은 "
+                    "받기 어렵다고 답했습니다. 현금 또는 선수 보상 조정이 필요합니다."
+                )
+            return base
+        if requests_counter_cash_reduction:
+            current_cash = int(base.get("cash_from_user_10k") or 0)
+            if current_cash <= 0:
+                base["status"] = "reviewing"
+                base["attitude_delta"] = 0
+                base["reply"] = (
+                    "현재 상대 구단의 조건에는 우리 구단이 지급할 현금이 없습니다. "
+                    "감액할 항목이 없으므로 다른 수정 방향을 선택해 주십시오."
+                )
+                return base
+            reduced = max(
+                3000,
+                int(round(current_cash * 0.75 / 1000) * 1000),
+            )
+            label = self._format_trade_cash(reduced)
+            base.update({
+                "status": "counter_offer",
+                "cash_from_user_10k": reduced,
+                "cash_from_user_label": label,
+                "summary": (
+                    f"{payload.get('incoming_name')} 영입 / {payload.get('outgoing_name')} + "
+                    f"현금 {label} 이적"
+                ),
+                "attitude_delta": 2,
+            })
+            base["reply"] = (
+                f"현금 감액 요청을 전달했습니다. {payload.get('other_team', '상대 구단')}은 "
+                f"기존 요구액에서 25% 낮춘 {label}을 최종 조정안으로 제시했습니다."
+            )
+            return base
+        if requests_remove_counter_player:
+            has_counter_player = bool(
+                base.get("additional_outgoing_id")
+                or base.get("future_player_pool_outgoing")
+            )
+            if not has_counter_player:
+                base["status"] = "reviewing"
+                base["attitude_delta"] = 0
+                base["reply"] = (
+                    "현재 상대 구단의 조건에는 추가 선수 요구가 없습니다. "
+                    "원안 유지, 현금 조정 또는 다른 보상 유형을 선택할 수 있습니다."
+                )
+                return base
+            clear_counterpart_demands()
+            replacement_cash = max(3000, int(round(raw_cash * 0.6 / 1000) * 1000))
+            label = self._format_trade_cash(replacement_cash)
+            base.update({
+                "status": "counter_offer",
+                "cash_from_user_10k": replacement_cash,
+                "cash_from_user_label": label,
+                "compensation_type": "cash",
+                "compensation_direction": "counterpart",
+                "summary": (
+                    f"{payload.get('incoming_name')} 영입 / {payload.get('outgoing_name')} + "
+                    f"현금 {label} 이적"
+                ),
+                "attitude_delta": 1,
+            })
+            base["reply"] = (
+                f"추가 선수 제외 요청을 받아들여 {payload.get('other_team', '상대 구단')}이 "
+                f"선수 대신 현금 {label}을 요구하는 수정안을 보냈습니다."
+            )
+            return base
+        if requests_cash_conversion:
+            if base.get("compensation_direction") != "counterpart" or not (
+                base.get("additional_outgoing_id")
+                or base.get("future_player_pool_outgoing")
+            ):
+                base["status"] = "reviewing"
+                base["attitude_delta"] = 0
+                base["reply"] = (
+                    "현재 상대 구단이 우리 유망주를 요구한 상태가 아닙니다. "
+                    "선수 보상 요구가 들어오면 현금 전환안을 다시 제시할 수 있습니다."
+                )
+                return base
+            clear_counterpart_demands()
+            replacement_cash = max(3000, int(round(raw_cash * 0.7 / 1000) * 1000))
+            label = self._format_trade_cash(replacement_cash)
+            base.update({
+                "status": "counter_offer",
+                "cash_from_user_10k": replacement_cash,
+                "cash_from_user_label": label,
+                "compensation_type": "cash",
+                "compensation_direction": "counterpart",
+                "summary": (
+                    f"{payload.get('incoming_name')} 영입 / {payload.get('outgoing_name')} + "
+                    f"현금 {label} 이적"
+                ),
+                "attitude_delta": 2,
+            })
+            base["reply"] = (
+                f"유망주 보호 방침을 전달했습니다. 상대 구단은 선수 요구를 철회하고 "
+                f"현금 {label}으로 전환한 조건을 제시했습니다."
+            )
+            return base
+        if action == "salary_cash":
+            salary_burden = max(0, incoming_salary - outgoing_salary)
+            if salary_burden <= 0:
+                base["status"] = "reviewing"
+                base["attitude_delta"] = 0
+                base["reply"] = (
+                    "영입 대상의 연봉이 이적 대상보다 높지 않아 별도의 연봉 부담 "
+                    "보상을 요구할 근거가 약합니다. 다른 보상 유형을 선택해 주십시오."
+                )
+                return base
+            clear_counterpart_demands()
+            salary_cash = max(
+                3000,
+                min(
+                    50000,
+                    int(round(salary_burden * 0.3 / 1000) * 1000),
+                ),
+            )
+            label = self._format_trade_cash(salary_cash)
+            base.update({
+                "status": "counter_offer",
+                "cash_to_user_10k": salary_cash,
+                "cash_label": label,
+                "compensation_type": "cash",
+                "compensation_direction": "user",
+                "summary": (
+                    f"{payload.get('incoming_name')} + 현금 {label} 영입 / "
+                    f"{payload.get('outgoing_name')} 이적"
+                ),
+                "attitude_delta": 3 if outgoing_value >= incoming_value else 1,
+            })
+            base["reply"] = (
+                f"연봉 차이 {salary_burden:,}만원을 근거로 보상을 요청했습니다. "
+                f"{payload.get('other_team', '상대 구단')}은 현금 {label}을 "
+                "부담하는 수정안을 보내왔습니다."
+            )
+            return base
+        if requests_revaluation:
+            base["status"] = "reviewing"
+            base["attitude_delta"] = 1
+            base["reply"] = (
+                f"양 구단이 자산가치를 다시 계산했습니다. 우리 영입 대상은 "
+                f"{incoming_value:.1f}점, 이적 대상은 {outgoing_value:.1f}점입니다. "
+                f"나이·잔여 계약·연봉 효율·포지션 수요를 반영한 결과이며 현재 "
+                f"조건은 ‘{base.get('summary', '선수 1대1 교환')}’입니다."
+            )
+            return base
         requests_compensation = (
             requests_compensation or requests_mixed or requests_future
         )
@@ -287,7 +541,7 @@ class ManagerEventService:
         def counterpart_demand():
             """상대 구단이 우리 구단에 요구할 실제 역제안 조건을 만든다."""
             clear_user_demands()
-            opponent_gap = max(0, incoming_rating - outgoing_rating)
+            opponent_gap = max(0, incoming_value - outgoing_value)
             opponent_salary_gap = max(0, incoming_salary - outgoing_salary)
             requested_cash = 8000 + opponent_gap * 3000
             requested_cash += round(opponent_salary_gap * 0.2)
@@ -299,11 +553,11 @@ class ManagerEventService:
                     int(round(requested_cash / 1000) * 1000),
                 ),
             )
-            target_rating = max(35, min(58, opponent_gap + 40))
+            target_value = max(35, min(90, opponent_gap + 45))
             ranked_user_candidates = sorted(
                 user_candidates,
                 key=lambda player: (
-                    abs(overall_rating(player) - target_rating),
+                    abs(self._trade_asset_value(player, counterpart_needs) - target_value),
                     _stable_number(
                         payload.get("outgoing_id"),
                         round_number,
@@ -312,13 +566,22 @@ class ManagerEventService:
                     ),
                 ),
             )
-            demand_type = _stable_number(
-                payload.get("incoming_id"),
-                payload.get("outgoing_id"),
-                round_number,
-                "counterpart_demand",
-                modulo=4,
-            )
+            if opponent_gap >= 12 and ranked_user_candidates:
+                demand_type = 2 if opponent_salary_gap >= 5000 else 1
+            elif opponent_gap >= 6 and ranked_user_candidates:
+                demand_type = 1
+            elif opponent_salary_gap >= 5000:
+                demand_type = 0
+            elif int(round_number) >= 3 and ranked_user_candidates:
+                demand_type = 3
+            else:
+                demand_type = _stable_number(
+                    payload.get("incoming_id"),
+                    payload.get("outgoing_id"),
+                    round_number,
+                    "counterpart_demand",
+                    modulo=4,
+                )
             if not ranked_user_candidates and demand_type in {1, 2, 3}:
                 demand_type = 0
             other_team = payload.get("other_team", "상대 구단")
@@ -442,7 +705,10 @@ class ManagerEventService:
         ranked_candidates = sorted(
             candidates,
             key=lambda player: (
-                abs(overall_rating(player) - max(35, min(58, value_gap + 40))),
+                abs(
+                    self._trade_asset_value(player, managed_needs)
+                    - max(35, min(90, value_gap + 45))
+                ),
                 _stable_number(
                     payload.get("incoming_id"),
                     round_number,
@@ -520,11 +786,14 @@ class ManagerEventService:
             return base
         if requests_player and candidates and value_gap >= 4:
             clear_counterpart_demands()
-            target_rating = max(35, min(58, value_gap + 40))
+            target_value = max(35, min(90, value_gap + 45))
             candidate = min(
                 candidates,
                 key=lambda player: (
-                    abs(overall_rating(player) - target_rating),
+                    abs(
+                        self._trade_asset_value(player, managed_needs)
+                        - target_value
+                    ),
                     _stable_number(
                         payload.get("incoming_id"),
                         round_number,
@@ -613,7 +882,7 @@ class ManagerEventService:
                 modulo=100,
             ) < 35
         )
-        if incoming_rating > outgoing_rating or spontaneous_counter:
+        if incoming_value > outgoing_value or spontaneous_counter:
             return counterpart_demand()
         base["status"] = "reviewing"
         base["reply"] = (
@@ -912,6 +1181,122 @@ class ManagerEventService:
             "deal_terms": deal_terms,
             "player_context": player_context,
             "manager_message": manager_message,
+        }
+
+    def rule_based_negotiation_response(
+        self, save_id, event_id, manager_message, manager_choice=None,
+    ):
+        """로컬 모델 없이 선수 면담·트레이드의 즉시 응답을 계산한다."""
+        data = self.negotiation_state(save_id, event_id)
+        event_type = data["event_type"]
+        state = data["negotiation"]
+        payload = data["payload"]
+        round_number = int(state.get("round", 0)) + 1
+
+        if event_type == "trade_offer":
+            action = str((manager_choice or {}).get("action") or "")
+            terms = self._trade_response_terms(
+                payload, manager_message, round_number, action
+            )
+            return {
+                "reply": terms["reply"],
+                "attitude_delta": int(terms.get("attitude_delta", 0)),
+                "trade_terms": terms,
+                "engine": "trade_rules_v2",
+                "factors": {
+                    "incoming_rating": terms.get("incoming_rating", 0),
+                    "outgoing_rating": terms.get("outgoing_rating", 0),
+                    "incoming_salary": terms.get("incoming_salary", 0),
+                    "outgoing_salary": terms.get("outgoing_salary", 0),
+                    "incoming_value": terms.get("incoming_value", 0),
+                    "outgoing_value": terms.get("outgoing_value", 0),
+                    "compensation_type": terms.get("compensation_type", "none"),
+                },
+            }
+
+        if event_type != "player_complaint":
+            raise ValueError("이 이벤트에는 규칙 기반 대화 엔진을 사용할 수 없습니다.")
+
+        message = str(manager_message or "")
+        delta = player_meeting_rule_delta(message)
+        choice_number = int((manager_choice or {}).get("number") or 0)
+        choice_adjustments = {
+            1: 2, 2: 3, 3: 1, 4: -3,
+            5: 2, 6: 3, 7: 2, 8: 1,
+        }
+        delta += choice_adjustments.get(choice_number, 0)
+
+        morale = int(payload.get("morale") or 70)
+        squad = str(payload.get("squad") or "")
+        age = int(payload.get("age") or 28)
+        current_score = int(state.get("score", 42))
+        target_score = int(state.get("target_score", 65))
+        transcript = list(state.get("transcript", []))
+        previous_manager_messages = [
+            str(turn.get("text") or "")
+            for turn in transcript if turn.get("speaker") == "manager"
+        ]
+
+        # 같은 말의 반복, 지키기 어려운 출전 보장, 선수 상황별 민감도를 반영한다.
+        if message in previous_manager_messages:
+            delta -= 5
+        if round_number >= 4:
+            delta -= round_number - 3
+        is_empathy = any(term in message for term in ("듣", "이해", "입장", "인정"))
+        is_concrete = any(term in message for term in ("기준", "시점", "항목", "수비", "체력", "기록"))
+        is_promise = any(term in message for term in ("약속", "기회", "출전", "1군"))
+        is_harsh = any(term in message for term in ("권한", "특별 대우", "다른 선택", "의미가 없다"))
+        if morale < 60 and is_empathy:
+            delta += 2
+        if morale < 60 and is_harsh:
+            delta -= 3
+        if squad == "2군" and is_concrete:
+            delta += 2
+        if age <= 26 and any(term in message for term in ("성장", "목표", "보완")):
+            delta += 2
+        if is_promise and not is_concrete:
+            delta -= 2
+        if current_score >= target_score - 8 and is_harsh:
+            delta -= 2
+        delta = max(-12, min(15, delta))
+
+        context = {
+            "round": round_number,
+            "player_context": {
+                "player_name": payload.get("player_name"),
+                "team": payload.get("managed_team"),
+                "squad": squad,
+                "position": payload.get("position"),
+                "age": age,
+                "morale": morale,
+            },
+        }
+        reply = player_meeting_rule_reply(message, context)
+        projected_score = max(0, min(100, current_score + delta))
+        if projected_score >= target_score:
+            reply = (
+                f"{reply} 감독님이 말씀하신 기준과 시점을 믿고 준비하겠습니다. "
+                "오늘 면담에서 제 역할에 대한 답을 들었습니다."
+            )
+        elif delta <= -5:
+            reply = (
+                f"{reply} 지금 답변으로는 상황이 나아질 것이라는 확신을 갖기 어렵습니다."
+            )
+        return {
+            "reply": reply,
+            "attitude_delta": delta,
+            "engine": "player_meeting_rules_v2",
+            "factors": {
+                "choice": choice_number,
+                "morale": morale,
+                "squad": squad,
+                "age": age,
+                "empathy": is_empathy,
+                "concrete": is_concrete,
+                "promise": is_promise,
+                "harsh": is_harsh,
+                "repeated": message in previous_manager_messages,
+            },
         }
 
     def record_negotiation_turn(
@@ -1262,18 +1647,31 @@ class ManagerEventService:
             cls._generate_trade(
                 connection, save_id, managed_team, day, players, states
             )
+        cls._generate_schedule(
+            connection, save_id, managed_team, day, schedule_events
+        )
+        cls._generate_injuries(
+            connection, save_id, managed_team, day, injuries
+        )
 
     @classmethod
     def _generate_schedule(
         cls, connection, save_id, team, day, schedule_events,
     ):
         for event in schedule_events:
+            if not event.get("inbox", True):
+                continue
             headline = event["title"]
             body = (
                 f"{event['detail']}\n\n감독 업무: {event['task']}"
             )
+            inbox_category = (
+                "선수단 관리"
+                if event.get("event_id") == "roster_audit"
+                else "경기 일정"
+            )
             cls._insert_event(
-                connection, save_id, day, "경기 일정", "schedule",
+                connection, save_id, day, inbox_category, "schedule",
                 headline,
                 body,
                 (
@@ -1283,7 +1681,13 @@ class ManagerEventService:
                         "업무 내용을 확인하고 수신함으로 돌아갑니다.",
                     ),
                 ),
+                payload={
+                    "schedule_event": event,
+                    "team": team,
+                    "event_date": day,
+                },
                 priority=event.get("importance", "normal"),
+                required=bool(event.get("requires_action", False)),
             )
             connection.execute(
                 """
@@ -1315,14 +1719,26 @@ class ManagerEventService:
             )
             cls._insert_event(
                 connection, save_id, day, "부상", "injury",
-                f"{injury['name']} 치료 방침 결정 필요",
+                f"{injury['name']} 부상 이탈… {injury['expected_days']}일 결장 전망",
                 (
                     f"{injury['name']}이(가) {injury['injury_type']} 진단을 받아 "
                     f"약 {injury['expected_days']}일 이탈할 전망입니다. "
-                    "메디컬 센터가 치료 및 선수단 운영 방침을 요청했습니다."
+                    "메디컬 센터는 재발 방지를 최우선으로 치료 계획을 검토하고 있으며, "
+                    "팬들도 선수의 빠르고 안전한 복귀를 기다리고 있습니다."
                 ),
                 choices,
-                {"player_id": injury["player_id"], "player_name": injury["name"]},
+                {
+                    "player_id": injury["player_id"],
+                    "player_name": injury["name"],
+                    "team": team,
+                    "injury_type": injury["injury_type"],
+                    "expected_days": injury["expected_days"],
+                    "position": injury.get("position") or "-",
+                    "age": injury.get("age") or "-",
+                    "squad": injury.get("squad") or "1군",
+                    "condition": injury.get("condition"),
+                    "fatigue": injury.get("fatigue"),
+                },
                 priority="critical",
                 required=True,
             )
@@ -1472,12 +1888,21 @@ class ManagerEventService:
             if p.get("position_group") == demote.get("position_group")
         ] or healthy_second
         promote = max(same_position, key=overall_rating)
+        month = int(str(day)[5:7])
+        roster_reason = {
+            11: "포스트시즌 종료 뒤 선수단 뎁스와 회복 상태를 재점검한 결과",
+            12: "비시즌 전력 구상과 내년 캠프 경쟁 구도를 검토한 결과",
+            1: "스프링캠프 준비 상태와 선수별 훈련 성과를 평가한 결과",
+            2: "실전 캠프 점검과 개막 엔트리 경쟁력을 반영한 결과",
+            3: "개막 직전 컨디션과 최근 실전 경기력을 반영한 결과",
+        }.get(month, "최근 경기력과 포지션별 선수단 수요를 종합한 결과")
         cls._insert_event(
             connection, save_id, day, "엔트리", "entry_review",
-            "부상 대체 1군 엔트리 제출 필요",
+            f"{team} {promote['name']}, 1군 콜업 예정",
             (
-                f"{demote['name']}의 부상 이탈에 따라 {promote['name']}을(를) "
-                "대체 등록하는 안이 제출됐습니다."
+                f"{team}은 {roster_reason} {promote['name']}을(를) 1군에 등록하는 안을 "
+                f"마련했습니다. {demote['name']}의 부상 공백과 포지션 구성을 고려한 결정이며, "
+                "최종 엔트리는 현장 점검 뒤 확정될 예정입니다."
             ),
             (
                 _choice("recommended_swap", "추천 교체안 제출", f"{promote['name']}을 1군에 등록합니다."),
@@ -1636,7 +2061,9 @@ class ManagerEventService:
             required=True,
         )
 
-    def resolve(self, save_id, event_id, choice_key):
+    def resolve(
+        self, save_id, event_id, choice_key, resolution_data=None,
+    ):
         """선택 결과를 세이브와 선수 DB에 한 트랜잭션으로 반영한다."""
         connection = sqlite3.connect(self.saves_db_path)
         connection.row_factory = sqlite3.Row
@@ -1660,6 +2087,12 @@ class ManagerEventService:
             if choice_key not in {choice["key"] for choice in choices}:
                 raise ValueError("선택할 수 없는 응답입니다.")
             payload = json.loads(row["payload_json"])
+            if resolution_data:
+                payload["manager_decision"] = dict(resolution_data)
+                connection.execute(
+                    "UPDATE manager_events SET payload_json=? WHERE id=?",
+                    (json.dumps(payload, ensure_ascii=False), event_id),
+                )
             result = self._apply_resolution(
                 connection, save_id, row["event_type"], choice_key, payload
             )
@@ -2098,5 +2531,77 @@ class ManagerEventService:
                     f"체결했습니다. 선수는 {payload['managed_team']} 2군에 합류합니다."
                 )
             return f"{payload['player_name']} 영입을 철회했습니다."
+
+        if event_type == "schedule":
+            schedule_event = dict(payload.get("schedule_event") or {})
+            if schedule_event.get("event_id") == "roster_audit":
+                decisions = list(
+                    (payload.get("manager_decision") or {}).get("players")
+                    or []
+                )
+                manager_decision = dict(
+                    payload.get("manager_decision") or {}
+                )
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS roster_audit_decisions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        save_id INTEGER NOT NULL,
+                        audit_date TEXT NOT NULL,
+                        team TEXT NOT NULL,
+                        player_id INTEGER NOT NULL,
+                        player_name TEXT NOT NULL,
+                        decision TEXT NOT NULL,
+                        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(save_id, audit_date, player_id)
+                    )
+                    """
+                )
+                audit_date = str(
+                    payload.get("event_date")
+                    or manager_decision.get("event_date")
+                    or "2025-11-03"
+                )
+                team = str(
+                    payload.get("team")
+                    or manager_decision.get("team")
+                    or "우리 구단"
+                )
+                for item in decisions:
+                    connection.execute(
+                        """
+                        INSERT INTO roster_audit_decisions (
+                            save_id, audit_date, team, player_id,
+                            player_name, decision
+                        ) VALUES (?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(save_id, audit_date, player_id) DO UPDATE SET
+                            decision=excluded.decision,
+                            player_name=excluded.player_name,
+                            updated_at=CURRENT_TIMESTAMP
+                        """,
+                        (
+                            save_id, audit_date, team,
+                            int(item.get("player_id") or 0),
+                            str(item.get("player_name") or "-"),
+                            str(item.get("decision") or "재검토"),
+                        ),
+                    )
+                counts = {}
+                for item in decisions:
+                    decision = str(item.get("decision") or "재검토")
+                    counts[decision] = counts.get(decision, 0) + 1
+                summary = " · ".join(
+                    f"{label} {counts.get(label, 0)}명"
+                    for label in (
+                        "보류·재계약", "계약 재검토",
+                        "퓨처스 육성", "방출 후보",
+                    )
+                )
+                return (
+                    f"{team} 선수단 1차 분류안을 저장했습니다. {summary}. "
+                    "이번 결정은 즉시 방출로 처리되지 않으며, 11월 25일 "
+                    "보류선수 명단 최종 점검에서 다시 확정합니다."
+                )
+            return "일정과 담당 업무를 확인했습니다."
 
         return "결정을 확인했습니다."

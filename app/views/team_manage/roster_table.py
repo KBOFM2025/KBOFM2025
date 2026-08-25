@@ -60,6 +60,7 @@ class DenseRosterTable(QTableWidget):
         "투타",
         "가능 포지션",
         "연봉",
+        "계약 만료",
     )
 
     def __init__(self, colors, parent=None):
@@ -99,7 +100,7 @@ class DenseRosterTable(QTableWidget):
             )
         widths = (
             58, 66, 92, 92, 140, 52, 102, 102, 88,
-            88, 112, 120, 58, 48, 72, 128, 92,
+            88, 112, 120, 58, 48, 72, 128, 92, 104,
         )
         for column, width in enumerate(widths):
             self.setColumnWidth(column, width)
@@ -222,6 +223,10 @@ class DenseRosterTable(QTableWidget):
             16,
             SortableItem(self._salary_text(salary), salary),
         )
+        contract_end = player.get("contract_end_date") or "2025-11-30"
+        contract_item = SortableItem(contract_end, contract_end)
+        contract_item.setToolTip(player.get("contract_type") or "연 단위 선수계약")
+        self.setItem(row, 17, contract_item)
 
     def _star_item(self, row, column, value, color):
         item = SortableItem(self._stars(value), float(value))

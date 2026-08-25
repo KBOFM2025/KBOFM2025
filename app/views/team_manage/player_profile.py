@@ -10,17 +10,26 @@ from pathlib import Path
 from PySide6.QtCore import QEvent, QPoint, Qt, Signal
 from PySide6.QtGui import QColor, QCursor, QFont, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QFrame,
     QGridLayout,
+    QHeaderView,
     QHBoxLayout,
     QLabel,
+    QProgressBar,
     QPushButton,
+    QSizePolicy,
+    QStackedWidget,
+    QTableWidget,
+    QTableWidgetItem,
     QToolTip,
     QVBoxLayout,
     QWidget,
 )
 
 from app.player_ratings import core_rating_values
+from app.services.fa_eligibility import fa_eligibility_report
+from app.views.team_manage.foreign_negotiation import ForeignNegotiationPanel
 from database.paths import DATA_DIR
 
 
@@ -451,6 +460,7 @@ class PlayerProfilePage(QWidget):
         self.setObjectName("PlayerProfilePage")
         self.colors = {**DEFAULT_COLORS, **(colors or {})}
         self.player = {}
+        self.foreign_service = None
         self._build_ui()
 
     def _build_ui(self):
@@ -468,21 +478,27 @@ class PlayerProfilePage(QWidget):
         self.back_button.setObjectName("BackButton")
         self.back_button.clicked.connect(self.back_requested.emit)
         nav_layout.addWidget(self.back_button)
-        for index, title in enumerate(("개요", "계약", "기록", "훈련", "부상", "보고서", "비교", "이력")):
-            tab = QLabel(title)
-            tab.setObjectName("ActiveNav" if index == 0 else "NavItem")
-            tab.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.profile_nav_buttons = []
+        for title in ("개요", "FA", "선수 협상", "계약", "기록", "훈련", "부상", "보고서", "비교", "이력"):
+            tab = QPushButton(title)
+            tab.setProperty("profileNav", True)
+            tab.setCheckable(True)
+            tab.setEnabled(title in ("개요", "FA"))
             nav_layout.addWidget(tab)
+            self.profile_nav_buttons.append(tab)
         nav_layout.addStretch()
         self.header_type = QLabel()
         self.header_type.setObjectName("HeaderType")
         nav_layout.addWidget(self.header_type)
         root.addWidget(nav)
 
+        self.page_stack = QStackedWidget()
+        root.addWidget(self.page_stack, 1)
+
         canvas = QWidget()
         canvas.setObjectName("ProfileCanvas")
         canvas.setMinimumSize(1120, 720)
-        root.addWidget(canvas, 1)
+        self.page_stack.addWidget(canvas)
         grid = QGridLayout(canvas)
         grid.setContentsMargins(14, 14, 14, 16)
         grid.setHorizontalSpacing(12)
@@ -495,12 +511,20 @@ class PlayerProfilePage(QWidget):
         grid.setColumnStretch(1, 53)
         grid.setColumnStretch(2, 25)
 
+        self.page_stack.addWidget(self._build_fa_page())
+        self.foreign_negotiation = ForeignNegotiationPanel(self.colors)
+        self.page_stack.addWidget(self.foreign_negotiation)
+        self.profile_nav_buttons[0].clicked.connect(lambda: self._switch_profile_tab(0))
+        self.profile_nav_buttons[1].clicked.connect(lambda: self._switch_profile_tab(1))
+        self.profile_nav_buttons[2].clicked.connect(lambda: self._switch_profile_tab(2))
+        self._switch_profile_tab(0)
+
         self.setStyleSheet(f"""
             QWidget {{
                 color: {colors['text']};
                 font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 13px;
             }}
-            QWidget#PlayerProfilePage, QWidget#ProfileCanvas {{ background-color: {colors['bg_dark']}; }}
+            QWidget#PlayerProfilePage, QWidget#ProfileCanvas, QWidget#FAPage {{ background-color: {colors['bg_dark']}; }}
             QLabel {{ background-color: transparent; border: none; }}
             QToolTip {{
                 color: #edf6ff; background-color: #101820;
@@ -511,10 +535,12 @@ class PlayerProfilePage(QWidget):
                 min-height: 42px; background-color: {colors['card_bg']};
                 border-bottom: 1px solid #334252;
             }}
-            QLabel#NavItem, QLabel#ActiveNav {{
-                color: #95a5b6; padding: 10px 13px; font-size: 13px; font-weight: 500;
+            QPushButton[profileNav="true"] {{
+                color: #95a5b6; background: transparent; border: none;
+                padding: 10px 13px; font-size: 13px; font-weight: 500;
             }}
-            QLabel#ActiveNav {{ color: white; border-bottom: 2px solid {colors['accent_light']}; font-weight: 700; }}
+            QPushButton[profileNav="true"]:checked {{ color: white; border-bottom: 2px solid {colors['accent_light']}; font-weight: 700; }}
+            QPushButton[profileNav="true"]:disabled {{ color: #556474; }}
             QLabel#HeaderType {{ color: {colors['accent_light']}; padding: 7px 11px; font-size: 12px; font-weight: 700; }}
             QPushButton#BackButton {{
                 color: white; background-color: {colors['tab_selected']};
@@ -531,7 +557,7 @@ class PlayerProfilePage(QWidget):
             QFrame#CareerCard {{
                 background-color: #0d1520; border: 1px solid #39495b;
                 border-top: 3px solid #caa85d; border-radius: 7px;
-                min-height: 190px;
+                min-height: 160px;
             }}
             QLabel#CareerTitle {{
                 color: #e0bc68; font-family: 'Malgun Gothic', 'Segoe UI';
@@ -562,6 +588,10 @@ class PlayerProfilePage(QWidget):
                 color: white;
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {colors['accent']}, stop:1 {colors['tab_selected']});
                 border: 1px solid #40536a; border-radius: 8px;
+            }}
+            QLabel#PhysicalLine {{
+                color: #e7eff7; border-top: 1px solid #334252;
+                padding-top: 6px; font-size: 13px; font-weight: 650;
             }}
             QLabel#PlayerName {{ color: white; font-size: 30px; font-weight: 800; }}
             QLabel#AccentText {{ color: {colors['accent_light']}; font-size: 14px; font-weight: 600; }}
@@ -599,12 +629,369 @@ class PlayerProfilePage(QWidget):
             QLabel#Stars {{ color: #facc15; font-size: 17px; }}
             QLabel#Positive {{ color: #4ade80; font-size: 13px; font-weight: 600; }}
             QLabel#Warning {{ color: #fbbf24; font-weight: 600; }}
+            QFrame#FACard {{
+                background-color: #101a24; border: 1px solid #34495b;
+                border-left: 3px solid #3b82f6; border-radius: 6px;
+            }}
+            QLabel#FATitle {{ color: #dcecff; font-size: 12px; font-weight: 700; }}
+            QLabel#FAStatus {{ font-size: 13px; font-weight: 750; }}
+            QLabel#FAStatus[tone="positive"] {{ color: #55d99b; }}
+            QLabel#FAStatus[tone="warning"] {{ color: #f2c15d; }}
+            QLabel#FAStatus[tone="muted"] {{ color: #9aa9b8; }}
+            QLabel#FAGrade {{
+                color: #f8dda0; background-color: #47391f; border: 1px solid #79602e;
+                border-radius: 7px; padding: 2px 7px; font-size: 10px; font-weight: 700;
+            }}
+            QLabel#FAProgress {{ color: #b9c9d8; font-size: 11px; }}
+            QLabel#FANote {{ color: #8091a2; font-size: 10px; }}
+            QLabel#FASource {{ color: #69bff3; font-size: 10px; }}
+            QFrame#FAHero, QFrame#FADetailCard {{
+                background-color: {colors['card_bg']}; border: 1px solid #314153; border-radius: 9px;
+            }}
+            QLabel#FAHeroName {{ color: white; font-size: 25px; font-weight: 800; }}
+            QLabel#FAHeroStatus {{ font-size: 15px; font-weight: 750; }}
+            QLabel#FAHeroStatus[tone="positive"] {{ color: #55d99b; }}
+            QLabel#FAHeroStatus[tone="warning"] {{ color: #f2c15d; }}
+            QLabel#FAHeroStatus[tone="muted"] {{ color: #9aa9b8; }}
+            QLabel#FAMetricTitle {{ color: #8fa0b1; font-size: 11px; }}
+            QLabel#FAMetricValue {{ color: #f2f7fc; font-size: 18px; font-weight: 750; }}
+            QLabel#FAShortage {{ color: #f5ca69; font-size: 15px; font-weight: 700; }}
+            QProgressBar#FAProgressBar {{
+                background-color: #101820; border: 1px solid #354657; border-radius: 5px;
+                color: white; text-align: center; min-height: 21px;
+            }}
+            QProgressBar#FAProgressBar::chunk {{ background-color: #2f9b72; border-radius: 4px; }}
+            QTableWidget#FASeasonTable {{
+                background-color: #141c25; alternate-background-color: #19232e;
+                border: 1px solid #314153; gridline-color: #2b3947; selection-background-color: #244d6d;
+            }}
+            QHeaderView::section {{
+                color: #aebccc; background-color: #202b37; border: none;
+                border-right: 1px solid #354353; padding: 7px; font-weight: 700;
+            }}
             QLabel#BodyText {{ color: #c3cfda; font-size: 13px; }}
             QLabel#InfoName {{ color: #93a3b4; font-size: 12px; }}
             QLabel#InfoValue {{ color: #edf3f9; font-size: 13px; font-weight: 600; }}
             QLabel#RolePrimary {{ color: #6ee7a0; background-color: #183e2a; border-radius: 4px; padding: 4px 7px; font-weight: 600; }}
             QLabel#RoleEmpty {{ color: #657487; background-color: #202936; border-radius: 4px; padding: 4px 7px; }}
         """)
+
+    def _switch_profile_tab(self, index):
+        self.page_stack.setCurrentIndex(index)
+        for button_index, button in enumerate(self.profile_nav_buttons):
+            button.setChecked(button_index == index)
+
+    def set_foreign_service(self, service):
+        self.foreign_service = service
+        if len(self.profile_nav_buttons) > 2:
+            self.profile_nav_buttons[2].setEnabled(
+                bool(service and self.player.get("is_foreign"))
+            )
+
+    def _metric_card(self, title):
+        card = QFrame()
+        card.setObjectName("FADetailCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(14, 11, 14, 11)
+        layout.setSpacing(4)
+        title_label = QLabel(title)
+        title_label.setObjectName("FAMetricTitle")
+        value_label = QLabel("-")
+        value_label.setObjectName("FAMetricValue")
+        value_label.setWordWrap(True)
+        layout.addWidget(title_label)
+        layout.addWidget(value_label)
+        return card, value_label
+
+    def _build_fa_page(self):
+        page = QWidget()
+        page.setObjectName("FAPage")
+        page.setMinimumSize(1120, 720)
+        root = QVBoxLayout(page)
+        root.setContentsMargins(16, 14, 16, 16)
+        root.setSpacing(11)
+
+        hero = QFrame()
+        hero.setObjectName("FAHero")
+        hero_layout = QHBoxLayout(hero)
+        hero_layout.setContentsMargins(18, 14, 18, 14)
+        hero_text = QVBoxLayout()
+        self.fa_page_name = QLabel("선수 FA 자격 분석")
+        self.fa_page_name.setObjectName("FAHeroName")
+        self.fa_page_subtitle = QLabel()
+        self.fa_page_subtitle.setObjectName("Muted")
+        hero_text.addWidget(self.fa_page_name)
+        hero_text.addWidget(self.fa_page_subtitle)
+        hero_layout.addLayout(hero_text, 1)
+        self.fa_page_status = QLabel()
+        self.fa_page_status.setObjectName("FAHeroStatus")
+        self.fa_page_status.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        hero_layout.addWidget(self.fa_page_status)
+        root.addWidget(hero)
+
+        metrics = QHBoxLayout()
+        metrics.setSpacing(10)
+        required_card, self.fa_required_value = self._metric_card("적용 자격 기준")
+        recognized_card, self.fa_recognized_value = self._metric_card("공식 인정 시즌")
+        shortage_card, self.fa_shortage_value = self._metric_card("현재 부족한 부분")
+        contract_card, self.fa_contract_value = self._metric_card("현재 계약 상태")
+        market_card, self.fa_market_value = self._metric_card("실제 FA 가능 시점")
+        metrics.addWidget(required_card, 1)
+        metrics.addWidget(recognized_card, 1)
+        metrics.addWidget(shortage_card, 1)
+        metrics.addWidget(contract_card, 1)
+        metrics.addWidget(market_card, 2)
+        root.addLayout(metrics)
+
+        progress_card = QFrame()
+        progress_card.setObjectName("FADetailCard")
+        progress_layout = QVBoxLayout(progress_card)
+        progress_layout.setContentsMargins(14, 11, 14, 12)
+        progress_head = QHBoxLayout()
+        progress_title = QLabel("FA 자격 진행도")
+        progress_title.setObjectName("SectionTitle")
+        self.fa_progress_basis = QLabel()
+        self.fa_progress_basis.setObjectName("Muted")
+        progress_head.addWidget(progress_title)
+        progress_head.addStretch()
+        progress_head.addWidget(self.fa_progress_basis)
+        self.fa_page_progress = QProgressBar()
+        self.fa_page_progress.setObjectName("FAProgressBar")
+        self.fa_page_progress.setRange(0, 100)
+        progress_layout.addLayout(progress_head)
+        progress_layout.addWidget(self.fa_page_progress)
+        root.addWidget(progress_card)
+
+        lower = QHBoxLayout()
+        lower.setSpacing(10)
+        detail_card = QFrame()
+        detail_card.setObjectName("FADetailCard")
+        detail_layout = QVBoxLayout(detail_card)
+        detail_layout.setContentsMargins(14, 12, 14, 13)
+        detail_title = QLabel("자격 요건 상세 진단")
+        detail_title.setObjectName("SectionTitle")
+        self.fa_shortage_title = QLabel()
+        self.fa_shortage_title.setObjectName("FAShortage")
+        self.fa_shortage_detail = QLabel()
+        self.fa_shortage_detail.setObjectName("BodyText")
+        self.fa_shortage_detail.setWordWrap(True)
+        self.fa_rule_checks = QLabel()
+        self.fa_rule_checks.setObjectName("BodyText")
+        self.fa_rule_checks.setWordWrap(True)
+        self.fa_rule_source = QLabel()
+        self.fa_rule_source.setObjectName("FASource")
+        self.fa_rule_source.setOpenExternalLinks(True)
+        detail_layout.addWidget(detail_title)
+        detail_layout.addSpacing(5)
+        detail_layout.addWidget(self.fa_shortage_title)
+        detail_layout.addWidget(self.fa_shortage_detail)
+        detail_layout.addSpacing(7)
+        detail_layout.addWidget(self.fa_rule_checks)
+        detail_layout.addStretch()
+        detail_layout.addWidget(self.fa_rule_source)
+        lower.addWidget(detail_card, 5)
+
+        season_card = QFrame()
+        season_card.setObjectName("FADetailCard")
+        season_layout = QVBoxLayout(season_card)
+        season_layout.setContentsMargins(14, 12, 14, 13)
+        season_title = QLabel("시즌별 확인 근거")
+        season_title.setObjectName("SectionTitle")
+        season_note = QLabel("KBO 공식 등록일수입니다. 145일 미달 시즌은 다른 미달 시즌과 합산되며 대표팀 포인트가 더해집니다.")
+        season_note.setObjectName("Muted")
+        season_note.setWordWrap(True)
+        self.fa_days_source = QLabel()
+        self.fa_days_source.setObjectName("FASource")
+        self.fa_days_source.setOpenExternalLinks(True)
+        self.fa_season_table = QTableWidget(0, 5)
+        self.fa_season_table.setObjectName("FASeasonTable")
+        self.fa_season_table.setHorizontalHeaderLabels(("시즌", "팀", "등록일", "대표팀", "판정"))
+        self.fa_season_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.fa_season_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.fa_season_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.fa_season_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.fa_season_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self.fa_season_table.verticalHeader().setVisible(False)
+        self.fa_season_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.fa_season_table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.fa_season_table.setAlternatingRowColors(True)
+        season_layout.addWidget(season_title)
+        season_layout.addWidget(season_note)
+        season_layout.addWidget(self.fa_days_source)
+        season_layout.addWidget(self.fa_season_table, 1)
+        lower.addWidget(season_card, 4)
+        root.addLayout(lower, 1)
+        return page
+
+    def _set_fa_page(self, report):
+        name = self.player.get("name") or "-"
+        team = self.player.get("team") or "-"
+        required = report.get("required_seasons")
+        recognized = report.get("recognized_seasons")
+        shortage = report.get("shortage_seasons")
+        target_days = report.get("target_days")
+        credited_days = int(report.get("credited_days") or 0)
+        raw_days = int(report.get("raw_registration_days") or 0)
+        national_days = int(report.get("national_team_days") or 0)
+        remaining_days = report.get("remaining_days")
+
+        self.fa_page_name.setText(f"{name} · FA 자격 분석")
+        self.fa_page_subtitle.setText(
+            f"{team}  |  기준일 {report.get('tooltip', '').splitlines()[0].replace('기준일 ', '')}  |  {report.get('qualification_type', '-')}"
+        )
+        status_text = f"{report['status']}   {report['grade']}"
+        if report.get("is_multi_year_contract"):
+            status_text += f"\n{report.get('contract_status', '')}"
+        self.fa_page_status.setText(status_text)
+        self.fa_page_status.setProperty("tone", report["tone"])
+        self.fa_page_status.style().unpolish(self.fa_page_status)
+        self.fa_page_status.style().polish(self.fa_page_status)
+        if report["tone"] == "warning":
+            self.fa_required_value.setText("시즌 요건 충족")
+            self.fa_recognized_value.setText(f"통산 등록 {raw_days:,}일")
+        else:
+            self.fa_required_value.setText(
+                f"{required}시즌 × 145일 = {target_days:,}일" if target_days else "별도 제도"
+            )
+            self.fa_recognized_value.setText(
+                f"등록 {raw_days:,}일 + 대표팀 {national_days:,}일"
+                if report.get("registration_rows") else "KBO 등록 기록 없음"
+            )
+        if shortage == 0 and report["tone"] == "positive":
+            shortage_text = "없음 · 자격 충족"
+        elif shortage == 0:
+            shortage_text = "시즌 요건 없음 · 계약 종료 대기"
+        elif remaining_days is not None:
+            seasons_left = max(1, (int(remaining_days) + 144) // 145)
+            expected_year = 2025 + seasons_left
+            contract_year_text = str(self.player.get("contract_end_date") or "")[:4]
+            contract_year = int(contract_year_text) if contract_year_text.isdigit() else 0
+            if contract_year > expected_year:
+                shortage_text = (
+                    f"{int(remaining_days):,}일 · 등록일 기준 {expected_year}, "
+                    f"계약상 {contract_year}시즌 이후"
+                )
+            else:
+                shortage_text = f"{int(remaining_days):,}일 · 빠르면 {expected_year}시즌"
+        elif report.get("qualification_type") == "FA 재취득":
+            shortage_text = "재취득 기산점·등록일수 확인 필요"
+        elif report.get("reference_gap") is not None:
+            shortage_text = f"기록 기준 참고 {report['reference_gap']}시즌 차이"
+        else:
+            shortage_text = "등록일수 자료 필요"
+        self.fa_shortage_value.setText(shortage_text)
+        contract_end = report.get("contract_end_date") or "미등록"
+        if report.get("is_multi_year_contract"):
+            remaining_contract = int(report.get("remaining_contract_seasons") or 0)
+            if report.get("has_contract_option_years"):
+                self.fa_contract_value.setText(
+                    f"{report.get('contract_status', '다년계약')}\n"
+                    f"보장 {report.get('guaranteed_contract_end_date')} · "
+                    f"옵션 최대 {contract_end}"
+                )
+            else:
+                self.fa_contract_value.setText(
+                    f"{report.get('contract_status', '다년계약')}\n"
+                    f"{contract_end}까지 · {remaining_contract}시즌 남음"
+                )
+        else:
+            self.fa_contract_value.setText(
+                f"{report.get('contract_status', '시즌 단위 계약')}\n{contract_end} 만료"
+            )
+        self.fa_market_value.setText(report.get("availability_label") or "현재 산정 불가")
+        self.fa_shortage_title.setText(report.get("shortage_title") or "-")
+        diagnosis = report.get("shortage_detail") or report["note"]
+        contract_detail = report.get("contract_detail") or ""
+        if report.get("is_multi_year_contract") and contract_detail not in diagnosis:
+            diagnosis += f"\n\n계약 영향 · {contract_detail}"
+        self.fa_shortage_detail.setText(diagnosis)
+
+        if required and recognized is not None:
+            percent = 100 if shortage == 0 else min(100, round(credited_days / target_days * 100))
+            basis = "KBO 공식 인정 시즌 기준"
+            progress_format = f"공식 인정 {recognized} / {required}시즌  ·  자격 충족"
+        elif required and remaining_days is not None:
+            percent = min(100, round(credited_days / target_days * 100)) if target_days else 0
+            basis = "KBO 등록일수 + 대표팀 FA 포인트 기준"
+            progress_format = f"인정 환산 {credited_days:,} / {target_days:,}일  ·  %p%"
+        elif required:
+            percent = 0
+            basis = report.get("calculation_note") or "현재 FA 기산점 확인 필요"
+            progress_format = "통산 일수 확인 · 현재 FA 산정 구간 미확인"
+        elif report["tone"] == "warning":
+            percent = 100
+            basis = "KBO 계약 유보선수 공식 공시"
+            progress_format = "시즌 요건 충족 · 계약 종료 대기"
+        else:
+            percent = 0
+            basis = "국내 선수 FA 산정 제외"
+            progress_format = "적용 대상 아님"
+        self.fa_page_progress.setValue(percent)
+        self.fa_page_progress.setFormat(progress_format)
+        self.fa_progress_basis.setText(basis)
+
+        contract_end = report.get("contract_end_date") or "미등록"
+        domestic_check = "제외" if report.get("qualification_type") == "외국인 선수" else "충족"
+        season_check = "충족" if shortage == 0 else "확인 필요"
+        contract_type = report.get("contract_type") or "연 단위 선수계약"
+        if report.get("official_contract_deferred"):
+            contract_check = "자격 충족 · 승인 신청 유보"
+        elif report.get("is_non_fa_multi_year"):
+            contract_check = "등록일 누적 · 계약 종료 전 권리 행사 불가"
+        elif report.get("is_multi_year_contract"):
+            contract_check = "재취득 누적 · 계약 종료 전 권리 행사 불가"
+        else:
+            contract_check = "별도 제한 없음"
+        rule_check_text = (
+            "국내 선수 대상    " + domestic_check + "\n"
+            f"인정 시즌 기준    {season_check}\n"
+            f"현재 계약 유형    {contract_type}\n"
+            f"보장 계약 만료    {report.get('guaranteed_contract_end_date') or contract_end}\n"
+        )
+        if report.get("has_contract_option_years"):
+            rule_check_text += f"옵션 포함 최대    {contract_end}\n"
+        rule_check_text += (
+            f"계약의 FA 영향    {contract_check}\n"
+            f"실제 시장 시점    {report.get('availability_label') or '현재 산정 불가'}\n"
+            f"통산 현역 등록    {raw_days:,}일\n"
+            f"대표팀 보상       {national_days:,}일\n"
+            f"미달 합산 인정    {int(report.get('combined_service_seasons') or 0)}시즌\n"
+            f"미달 시즌 이월    {int(report.get('partial_remainder_days') or 0):,}일\n"
+            f"1시즌 인정 원칙   {report.get('season_rule') or '-'}\n"
+            f"계산 상태         {report.get('calculation_note') or 'KBO 공개 데이터 기준'}"
+        )
+        self.fa_rule_checks.setText(rule_check_text)
+        self.fa_rule_source.setText(
+            f'<a style="color:#69bff3; text-decoration:none" href="{report["source"]}">'
+            "KBO 규약·2026년 FA 자격 공시 원문 보기</a>"
+        )
+        self.fa_rule_source.setToolTip(report["tooltip"])
+
+        registration_rows = list(report.get("registration_rows") or [])
+        source_url = registration_rows[0].get("source_url") if registration_rows else report["source"]
+        self.fa_days_source.setText(
+            f'<a style="color:#69bff3; text-decoration:none" href="{source_url}">'
+            "KBO 선수별 등록일수 원문 보기</a>"
+            f"  ·  수집 {report.get('registration_data_snapshot') or '-'}"
+        )
+        self.fa_season_table.setRowCount(len(registration_rows) or 1)
+        if not registration_rows:
+            values = ("-", "-", "기록 없음", "-", "확인 불가")
+            for column, value in enumerate(values):
+                self.fa_season_table.setItem(0, column, QTableWidgetItem(value))
+        else:
+            for row, season_data in enumerate(reversed(registration_rows)):
+                national = season_data.get("national_team") or "-"
+                if season_data.get("national_team_days"):
+                    national = f"{national} · +{season_data['national_team_days']}일"
+                values = (
+                    str(season_data["season"]), season_data.get("team") or "-",
+                    f"{season_data['registration_days']:,}일", national,
+                    season_data.get("credit_status") or "-",
+                )
+                for column, value in enumerate(values):
+                    self.fa_season_table.setItem(row, column, QTableWidgetItem(value))
+        self.fa_season_table.resizeRowsToContents()
 
     def _build_left_card(self, grid):
         card = QFrame()
@@ -615,14 +1002,19 @@ class PlayerProfilePage(QWidget):
         self.avatar = QLabel()
         self.avatar.setObjectName("Avatar")
         self.avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.avatar.setMinimumHeight(285)
+        self.avatar.setFixedHeight(220)
+        self.avatar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.avatar.setScaledContents(False)
         self.avatar.setFont(QFont("Malgun Gothic", 36, QFont.Weight.Bold))
         layout.addWidget(self.avatar)
         self.physical_line = QLabel()
+        self.physical_line.setObjectName("PhysicalLine")
+        self.physical_line.setMinimumHeight(28)
         self.physical_line.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.physical_line)
         self.age_line = QLabel()
         self.age_line.setObjectName("Muted")
+        self.age_line.setMinimumHeight(20)
         self.age_line.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.age_line)
 
@@ -634,6 +1026,36 @@ class PlayerProfilePage(QWidget):
         self.market_value = self._info_pair(contract_layout, 1, "시장 가치")
         self.contract_end = self._info_pair(contract_layout, 2, "계약 만료")
         layout.addWidget(contract)
+
+        fa_card = QFrame()
+        fa_card.setObjectName("FACard")
+        fa_layout = QVBoxLayout(fa_card)
+        fa_layout.setContentsMargins(9, 7, 9, 8)
+        fa_layout.setSpacing(3)
+        fa_header = QHBoxLayout()
+        fa_title = QLabel("FA 자격 현황")
+        fa_title.setObjectName("FATitle")
+        self.fa_grade = QLabel("미산정")
+        self.fa_grade.setObjectName("FAGrade")
+        fa_header.addWidget(fa_title)
+        fa_header.addStretch()
+        fa_header.addWidget(self.fa_grade)
+        self.fa_status = QLabel()
+        self.fa_status.setObjectName("FAStatus")
+        self.fa_progress = QLabel()
+        self.fa_progress.setObjectName("FAProgress")
+        self.fa_note = QLabel()
+        self.fa_note.setObjectName("FANote")
+        self.fa_note.setWordWrap(True)
+        self.fa_source = QLabel()
+        self.fa_source.setObjectName("FASource")
+        self.fa_source.setOpenExternalLinks(True)
+        fa_layout.addLayout(fa_header)
+        fa_layout.addWidget(self.fa_status)
+        fa_layout.addWidget(self.fa_progress)
+        fa_layout.addWidget(self.fa_note)
+        fa_layout.addWidget(self.fa_source)
+        layout.addWidget(fa_card)
 
         self.current_stars = QLabel()
         self.current_stars.setObjectName("Stars")
@@ -878,6 +1300,20 @@ class PlayerProfilePage(QWidget):
 
     def set_player(self, player):
         self.player = dict(player)
+        is_foreign = bool(self.player.get("is_foreign"))
+        self.profile_nav_buttons[2].setEnabled(bool(is_foreign and self.foreign_service))
+        if is_foreign and self.foreign_service:
+            self.foreign_negotiation.set_context(
+                self.foreign_service,
+                self.player,
+                _player_photo_path(
+                    self.player.get("kbo_player_id"),
+                    self.player.get("name"),
+                    self.player.get("team"),
+                ),
+            )
+        elif self.page_stack.currentIndex() == 2:
+            self._switch_profile_tab(0)
         is_pitcher = self.player.get("position_group") == "P" or self.player.get("pos") == "P"
         position_group = "P" if is_pitcher else self.player.get("position_group")
         position = "투수" if is_pitcher else self._position_name(self.player)
@@ -911,9 +1347,47 @@ class PlayerProfilePage(QWidget):
             f"{self.player.get('birth_date') or '-'}  ·  {self.player.get('bats_throws') or '-'}"
         )
         salary = int(self.player.get("salary") or 0)
-        self.salary_value.setText(f"₩{salary:,}만")
+        if self.player.get("contract_currency") == "USD":
+            total = int(self.player.get("contract_total") or 0)
+            self.salary_value.setText(f"${total:,}")
+            contract_salary = int(self.player.get("contract_salary") or 0)
+            if contract_salary:
+                self.salary_value.setToolTip(
+                    f"기본연봉 ${contract_salary:,} · "
+                    f"계약금 ${int(self.player.get('contract_bonus') or 0):,} · "
+                    f"옵션 ${int(self.player.get('contract_option') or 0):,}"
+                )
+            else:
+                self.salary_value.setToolTip(
+                    "발표 계약 총액이며 세부 분해 내역은 공개되지 않았습니다."
+                )
+        else:
+            self.salary_value.setText(f"₩{salary:,}만")
+            self.salary_value.setToolTip(self.player.get("contract_note") or "")
         self.market_value.setText("미평가")
-        self.contract_end.setText("미등록")
+        self.contract_end.setText(self.player.get("contract_end_date") or "2025-11-30")
+        self.contract_end.setToolTip(self.player.get("contract_type") or "연 단위 선수계약")
+        fa_report = fa_eligibility_report(self.player)
+        self.fa_status.setText(fa_report["status"])
+        self.fa_status.setProperty("tone", fa_report["tone"])
+        self.fa_status.style().unpolish(self.fa_status)
+        self.fa_status.style().polish(self.fa_status)
+        self.fa_progress.setText(fa_report["progress"])
+        self.fa_grade.setText(fa_report["grade"])
+        fa_note = fa_report["note"]
+        if fa_report.get("is_multi_year_contract"):
+            fa_note = (
+                f"{fa_report.get('contract_status')} · "
+                f"{fa_report.get('availability_label')}\n{fa_report['note']}"
+            )
+        self.fa_note.setText(fa_note)
+        self.fa_source.setText(
+            f'<a style="color:#69bff3; text-decoration:none" href="{fa_report["source"]}">'
+            "KBO 공식 기준 · 2025시즌 종료</a>"
+        )
+        for widget in (self.fa_status, self.fa_progress, self.fa_grade, self.fa_note, self.fa_source):
+            widget.setToolTip(fa_report["tooltip"])
+        self._set_fa_page(fa_report)
         self.team_badge.setText(self.player.get("team", "-"))
         self.registration_status.setText(
             "1군 등록 선수"
@@ -1039,12 +1513,13 @@ class PlayerProfilePage(QWidget):
         if photo_path is not None:
             pixmap = QPixmap(str(photo_path))
             if not pixmap.isNull():
-                width = max(220, min(self.avatar.width(), 420))
+                width = max(180, min(self.avatar.width() - 8, 360))
+                height = max(180, self.avatar.height() - 8)
                 self.avatar.setText("")
                 self.avatar.setPixmap(
                     pixmap.scaled(
                         width,
-                        285,
+                        height,
                         Qt.AspectRatioMode.KeepAspectRatio,
                         Qt.TransformationMode.SmoothTransformation,
                     )

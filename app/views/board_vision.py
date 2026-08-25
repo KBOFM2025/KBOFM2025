@@ -1,4 +1,4 @@
-"""신임 감독이 취임 직후 확인하는 구단 비전과 이사회 목표 화면."""
+"""감독 공식 선임 전에 진행하는 구단 비전과 이사회 목표 협의 화면."""
 
 from datetime import datetime
 
@@ -14,13 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.ai.context_builder import (
-    build_board_submission_context,
-    build_vision_context,
-    governance_profile_for,
-)
-from app.ai.local_model import local_ai_enabled
-from app.ai.worker import BoardReviewWorker, VisionDecisionWorker
+from app.ai.context_builder import governance_profile_for
 from app.services.board_confidence import (
     INITIAL_BOARD_CONFIDENCE,
     INITIAL_GM_RELATIONSHIP,
@@ -123,8 +117,11 @@ class ObjectiveCard(QFrame):
         self.badge.setText(self.base_priority)
         self.period_label.setText(self.base_period)
         decision_label = DECISION_LABELS.get(decision, "합의")
-        self.result_label.setText(f"{level}단계 · {label} · {decision_label}")
-        self.result_label.setProperty("direction", "negative" if level < 3 else "positive")
+        self.result_label.setText(f"{label} · {decision_label}")
+        self.result_label.setProperty(
+            "direction",
+            "negative" if decision in {"counter_offer", "reject"} else "positive",
+        )
         self.result_label.style().unpolish(self.result_label)
         self.result_label.style().polish(self.result_label)
         self.negotiate_button.setText("재협상")
@@ -135,7 +132,7 @@ class ObjectiveCard(QFrame):
         self.conditions = []
         self.trust_delta = 0
         self.gm_delta = 0
-        self.result_label.setText(f"{level}단계 · 전달 대기")
+        self.result_label.setText(f"{LEVELS[level]['label']} · 전달 대기")
         self.result_label.setProperty("direction", "")
         self.result_label.style().unpolish(self.result_label)
         self.result_label.style().polish(self.result_label)
@@ -145,7 +142,7 @@ class ObjectiveCard(QFrame):
         self.gm_proposed_level = level
         self.selected_level = level
         self.decision = "proposal"
-        self.result_label.setText(f"{level}단계 · 단장 원안")
+        self.result_label.setText(f"{LEVELS[level]['label']} · 단장 원안")
         self.result_label.setProperty("direction", "")
         self.result_label.style().unpolish(self.result_label)
         self.result_label.style().polish(self.result_label)
@@ -158,7 +155,8 @@ class ObjectiveCard(QFrame):
             "reviewed_level": self.selected_level,
         }
         label = "OK" if review["status"] == "ok" else "조정 요청"
-        self.result_label.setText(f"{self.selected_level}단계 · {label}")
+        importance = LEVELS[self.selected_level]["label"]
+        self.result_label.setText(f"{importance} · {label}")
         self.result_label.setProperty("direction", "positive" if review["status"] == "ok" else "negative")
         self.result_label.style().unpolish(self.result_label)
         self.result_label.style().polish(self.result_label)
@@ -185,7 +183,10 @@ class BoardVisionPage(QWidget):
         self.club_name = club_name
         self.manager_data = manager_data
         self.governance_profile = governance_profile_for(self.base_team)
-        self.governance_engine = GovernanceEngine(self.governance_profile)
+        self.governance_engine = GovernanceEngine(
+            self.governance_profile,
+            manager_data=self.manager_data,
+        )
         self.selected_objective = None
         self.board_confidence = INITIAL_BOARD_CONFIDENCE
         self.gm_relationship = INITIAL_GM_RELATIONSHIP
@@ -194,7 +195,6 @@ class BoardVisionPage(QWidget):
         self.reviewed = False
         self._ai_worker = None
         self._pending_negotiation = None
-        self.local_ai_enabled = local_ai_enabled()
         self.gm_objective_defaults = gm_objective_defaults or {}
 
         manager_name = manager_data.get("manager_name", "무명")
@@ -204,21 +204,21 @@ class BoardVisionPage(QWidget):
 
         header = QHBoxLayout()
         heading = QVBoxLayout()
-        eyebrow = QLabel("BOARD MEETING  ·  APPOINTMENT BRIEFING")
+        eyebrow = QLabel("BOARD MEETING  ·  APPOINTMENT NEGOTIATION")
         eyebrow.setObjectName("Eyebrow")
         heading.addWidget(eyebrow)
-        title = QLabel("구단 비전과 이사회 목표")
+        title = QLabel("감독 선임 조건 및 구단 비전 협의")
         title.setObjectName("PageTitle")
         title.setFont(QFont("Malgun Gothic", 28, QFont.Bold))
         heading.addWidget(title)
         subtitle = QLabel(
-            f"{manager_name} 감독에게 적용될 {club_name} 이사회의 평가 기준입니다."
+            f"{manager_name} 감독 후보와 {club_name} 이사회가 공식 선임 전에 합의할 평가 기준입니다."
         )
         subtitle.setObjectName("Subtitle")
         heading.addWidget(subtitle)
         header.addLayout(heading)
         header.addStretch()
-        status = QLabel("취임 회의  1 / 1")
+        status = QLabel("선임 협의  1 / 1")
         status.setObjectName("MeetingStatus")
         header.addWidget(status, alignment=Qt.AlignmentFlag.AlignTop)
         root.addLayout(header)
@@ -233,7 +233,7 @@ class BoardVisionPage(QWidget):
 
         board = QFrame()
         board.setObjectName("BoardPanel")
-        board.setFixedWidth(300)
+        board.setMinimumWidth(280)
         board_layout = QVBoxLayout(board)
         board_layout.setContentsMargins(20, 20, 20, 20)
         board_layout.setSpacing(13)
@@ -250,18 +250,68 @@ class BoardVisionPage(QWidget):
         )
         board_layout.addWidget(self._fact("홈구장", team_info["stadium"]))
         board_layout.addWidget(self._fact("구단 기반", team_info["parent_company"]))
+        board_policy = self.governance_profile.get("board_policy", {})
+        window_labels = {
+            "all_in": "우승 올인",
+            "win_now": "즉시 우승",
+            "sustained_contender": "지속 우승권",
+            "stable_contender": "안정적 상위권",
+            "transition_contender": "경쟁·세대교체",
+            "build_and_compete": "육성·성과 병행",
+            "balanced": "균형 운영",
+            "developing": "코어 육성",
+            "rebuild": "리빌딩",
+        }
+        board_layout.addWidget(
+            self._fact(
+                "경쟁 국면",
+                window_labels.get(
+                    board_policy.get("competitive_window"), "균형 운영"
+                ),
+            )
+        )
+        board_layout.addWidget(
+            self._fact(
+                "이사회 추진력",
+                self.governance_engine._trait_grade(
+                    int(board_policy.get("execution_drive", 10))
+                ),
+            )
+        )
+
+        scorecard_title = QLabel("구단 운영 성향")
+        scorecard_title.setObjectName("TraitSectionTitle")
+        board_layout.addWidget(scorecard_title)
+        scorecard_guide = QLabel("세부 수치는 내부 판정에만 사용되며 성향과 판단 근거만 표시합니다.")
+        scorecard_guide.setObjectName("TraitGuide")
+        scorecard_guide.setWordWrap(True)
+        board_layout.addWidget(scorecard_guide)
+        for trait in self.governance_engine.board_scorecard():
+            board_layout.addWidget(self._trait_meter(trait))
 
         evaluation = QLabel(
             "평가 원칙\n\n"
             "• 필수 목표는 감독직 유지에 직접 반영\n"
             "• 중요 목표는 이사회 신뢰도에 큰 영향\n"
-            "• 권장 목표는 장기 평가의 보너스 항목"
+            "• 권장 목표는 장기 평가의 보너스 항목\n\n"
+            "구단 방향\n"
+            f"{board_policy.get('rationale', '구단의 중장기 운영 기준을 따릅니다.')}"
         )
         evaluation.setObjectName("EvaluationNote")
         evaluation.setWordWrap(True)
         board_layout.addWidget(evaluation)
         board_layout.addStretch()
-        content.addWidget(board)
+        board_scroll = QScrollArea()
+        board_scroll.setObjectName("BoardProfileScroll")
+        board_scroll.setWidgetResizable(True)
+        board_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        board_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        board_scroll.setMinimumWidth(285)
+        board_scroll.setMaximumWidth(330)
+        board_scroll.setWidget(board)
+        content.addWidget(board_scroll)
 
         scroll = QScrollArea()
         scroll.setObjectName("ObjectiveScroll")
@@ -356,7 +406,7 @@ class BoardVisionPage(QWidget):
         self.negotiation_target.setWordWrap(True)
         negotiation_layout.addWidget(self.negotiation_target)
         self.current_terms = QLabel(
-            "첫 제출은 5개 전체를 전달하고, 이후에는 조정 요청을 받은 안건만 다시 전달합니다."
+            "1~5단계로 목표 수준을 협의합니다. 구단 방향과 실행 가능성을 종합 평가하며 내부 점수는 공개하지 않습니다."
         )
         self.current_terms.setObjectName("CurrentTerms")
         self.current_terms.setWordWrap(True)
@@ -366,7 +416,7 @@ class BoardVisionPage(QWidget):
         for level, title in (
             (1, "1단계  ·  대폭 완화"),
             (2, "2단계  ·  일부 완화"),
-            (3, "3단계  ·  이사회 원안"),
+            (3, "3단계  ·  단장 원안"),
             (4, "4단계  ·  도전 목표"),
             (5, "5단계  ·  최고 목표"),
         ):
@@ -394,11 +444,7 @@ class BoardVisionPage(QWidget):
         response_scroll.setMinimumHeight(150)
         response_scroll.setWidget(self.board_response)
         negotiation_layout.addWidget(response_scroll, 1)
-        self.ai_status = QLabel(
-            "Qwen3 로컬 AI 대기"
-            if self.local_ai_enabled
-            else "로컬 AI가 비활성화되어 있습니다"
-        )
+        self.ai_status = QLabel("이사회 즉시 판정 준비")
         self.ai_status.setObjectName("AIStatus")
         self.ai_status.setWordWrap(True)
         negotiation_layout.addWidget(self.ai_status)
@@ -414,7 +460,7 @@ class BoardVisionPage(QWidget):
         root.addLayout(content, 1)
 
         footer = QHBoxLayout()
-        hint = QLabel("목표를 확인하면 수석코치의 선수단 보고서가 수신함에 도착합니다.")
+        hint = QLabel("5개 목표가 모두 합의되면 공식 선임 발표와 취임 기자회견이 진행됩니다.")
         hint.setObjectName("FooterHint")
         footer.addWidget(hint)
         footer.addStretch()
@@ -452,7 +498,7 @@ class BoardVisionPage(QWidget):
         feedback = card.response.get("feedback") if card.response else None
         self.board_response.setText(feedback or "감독님의 단계 선택을 기다리고 있습니다.")
         selected_text = (
-            f"\n현재 합의  ·  {card.selected_level}단계"
+            f"\n현재 중요도  ·  {LEVELS[card.selected_level]['label']}"
             if card.selected_level is not None
             else "\n현재 합의  ·  미협의"
         )
@@ -477,16 +523,17 @@ class BoardVisionPage(QWidget):
         ):
             return
         card.stage_level(level)
-        self.current_terms.setText(f"선택 단계 · {level}단계 ({LEVELS[level]['label']})\n\n{card.description}")
+        level_data = LEVELS[level]
+        self.current_terms.setText(
+            f"선택 중요도 · {level_data['label']} ({level_data['fm_label']})\n"
+            f"{level_data['description']}\n\n{card.description}"
+        )
         self.board_response.setText("선택을 저장했습니다. 5개 항목을 모두 선택한 뒤 전달하십시오.")
         selected = sum(item.selected_level is not None for item in self.objective_cards)
         self.ai_status.setText(f"전달 준비 · {selected}/5 항목 선택")
 
     def _submit_to_board(self):
         if self._ai_worker is not None:
-            return
-        if not self.local_ai_enabled:
-            self.ai_status.setText("KBOFM_AI_ENABLED=1로 로컬 AI를 활성화해야 합니다.")
             return
         pending_cards = [
             card for card in self.objective_cards
@@ -509,25 +556,78 @@ class BoardVisionPage(QWidget):
                 f"재검토 대상 {len(pending_cards)}개 항목의 단계를 먼저 선택하십시오."
             )
             return
-        context = build_board_submission_context(
-            self.base_team, self.club_name, self.manager_data,
-            self.governance_profile, pending_cards,
+        self._on_board_review(
+            self._instant_board_review_payload(pending_cards)
         )
-        self._set_negotiation_busy(True)
-        self.accept_button.setEnabled(False)
-        self.board_response.setText(
-            f"이사회가 {len(pending_cards)}개 안건을 검토하고 있습니다."
-        )
-        self.ai_status.setText(
-            f"Qwen3 검토 중 · {len(pending_cards)}건"
-        )
-        self._ai_worker = BoardReviewWorker(context, self)
-        self._ai_worker.review_ready.connect(self._on_board_review)
-        self._ai_worker.review_failed.connect(self._on_board_review_failed)
-        self._ai_worker.finished.connect(self._finish_ai_worker)
-        self._ai_worker.start()
+
+    def _instant_board_review_payload(self, cards):
+        reviews = []
+        for card in cards:
+            evaluation = self.governance_engine.evaluate_vision_request(
+                card, card.selected_level
+            )
+            fallback = self.governance_engine.fallback_decision(evaluation)
+            result = self.governance_engine.resolve_vision_decision(
+                evaluation, fallback
+            )
+            accepted = result["decision"] in {
+                "accept", "conditional_accept"
+            }
+            level_label = LEVELS[int(card.selected_level)]["label"]
+            reason_line = "\n".join(f"• {reason}" for reason in evaluation.reasons)
+            if result["decision"] == "accept":
+                feedback = (
+                    f"‘{card.title}’ 안건은 {level_label} 수준으로 "
+                    f"추진하는 데 동의합니다.\n{reason_line}"
+                )
+            elif result["decision"] == "conditional_accept":
+                feedback = (
+                    f"‘{card.title}’ 안건은 시즌 중간 진행 상황을 "
+                    f"재점검하는 조건으로 승인합니다.\n"
+                    f"{reason_line}"
+                )
+            else:
+                feedback = (
+                    f"‘{card.title}’ 안건은 현재 구단의 기대 수준과 "
+                    f"차이가 있어 조정이 필요합니다.\n"
+                    f"{reason_line}"
+                )
+            review = {
+                "objective_key": card.objective_key,
+                "status": "ok" if accepted else "adjust",
+                "feedback": feedback,
+                "decision": result["decision"],
+                "approval_score": result["approval_score"],
+                "preferred_level": evaluation.preferred_level,
+                "hard_floor": evaluation.hard_floor,
+                "direction_score": result["direction_score"],
+                "execution_score": result["execution_score"],
+                "manager_fit_score": result["manager_fit_score"],
+                "reasons": list(evaluation.reasons),
+            }
+            if not accepted:
+                target = int(result["final_level"])
+                target_name = LEVELS[target]["label"]
+                if target >= int(card.selected_level):
+                    review["required_min_level"] = target
+                    review["feedback"] += (
+                        f"\n\n이사회는 이 안건을 {target_name} 수준으로 높여 "
+                        "다시 제안해 주시길 바랍니다."
+                    )
+                else:
+                    review["required_max_level"] = target
+                    review["feedback"] += (
+                        f"\n\n현재 여건을 고려해 {target_name} 수준으로 조정한 뒤 "
+                        "다시 제안해 주시길 바랍니다."
+                    )
+            reviews.append(review)
+        return {
+            "reviews": reviews,
+            "source": "instant_board_rules",
+        }
 
     def _on_board_review(self, payload):
+        review_source = payload.get("source", "local_ai")
         reviews = {item["objective_key"]: item for item in payload["reviews"]}
         response_lines = []
         for card in self.objective_cards:
@@ -545,28 +645,38 @@ class BoardVisionPage(QWidget):
                 "requested_level": card.selected_level,
                 "decision": card.decision,
                 "board_reply": review["feedback"],
-                "source": "local_ai",
+                "source": review_source,
             })
         adjustments = [
             card for card in self.objective_cards
             if card.decision != "accept"
         ]
         approved_count = len(self.objective_cards) - len(adjustments)
+        review_label = (
+            "AI 응답 지연 · 이사회 기준 판정"
+            if review_source == "rules_timeout_fallback"
+            else "이사회 즉시 판정"
+            if review_source == "instant_board_rules"
+            else "AI 검토"
+        )
         if adjustments:
             self.ai_status.setText(
-                f"AI 검토 완료 · 누적 승인 {approved_count} / 재조정 {len(adjustments)}"
+                f"{review_label} 완료 · 누적 승인 {approved_count} / "
+                f"재조정 {len(adjustments)}"
             )
             self.board_response.setText("\n\n".join(response_lines))
             self.accept_button.setText(
                 f"조정 {len(adjustments)}건 다시 전달  →"
             )
         else:
-            self.ai_status.setText("AI 검토 완료 · 5개 항목 모두 OK")
+            self.ai_status.setText(
+                f"{review_label} 완료 · 5개 항목 모두 OK"
+            )
             self.board_response.setText(
                 "\n\n".join(response_lines)
-                + "\n\n이사회가 모든 안건을 승인했습니다. 단장 검토로 이동할 수 있습니다."
+                + "\n\n이사회가 모든 안건을 승인했습니다. 공식 선임 절차로 이동할 수 있습니다."
             )
-            self.accept_button.setText("단장 검토로 이동  →")
+            self.accept_button.setText("협의 확정 및 선임 발표  →")
             try:
                 self.accept_button.clicked.disconnect()
             except RuntimeError:
@@ -575,8 +685,14 @@ class BoardVisionPage(QWidget):
         self._refresh_card_locks()
 
     def _on_board_review_failed(self, reason):
-        self.ai_status.setText(f"로컬 AI 검토 실패 · {reason}")
-        self.board_response.setText("규칙 기반 대체 판정은 하지 않습니다. AI 서버를 확인한 뒤 다시 전달하십시오.")
+        print(f"[이사회 AI] 검토 실패 · {reason}", flush=True)
+        pending_cards = [
+            card for card in self.objective_cards
+            if card.decision != "accept" and card.selected_level is not None
+        ]
+        self._on_board_review(
+            self._instant_board_review_payload(pending_cards)
+        )
 
     def _on_ai_decision(self, payload):
         if self._pending_negotiation is None:
@@ -692,7 +808,7 @@ class BoardVisionPage(QWidget):
 
     def export_state(self):
         return {
-            "schema_version": 1,
+            "schema_version": 3,
             "base_team": self.base_team,
             "board_confidence": self.board_confidence,
             "gm_relationship": self.gm_relationship,
@@ -716,6 +832,7 @@ class BoardVisionPage(QWidget):
         if not state:
             return
         objective_states = state.get("objectives", {})
+        state_schema = int(state.get("schema_version", 1))
         for card in self.objective_cards:
             saved = objective_states.get(card.objective_key)
             if not saved:
@@ -724,6 +841,10 @@ class BoardVisionPage(QWidget):
                 level = int(saved.get("selected_level"))
             except (TypeError, ValueError):
                 continue
+            # schema 2에서 잠시 사용했던 4단계 값을 현행 5단계로 복원한다.
+            # schema 1은 원래부터 1~5단계였으므로 그대로 유지한다.
+            if state_schema == 2:
+                level = min(5, max(1, level + 1))
             if level not in LEVELS:
                 continue
             card.apply_negotiation_level(
@@ -749,7 +870,7 @@ class BoardVisionPage(QWidget):
             if card.decision != "accept"
         ]
         if not adjustments:
-            self.accept_button.setText("단장 검토로 이동  →")
+            self.accept_button.setText("협의 확정 및 선임 발표  →")
             try:
                 self.accept_button.clicked.disconnect()
             except RuntimeError:
@@ -774,6 +895,32 @@ class BoardVisionPage(QWidget):
         return label
 
     @staticmethod
+    def _trait_meter(trait):
+        card = QFrame()
+        card.setObjectName("TraitMeter")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(4)
+
+        header = QHBoxLayout()
+        name = QLabel(trait["key"])
+        name.setObjectName("TraitName")
+        header.addWidget(name)
+        header.addStretch()
+        score = QLabel(trait["grade"])
+        score.setObjectName("TraitScore")
+        score.setProperty("grade", trait["grade"])
+        header.addWidget(score)
+        layout.addLayout(header)
+
+        description = QLabel(trait["description"])
+        description.setObjectName("TraitDescription")
+        description.setWordWrap(True)
+        layout.addWidget(description)
+        card.setToolTip(trait["description"])
+        return card
+
+    @staticmethod
     def _style(colors):
         return f"""
             QWidget#BoardVisionPage, QWidget#Objectives {{ background-color: #09131f; }}
@@ -784,10 +931,21 @@ class BoardVisionPage(QWidget):
             QLabel#MeetingStatus {{ color: #dce6ef; background-color: #14263a; border: 1px solid #354b63; border-radius: 7px; padding: 9px 14px; font-size: 13px; }}
             QFrame#HeaderRule {{ background-color: {colors['accent']}; border: none; }}
             QFrame#BoardPanel {{ background-color: #101e2e; border: 1px solid #30465d; border-radius: 10px; }}
+            QScrollArea#BoardProfileScroll {{ background-color: transparent; border: none; }}
+            QScrollArea#BoardProfileScroll > QWidget > QWidget {{ background-color: transparent; }}
             QLabel#PanelTitle, QLabel#SectionTitle {{ color: {colors['accent_light']}; font-size: 16px; font-weight: 700; }}
             QLabel#ClubName {{ color: white; border-bottom: 1px solid #30465d; padding-bottom: 12px; font-size: 21px; font-weight: 700; }}
             QLabel#BoardFact {{ color: #e5edf5; background-color: #0c1825; border-radius: 6px; padding: 10px; font-size: 13px; }}
             QLabel#EvaluationNote {{ color: #aebdcb; background-color: #0c1825; border-radius: 7px; padding: 12px; font-size: 12px; }}
+            QLabel#TraitSectionTitle {{ color: white; padding-top: 5px; font-size: 14px; font-weight: 700; }}
+            QLabel#TraitGuide {{ color: #71869a; font-size: 11px; }}
+            QFrame#TraitMeter {{ background-color: #0c1825; border: 1px solid #26394c; border-radius: 6px; }}
+            QLabel#TraitName {{ color: #dce6ef; font-size: 12px; font-weight: 700; }}
+            QLabel#TraitScore {{ color: {colors['accent_light']}; font-size: 11px; font-weight: 700; }}
+            QLabel#TraitScore[grade="최상"] {{ color: #67e8f9; }}
+            QLabel#TraitScore[grade="높음"] {{ color: #86efac; }}
+            QLabel#TraitScore[grade="낮음"], QLabel#TraitScore[grade="매우 낮음"] {{ color: #fca5a5; }}
+            QLabel#TraitDescription {{ color: #8194a6; font-size: 10px; }}
             QScrollArea#ObjectiveScroll {{ background-color: transparent; border: none; }}
             QFrame#RequiredObjective, QFrame#ImportantObjective, QFrame#LongTermObjective, QFrame#RecommendedObjective {{ background-color: #111f2e; border: 1px solid #30465d; border-radius: 9px; }}
             QFrame#RequiredObjective {{ border-left: 5px solid #ef4444; }}
@@ -812,12 +970,12 @@ class BoardVisionPage(QWidget):
             QScrollArea#BoardResponseScroll {{ background-color: transparent; border: none; }}
             QLabel#AIStatus {{ color: #71869a; font-size: 10px; padding: 2px 1px; }}
             QLabel#NegotiationWarning {{ color: #7f91a3; font-size: 11px; }}
-            QPushButton#Level1Button, QPushButton#Level2Button, QPushButton#Level3Button, QPushButton#Level4Button, QPushButton#Level5Button {{ min-height: 36px; font-size: 13px; text-align: left; padding-left: 13px; }}
-            QPushButton#Level1Button {{ color: #fca5a5; border-color: #991b1b; }}
-            QPushButton#Level2Button {{ color: #fcd34d; border-color: #a16207; }}
-            QPushButton#Level3Button {{ color: white; background-color: {colors['accent']}; border-color: {colors['accent_light']}; }}
-            QPushButton#Level4Button {{ color: #86efac; border-color: #15803d; }}
-            QPushButton#Level5Button {{ color: #67e8f9; border-color: #0e7490; }}
+            QPushButton#Level1Button, QPushButton#Level2Button, QPushButton#Level3Button, QPushButton#Level4Button, QPushButton#Level5Button {{ min-height: 40px; font-size: 13px; text-align: left; padding-left: 13px; }}
+            QPushButton#Level1Button {{ color: #9fb1c3; border-color: #42566b; }}
+            QPushButton#Level2Button {{ color: #7dd3fc; border-color: #2479a5; }}
+            QPushButton#Level3Button {{ color: #fcd34d; border-color: #a16207; }}
+            QPushButton#Level4Button {{ color: #fdba74; border-color: #c2410c; background-color: #241914; }}
+            QPushButton#Level5Button {{ color: #fca5a5; border-color: #b91c1c; background-color: #26151b; }}
             QLabel#FooterHint {{ color: #8497a9; font-size: 13px; }}
             QPushButton#AcceptButton {{ color: white; background-color: {colors['accent']}; border: 1px solid {colors['accent_light']}; border-radius: 8px; padding: 13px 24px; font-size: 15px; font-weight: 700; }}
             QPushButton#AcceptButton:hover {{ background-color: {colors['accent_light']}; }}

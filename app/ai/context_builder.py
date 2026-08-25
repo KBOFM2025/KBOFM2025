@@ -60,7 +60,13 @@ def build_board_submission_context(team_name, club_name, manager_data, profile, 
         },
         "general_manager": profile["general_manager"],
         "ownership": profile["ownership"],
-        "level_guide": {"1": "대폭 완화", "2": "일부 완화", "3": "이사회 원안", "4": "도전 목표", "5": "최고 목표"},
+        "level_guide": {
+            "1": "대폭 완화",
+            "2": "일부 완화",
+            "3": "단장 원안",
+            "4": "도전 목표",
+            "5": "최고 목표",
+        },
         "submission": [
             {
                 "objective_key": card.objective_key,

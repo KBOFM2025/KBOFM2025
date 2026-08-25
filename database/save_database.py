@@ -111,6 +111,20 @@ CLUB_FINANCE_TRANSACTIONS_SQL = """
     )
 """
 
+APPOINTMENT_PRESS_CONFERENCE_SQL = """
+    CREATE TABLE IF NOT EXISTS appointment_press_conferences (
+        save_id INTEGER PRIMARY KEY,
+        team TEXT NOT NULL,
+        manager_name TEXT NOT NULL,
+        event_date TEXT NOT NULL,
+        answers_json TEXT NOT NULL,
+        scores_json TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        completed_at TEXT NOT NULL,
+        FOREIGN KEY(save_id) REFERENCES game_saves(id) ON DELETE CASCADE
+    )
+"""
+
 PLAYER_RATING_COLUMNS = (
     "con", "pow", "eye", "def", "contact", "power",
     "plate_discipline", "bat_control", "timing", "bunt", "speed",
@@ -214,6 +228,7 @@ class SaveDatabase:
             connection.execute(OPPONENT_PLAYERS_TABLE_SQL)
             connection.execute(TRADE_FUTURE_PLAYER_OBLIGATION_SQL)
             connection.execute(CLUB_FINANCE_TRANSACTIONS_SQL)
+            connection.execute(APPOINTMENT_PRESS_CONFERENCE_SQL)
             for statement in SIMULATION_SCHEMA:
                 connection.execute(statement)
             tactic_columns = {
@@ -278,8 +293,37 @@ class SaveDatabase:
 
     @staticmethod
     def _ensure_gm_objective_defaults(connection):
-        """구단별 단장 원안 5개를 생성하되 운영 중 수정된 값은 보존한다."""
+        """5단계 협상 체계로 구단별 단장 원안 5개를 보장한다."""
         connection.execute(GM_OBJECTIVE_DEFAULTS_TABLE_SQL)
+        schema_row = connection.execute(
+            "SELECT sql FROM sqlite_master "
+            "WHERE type = 'table' AND name = 'gm_objective_defaults'"
+        ).fetchone()
+        schema_sql = str(schema_row["sql"] if schema_row else "")
+        if "BETWEEN 1 AND 4" in schema_sql:
+            # 잠시 사용했던 4단계 중요도를 현행 5단계 협상 수준으로 복원한다.
+            connection.execute(
+                "ALTER TABLE gm_objective_defaults "
+                "RENAME TO gm_objective_defaults_legacy"
+            )
+            connection.execute(GM_OBJECTIVE_DEFAULTS_TABLE_SQL)
+            connection.execute(
+                """
+                INSERT INTO gm_objective_defaults (
+                    club_name, gm_name, objective_key, initial_level, rationale
+                )
+                SELECT club_name, gm_name, objective_key,
+                       CASE
+                           WHEN initial_level >= 4 THEN 5
+                           WHEN initial_level = 3 THEN 4
+                           WHEN initial_level = 2 THEN 3
+                           ELSE 2
+                       END,
+                       rationale
+                FROM gm_objective_defaults_legacy
+                """
+            )
+            connection.execute("DROP TABLE gm_objective_defaults_legacy")
         rows = []
         for club_name, (gm_name, levels, rationale) in GM_OBJECTIVE_SEEDS.items():
             for objective_key, level in zip(OBJECTIVE_KEYS, levels):
@@ -649,6 +693,8 @@ class SaveDatabase:
                 "player_injury_events",
                 "team_training_plans",
                 "team_tactic_versions",
+                "foreign_contract_decisions",
+                "foreign_fa_market",
                 "team_pitching_roles",
                 "team_lineups",
                 "team_ai_profiles",
@@ -657,6 +703,7 @@ class SaveDatabase:
                 "team_daily_states",
                 "player_simulation_states",
                 "simulation_runs",
+                "appointment_press_conferences",
             ):
                 connection.execute(
                     f"DELETE FROM {table_name} WHERE save_id = ?",
@@ -667,6 +714,76 @@ class SaveDatabase:
                 (save_id,),
             )
             return cursor.rowcount > 0
+
+    def save_appointment_press_conference(
+        self, save_id, team, manager_name, event_date, answers, scores, summary,
+    ):
+        """취임 기자회견 전문과 초기 관계도 변화를 세이브에 기록한다."""
+        now = datetime.now().isoformat(timespec="seconds")
+        transcript = "\n\n".join(
+            f"[{item['outlet']} · {item['reporter']} 기자]\n"
+            f"Q. {item['question']}\nA. {item['answer']}"
+            for item in answers
+        )
+        body = (
+            f"{team} {manager_name} 신임 감독이 취임 기자회견에서 시즌 운영 구상을 밝혔습니다.\n\n"
+            f"{transcript}\n\n[현장 평가]\n{summary}"
+        )
+        with self.connect() as connection:
+            connection.execute(APPOINTMENT_PRESS_CONFERENCE_SQL)
+            connection.execute(
+                """
+                INSERT INTO appointment_press_conferences (
+                    save_id, team, manager_name, event_date, answers_json,
+                    scores_json, summary, completed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(save_id) DO UPDATE SET
+                    answers_json=excluded.answers_json,
+                    scores_json=excluded.scores_json,
+                    summary=excluded.summary,
+                    completed_at=excluded.completed_at
+                """,
+                (
+                    save_id, team, manager_name, event_date,
+                    json.dumps(answers, ensure_ascii=False),
+                    json.dumps(scores, ensure_ascii=False), summary, now,
+                ),
+            )
+            self._ensure_daily_news_table(connection)
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO daily_news (
+                    id, save_id, news_date, category, headline, body,
+                    is_read, created_at
+                ) VALUES (
+                    (SELECT id FROM daily_news WHERE save_id=? AND news_date=?
+                     AND headline=?), ?, ?, '구단 뉴스', ?, ?, 0, ?
+                )
+                """,
+                (
+                    save_id, event_date,
+                    f"{manager_name} 감독, 취임 기자회견서 구단 운영 구상 공개",
+                    save_id, event_date,
+                    f"{manager_name} 감독, 취임 기자회견서 구단 운영 구상 공개",
+                    body, now,
+                ),
+            )
+
+    def load_appointment_press_conference(self, save_id):
+        if save_id is None:
+            return None
+        with self.connect() as connection:
+            connection.execute(APPOINTMENT_PRESS_CONFERENCE_SQL)
+            row = connection.execute(
+                "SELECT * FROM appointment_press_conferences WHERE save_id=?",
+                (save_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        result = dict(row)
+        result["answers"] = json.loads(result.pop("answers_json"))
+        result["scores"] = json.loads(result.pop("scores_json"))
+        return result
 
     def list_team_daily_states(self, save_id, simulation_date=None):
         with self.connect() as connection:
@@ -1270,6 +1387,10 @@ class SaveDatabase:
                 """
                 SELECT COUNT(*) AS count FROM daily_news
                 WHERE save_id = ? AND is_read = 0
+                AND NOT (
+                    category = '리그 시뮬레이션'
+                    AND headline LIKE '%10개 구단 하루 진행 완료%'
+                )
                 AND NOT (
                     category = '의료 센터'
                     AND (body LIKE '%발생 당시 소속은 2군,%' OR body LIKE '%기존 2군 선수단%')

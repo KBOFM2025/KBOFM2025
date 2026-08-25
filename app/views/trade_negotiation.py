@@ -14,17 +14,23 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.ai.negotiation_worker import NegotiationWorker
 from app.utils import resource_path
 from app.views.player_meeting import MeetingBackdrop
 
 
 TRADE_TALKING_POINTS = (
-    "두 선수의 최근 성적과 연령을 보면 공정한 제안 같습니다. 수락 의사를 전달해 주세요.",
-    "우리 선수가 더 가치 있습니다. 현금 보상을 추가해 달라고 전달해 주세요.",
-    "현재 조건에는 부족함이 있습니다. 추가 선수를 포함해 달라고 전달해 주세요.",
-    "추가 선수와 현금을 함께 주는 복합 보상을 요청해 주세요.",
-    "상대 구단이 후보군에서 30일 이내 한 명을 확정하는 추후 지명 선수를 요청해 주세요.",
+    ("accept", "현재 조건 수락", "현재 제안 조건을 수락하고 트레이드를 최종 진행해 주세요."),
+    ("reject", "협상 최종 거절", "현재 조건으로는 트레이드를 진행하지 않겠습니다. 제안을 최종 거절해 주세요."),
+    ("original", "1대1 원안 유지", "추가 조건 없이 현재 두 선수의 1대1 교환 원안으로 다시 제안해 주세요."),
+    ("request_cash", "현금 보상 요구", "우리 선수가 더 가치 있습니다. 가치 차이에 맞는 현금 보상을 추가해 달라고 전달해 주세요."),
+    ("request_player", "추가 선수 요구", "현재 조건에는 부족함이 있습니다. 가치 차이에 맞는 추가 선수를 포함해 달라고 전달해 주세요."),
+    ("request_mixed", "선수+현금 요구", "추가 선수와 현금을 함께 받는 복합 보상 조건을 요청해 주세요."),
+    ("request_future", "추후 지명 요구", "상대 구단 후보군에서 30일 이내 한 명을 확정하는 추후 지명 선수를 요구해 주세요."),
+    ("reduce_cash", "상대 현금 요구 감액", "상대 구단이 요구한 현금 금액이 과합니다. 현금 부담을 낮춘 수정안을 요청해 주세요."),
+    ("remove_player", "상대 추가 선수 제외", "상대가 요구한 추가 선수는 포함할 수 없습니다. 추가 선수 없이 조건을 다시 조정해 주세요."),
+    ("salary_cash", "연봉 부담 보상", "우리가 인수할 연봉 부담까지 고려해 현금 보상을 추가해 달라고 요청해 주세요."),
+    ("protect_prospect", "유망주 보호·현금 전환", "유망주는 보호하겠습니다. 선수 보상 대신 현금 보상 방식으로 바꿔 달라고 요청해 주세요."),
+    ("revalue", "가치 재검토 요청", "양 선수의 나이, 계약 기간, 연봉과 포지션 수요를 다시 계산해 조건을 재검토해 주세요."),
 )
 
 
@@ -132,9 +138,9 @@ class TradeNegotiationPage(QWidget):
         overlay.addLayout(upper, 4)
         overlay.addStretch(2)
 
-        action = QFrame()
-        action.setObjectName("TradeAction")
-        action_layout = QVBoxLayout(action)
+        action_panel = QFrame()
+        action_panel.setObjectName("TradeAction")
+        action_layout = QVBoxLayout(action_panel)
         action_layout.setContentsMargins(20, 15, 20, 18)
         action_layout.setSpacing(9)
         state_row = QHBoxLayout()
@@ -155,12 +161,16 @@ class TradeNegotiationPage(QWidget):
         hint_row = QGridLayout()
         hint_row.setSpacing(7)
         self.hint_buttons = []
-        for index, point in enumerate(TRADE_TALKING_POINTS, start=1):
-            button = QPushButton(f"{index}. {point}")
+        for index, (action_code, label, point) in enumerate(
+            TRADE_TALKING_POINTS, start=1
+        ):
+            button = QPushButton(f"{index}. {label}")
             button.setProperty("tradeHint", True)
             button.setToolTip(point)
+            button.setMinimumHeight(44)
             button.clicked.connect(
-                lambda _checked=False, text=point: self.message_input.setPlainText(text)
+                lambda _checked=False, code=action_code, text=point:
+                self._send_standard_choice(code, text)
             )
             self.hint_buttons.append(button)
             hint_row.addWidget(button, (index - 1) // 3, (index - 1) % 3)
@@ -191,7 +201,7 @@ class TradeNegotiationPage(QWidget):
         withdraw.clicked.connect(self._withdraw)
         footer.addWidget(withdraw)
         action_layout.addLayout(footer)
-        overlay.addWidget(action, 4)
+        overlay.addWidget(action_panel, 4)
         self._apply_style()
 
     def _apply_style(self):
@@ -518,9 +528,11 @@ class TradeNegotiationPage(QWidget):
             if details else str(name)
         )
 
-    def _send_message(self):
+    def _send_message(self, action=None):
         if not self.current_event or self.worker is not None:
             return
+        if not isinstance(action, str):
+            action = None
         message = self.message_input.toPlainText().strip()
         if len(message) < 5:
             QMessageBox.information(
@@ -531,8 +543,11 @@ class TradeNegotiationPage(QWidget):
             QMessageBox.information(self, "협상 제안", "한 번의 제안은 600자 이내로 작성하세요.")
             return
         try:
-            context = self.event_service.negotiation_context(
-                self.save_id, int(self.current_event["id"]), message
+            response = self.event_service.rule_based_negotiation_response(
+                self.save_id,
+                int(self.current_event["id"]),
+                message,
+                {"action": action} if action else None,
             )
         except Exception as error:
             QMessageBox.critical(self, "트레이드 협상 오류", str(error))
@@ -540,14 +555,15 @@ class TradeNegotiationPage(QWidget):
         self.message_input.clear()
         self.message_input.setEnabled(False)
         self.send_button.setEnabled(False)
-        self.status_label.setText("단장이 감독님의 의견을 상대 구단에 전달하고 있습니다…")
-        self.worker = NegotiationWorker(context, self)
-        self.worker.response_ready.connect(
-            lambda response, text=message: self._receive_response(text, response)
-        )
-        self.worker.response_failed.connect(self._response_failed)
-        self.worker.finished.connect(self._worker_finished)
-        self.worker.start()
+        self.status_label.setText("선수 가치·연봉·보상 조건으로 상대 구단 답변을 판정했습니다.")
+        self._receive_response(message, response)
+
+    def _send_standard_choice(self, action, message):
+        """정형화된 협상 행동을 선택 즉시 단장에게 전달한다."""
+        if self.worker is not None or not self.current_event:
+            return
+        self.message_input.setPlainText(message)
+        self._send_message(action)
 
     def _receive_response(self, manager_message, response):
         try:
@@ -574,8 +590,8 @@ class TradeNegotiationPage(QWidget):
             QMessageBox.critical(self, "트레이드 결과 처리 오류", str(error))
 
     def _response_failed(self, message):
-        self.status_label.setText("응답 생성에 실패했습니다. 같은 제안을 다시 보낼 수 있습니다.")
-        QMessageBox.warning(self, "트레이드 협상 AI", message)
+        self.status_label.setText("협상 판정에 실패했습니다. 같은 제안을 다시 보낼 수 있습니다.")
+        QMessageBox.warning(self, "트레이드 협상 판정", message)
 
     def _worker_finished(self):
         worker = self.worker

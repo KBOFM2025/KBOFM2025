@@ -46,7 +46,6 @@ from app.config import (
     START_POINTS,
     TEAM_COLORS,
     TEAM_DATA_AS_OF,
-    TEAM_EMOJIS,
     TEAM_INFO,
     start_point_date,
     start_point_title,
@@ -54,6 +53,7 @@ from app.config import (
 from app.constants import APP_TITLE
 from app.manager_widgets import AbilitySliderControl, ManagerRadarChart, ManagerStyleCard
 from app.styles import START_STYLE, UI_FONT_FAMILY
+from app.team_assets import set_team_logo, team_logo_icon
 from app.transitions import FadeStackTransition
 from app.utils import manager_data_from_save, resource_path
 from app.views.league_rank import LeagueRankTab
@@ -62,7 +62,9 @@ from app.views.calendar_bar import CalendarBar
 from app.views.day_advance_overlay import DayAdvanceOverlay
 from app.views.board_vision import BoardVisionPage
 from app.views.manager_welcome import ManagerWelcomePage
+from app.views.appointment_press import AppointmentPressConferencePage
 from app.views.manager_event import ManagerEventPage
+from app.views.event_decision import EventDecisionPage
 from app.views.player_meeting import PlayerMeetingPage
 from app.views.trade_negotiation import TradeNegotiationPage
 from app.views.news_center import DailyNewsPage, NewsFeedPage
@@ -75,9 +77,11 @@ from app.views.team_manage.set_lineup import SetLineupTab
 from app.views.club_info import ClubInfoPage
 from app.views.club_squad import ClubSquadPage
 from app.views.second_draft import SecondDraftPage
+from app.views.foreign_market import ForeignPlayerMarketPage
 from app.services.day_advance_worker import DayAdvanceWorker
 from app.services.manager_events import ManagerEventService
 from app.services.second_draft import SecondDraftService
+from app.services.foreign_players import ForeignPlayerService
 from app.services.team_ai_processor import TeamAIDecisionWorker
 from app.ai.local_model import stop_owned_local_ai_server
 from database import (
@@ -328,6 +332,7 @@ class NewGameWizard(QWidget):
 
         self.team_list = QListWidget()
         self.team_list.setFixedWidth(260)
+        self.team_list.setIconSize(QSize(58, 42))
         self.team_list.setStyleSheet("""
             QListWidget {
                 color: #dbe7f3;
@@ -344,7 +349,7 @@ class NewGameWizard(QWidget):
             QListWidget::item:selected { background-color: #1976d2; color: white; }
         """)
         for team_name, info in TEAM_INFO.items():
-            item = QListWidgetItem(f'{info["emoji"]}  {team_name}\n     {info["city"]}')
+            item = QListWidgetItem(team_logo_icon(team_name), f'{team_name}\n{info["city"]}')
             item.setData(Qt.UserRole, team_name)
             item.setSizeHint(QSize(230, 70))
             self.team_list.addItem(item)
@@ -363,8 +368,7 @@ class NewGameWizard(QWidget):
 
         heading = QHBoxLayout()
         self.team_emoji_label = QLabel()
-        self.team_emoji_label.setFont(QFont("Arial", 42))
-        self.team_emoji_label.setFixedWidth(70)
+        self.team_emoji_label.setFixedSize(82, 58)
         heading.addWidget(self.team_emoji_label)
         self.team_name_label = QLabel()
         self.team_name_label.setFont(QFont(UI_FONT_FAMILY, 25, QFont.Bold))
@@ -553,7 +557,7 @@ class NewGameWizard(QWidget):
 
         self.selected_base_team = team_name
         self._sync_default_name(team_name)
-        self.team_emoji_label.setText(info["emoji"])
+        set_team_logo(self.team_emoji_label, team_name, 76, 52)
         self.team_name_label.setText(team_name)
         self.team_name_label.setStyleSheet(f'color: {colors["accent_light"]};')
         self.team_location_label.setText(
@@ -601,10 +605,9 @@ class NewGameWizard(QWidget):
                 )
             )
         else:
-            self.team_mascot_label.setPixmap(QPixmap())
-            self.team_mascot_label.setText(
-                f'{info["emoji"]}\n\n마스코트 이미지 준비 중\n'
-                f'image/Mascort/{info["mascot_image"]}'
+            set_team_logo(self.team_mascot_label, team_name, 180, 120)
+            self.team_mascot_label.setToolTip(
+                f'마스코트 이미지 준비 중 · image/Mascort/{info["mascot_image"]}'
             )
             self.team_mascot_label.setStyleSheet(
                 "color: #94a3b8; font-size: 14px; font-weight: bold;"
@@ -1094,8 +1097,7 @@ class StartWindow(QMainWindow):
             show_welcome=True,
         )
         self._show_home_immediately()
-        self.game_window.show()
-        self.close()
+        self._show_game_window_in_front()
 
     def show_load_game(self):
         # 실행 중 구버전 세이브 DB가 복원되어도 불러오기 전에 최신 스키마로 보정한다.
@@ -1141,8 +1143,31 @@ class StartWindow(QMainWindow):
             )
             self.game_window = None
             return
-        self.game_window.show()
-        self.close()
+        self._show_game_window_in_front()
+
+    def _show_game_window_in_front(self):
+        """시작 창을 먼저 숨기고 새 게임 창에 Windows 입력 포커스를 넘긴다."""
+        game_window = getattr(self, "game_window", None)
+        if game_window is None:
+            return
+        start_was_maximized = self.isMaximized() or self.isFullScreen()
+        self.hide()
+        if start_was_maximized:
+            game_window.showMaximized()
+        else:
+            game_window.show()
+        self._activate_game_window()
+        # Windows가 기존 창의 hide 처리를 마친 다음 한 번 더 활성화한다.
+        QTimer.singleShot(0, self._activate_game_window)
+        QTimer.singleShot(120, self._activate_game_window)
+
+    def _activate_game_window(self):
+        game_window = getattr(self, "game_window", None)
+        if game_window is None or not game_window.isVisible():
+            return
+        game_window.raise_()
+        game_window.activateWindow()
+        game_window.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
 
     def show_options(self):
         QMessageBox.information(
@@ -1198,6 +1223,7 @@ class MainWindow(QMainWindow):
         else:
             self.current_date = current_date or start_point_date(start_point)
         self.show_welcome = show_welcome
+        self._appointment_flow_active = bool(show_welcome)
         self._content_transitioning = False
         self._content_target_index = None
         self._content_animation = None
@@ -1219,8 +1245,22 @@ class MainWindow(QMainWindow):
             TEAM_INFO[self.selected_team],
             self.colors,
         )
-        self.welcome_page.continue_requested.connect(self.open_dashboard)
+        self.welcome_page.continue_requested.connect(
+            self.finish_appointment_announcement
+        )
         self.root_stack.addWidget(self.welcome_page)
+
+        self.press_conference_page = AppointmentPressConferencePage(
+            self.selected_team,
+            self.club_name,
+            self.manager_data,
+            TEAM_INFO[self.selected_team],
+            self.colors,
+        )
+        self.press_conference_page.completed.connect(
+            self.finish_press_conference
+        )
+        self.root_stack.addWidget(self.press_conference_page)
 
         self.board_vision_page = BoardVisionPage(
             self.club_name,
@@ -1232,9 +1272,32 @@ class MainWindow(QMainWindow):
                 self.selected_team
             ),
         )
-        self.board_vision_page.restore_state(
-            self.save_database.load_governance_state(self.save_id)
+        governance_state = (
+            self.save_database.load_governance_state(self.save_id) or {}
         )
+        self.board_vision_page.restore_state(governance_state)
+        appointment_stage = str(
+            governance_state.get("appointment_stage") or ""
+        )
+        press_completed = bool(
+            self.save_database.load_appointment_press_conference(self.save_id)
+        )
+        self._appointment_flow_active = bool(
+            not press_completed
+            and (
+                self.show_welcome
+                or appointment_stage in {
+                    "board_negotiation", "board_agreed", "press_pending",
+                }
+            )
+        )
+        if self.show_welcome and not appointment_stage:
+            governance_state["appointment_stage"] = "board_negotiation"
+            governance_state.setdefault("board_confidence", 75)
+            governance_state.setdefault("gm_relationship", 70)
+            self.save_database.save_governance_state(
+                self.save_id, governance_state
+            )
         self.board_vision_page.continue_requested.connect(self.finish_board_vision)
         self.root_stack.addWidget(self.board_vision_page)
 
@@ -1262,6 +1325,25 @@ class MainWindow(QMainWindow):
             self._manager_event_resolved
         )
         self.root_stack.addWidget(self.manager_event_page)
+        self.event_decision_page = EventDecisionPage(
+            self.colors,
+            self.manager_event_service,
+            self.save_id,
+            self.selected_team,
+            self.player_db_path or PLAYERS_DB_PATH,
+        )
+        self.event_decision_page.back_requested.connect(
+            self._close_manager_event
+        )
+        self.event_decision_page.event_resolved.connect(
+            self._manager_event_resolved
+        )
+        self.event_decision_page.player_requested.connect(
+            lambda player: self._open_full_player_profile(
+                player, self.event_decision_page
+            )
+        )
+        self.root_stack.addWidget(self.event_decision_page)
         self.player_meeting_page = PlayerMeetingPage(
             self.colors,
             self.manager_event_service,
@@ -1313,8 +1395,12 @@ class MainWindow(QMainWindow):
             self.colors, self.selected_team, db_path=self.player_db_path,
             save_database=self.save_database, save_id=self.save_id,
             appointment_date=appointment_date,
+            manager_name=self.manager_data.get("manager_name", "감독"),
         )
         self.league_home.board_vision_requested.connect(self.open_board_vision)
+        self.league_home.appointment_press_requested.connect(
+            self.open_press_conference
+        )
         self.league_home.required_action_count_changed.connect(
             self._update_progress_gate
         )
@@ -1329,6 +1415,13 @@ class MainWindow(QMainWindow):
         )
         if self.board_vision_page.reviewed:
             self.league_home.mark_board_vision_reviewed()
+        press_message_available = bool(
+            press_completed
+            or appointment_stage in {"press_pending", "completed"}
+        )
+        self.league_home.set_appointment_press_status(
+            press_message_available, press_completed
+        )
         self.content_stack.addWidget(self.league_home)
 
         self.news_feed = NewsFeedPage(
@@ -1398,6 +1491,35 @@ class MainWindow(QMainWindow):
         self.tactics_page = SetLineupTab(self.my_team_manager)
         self.content_stack.addWidget(self.tactics_page)
 
+        self.foreign_player_service = ForeignPlayerService(
+            self.save_database.db_path,
+            self.player_db_path or PLAYERS_DB_PATH,
+            self.save_id,
+            self.selected_team,
+        )
+        self.foreign_market_page = ForeignPlayerMarketPage(
+            self.colors, self.foreign_player_service
+        )
+        self.global_player_profile.set_foreign_service(self.foreign_player_service)
+        self.my_team_manager.profile_page.set_foreign_service(self.foreign_player_service)
+        self.player_search.profile_page.set_foreign_service(self.foreign_player_service)
+        self.global_player_profile.foreign_negotiation.contract_completed.connect(
+            self._foreign_roster_changed
+        )
+        self.my_team_manager.profile_page.foreign_negotiation.contract_completed.connect(
+            self._foreign_roster_changed
+        )
+        self.player_search.profile_page.foreign_negotiation.contract_completed.connect(
+            self._foreign_roster_changed
+        )
+        self.foreign_market_page.roster_changed.connect(
+            self._foreign_roster_changed
+        )
+        self.foreign_market_page.player_requested.connect(
+            self._open_foreign_player_profile
+        )
+        self.content_stack.addWidget(self.foreign_market_page)
+
         self.club_info_page = ClubInfoPage(
             self.selected_team,
             self.club_name,
@@ -1423,8 +1545,16 @@ class MainWindow(QMainWindow):
         self.day_advance_overlay = DayAdvanceOverlay(
             self.colors, self.selected_team, self.root_stack
         )
+        # FM식 신규 감독 온보딩 순서:
+        # 이사회 목표 협의 → 공식 선임 기사 → 취임 기자회견 → 수신함.
         self.root_stack.setCurrentWidget(
-            self.welcome_page if self.show_welcome else self.main_widget
+            self.board_vision_page
+            if self._appointment_flow_active and not self.board_vision_page.reviewed
+            else self.main_widget
+            if self._appointment_flow_active and appointment_stage == "press_pending"
+            else self.welcome_page
+            if self._appointment_flow_active
+            else self.main_widget
         )
 
     def open_board_vision(self):
@@ -1479,6 +1609,10 @@ class MainWindow(QMainWindow):
         self.global_player_profile.set_player(player)
         self.root_transition.to_widget(self.global_player_profile)
 
+    def _open_foreign_player_profile(self, player):
+        self._open_full_player_profile(player, return_page=6)
+        self.global_player_profile._switch_profile_tab(2)
+
     def _close_global_player_profile(self):
         return_widget = getattr(self, "_player_profile_return_widget", None)
         if return_widget is not None:
@@ -1501,12 +1635,15 @@ class MainWindow(QMainWindow):
                 self, "구단 업무", "해당 업무를 찾을 수 없습니다."
             )
             return
-        if event.get("event_type") == "player_complaint":
+        event_type = str(event.get("event_type") or "")
+        if event_type == "player_complaint":
             target_page = self.player_meeting_page
-        elif event.get("event_type") == "trade_offer":
+        elif event_type == "trade_offer":
             target_page = self.trade_negotiation_page
-        else:
+        elif event_type == "fa_opportunity":
             target_page = self.manager_event_page
+        else:
+            target_page = self.event_decision_page
         target_page.save_id = self.save_id
         target_page.set_event(event)
         self.root_stack.setCurrentWidget(target_page)
@@ -1649,29 +1786,101 @@ class MainWindow(QMainWindow):
         self._refresh_news_pages()
 
     def open_dashboard(self):
-        """취임 기사를 확인한 뒤 메인 수신함으로 이동한다."""
+        """선임 협의와 취임 기자회견을 마친 뒤 메인 수신함으로 이동한다."""
+        self._appointment_flow_active = False
         self.root_transition.to_widget(
             self.main_widget,
             after_switch=self._show_initial_inbox,
         )
 
+    def finish_appointment_announcement(self):
+        """공식 선임 기사를 닫고 기자회견 요청이 도착한 수신함으로 이동한다."""
+        state = self.save_database.load_governance_state(self.save_id) or {}
+        state["appointment_stage"] = "press_pending"
+        self.save_database.save_governance_state(self.save_id, state)
+        self.league_home.set_appointment_press_status(True, False)
+        self.root_transition.to_widget(
+            self.main_widget,
+            after_switch=self._show_initial_inbox,
+        )
+
+    def open_press_conference(self):
+        """이사회 합의와 공식 선임 기사 다음에 취임 기자회견을 연다."""
+        if self._appointment_flow_active and not self.board_vision_page.reviewed:
+            self.root_transition.to_widget(self.board_vision_page)
+            return
+        if self.save_database.load_appointment_press_conference(self.save_id):
+            self.open_dashboard()
+            return
+        self.root_transition.to_widget(self.press_conference_page)
+
+    def finish_press_conference(self, answers, scores, summary):
+        """기자회견 전문과 반응을 저장하고 메인 수신함으로 이동한다."""
+        manager_name = self.manager_data.get("manager_name", "감독")
+        event_date = self.current_date.isoformat()
+        self.save_database.save_appointment_press_conference(
+            self.save_id,
+            self.selected_team,
+            manager_name,
+            event_date,
+            answers,
+            scores,
+            summary,
+        )
+        state = self.save_database.load_governance_state(self.save_id) or {}
+        board_delta = int(scores.get("board", 70)) - 70
+        state["board_confidence"] = max(
+            0, min(100, int(state.get("board_confidence", 75)) + board_delta)
+        )
+        state.setdefault("gm_relationship", 70)
+        state["fan_confidence"] = int(scores.get("fans", 70))
+        state["squad_confidence"] = int(scores.get("squad", 70))
+        state["media_confidence"] = int(scores.get("media", 70))
+        state["appointment_press"] = {
+            "completed": True,
+            "date": event_date,
+            "summary": summary,
+            "scores": dict(scores),
+        }
+        state["appointment_stage"] = "completed"
+        self.save_database.save_governance_state(self.save_id, state)
+        self.board_vision_page.restore_state(state)
+        self.league_home.mark_appointment_press_completed()
+        self._refresh_news_pages()
+        self.open_dashboard()
+
     def _show_initial_inbox(self):
         self.switch_page(0)
-        self._update_progress_gate(len(self.league_home.pending_required_messages()))
+        pending = self.league_home.pending_required_messages()
+        if pending:
+            self.league_home.focus_first_required_message()
+        self._update_progress_gate(len(pending))
 
     def finish_board_vision(self):
-        """협의 완료 상태를 수신함에 표시하고 메인 화면으로 돌아간다."""
+        """이사회 합의를 확정하고 신규 게임이면 공식 선임 기사로 이동한다."""
         self.board_vision_page.mark_reviewed()
         self.league_home.mark_board_vision_reviewed()
         if self.save_id is None:
             self.save_game(show_message=False)
+        governance_state = self._governance_state_for_save()
+        if self._appointment_flow_active:
+            governance_state["appointment_stage"] = "board_agreed"
         self.save_database.save_governance_state(
-            self.save_id, self.board_vision_page.export_state()
+            self.save_id, governance_state
         )
+        if self._appointment_flow_active:
+            self.root_transition.to_widget(self.welcome_page)
+            return
         self.root_transition.to_widget(
             self.main_widget,
             after_switch=lambda: self.switch_page(0),
         )
+
+    def _governance_state_for_save(self):
+        """이사회 협상 저장 시 기자회견에서 형성된 관계도도 보존한다."""
+        state = self.save_database.load_governance_state(self.save_id) or {}
+        state.update(self.board_vision_page.export_state())
+        return state
 
     def create_sidebar(self):
         sidebar = QWidget()
@@ -1682,8 +1891,8 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 8)
         layout.setSpacing(0)
 
-        logo = QLabel(TEAM_EMOJIS.get(self.selected_team, "🏟️"))
-        logo.setFont(QFont("Arial", 20))
+        logo = QLabel()
+        set_team_logo(logo, self.selected_team, 70, 36)
         logo.setAlignment(Qt.AlignCenter)
         logo.setFixedHeight(40)
         logo.setObjectName("SidebarCrest")
@@ -1760,12 +1969,16 @@ class MainWindow(QMainWindow):
         self.btn_tactics.clicked.connect(lambda: self.switch_page(5))
         layout.addWidget(self.btn_tactics)
 
+        self.btn_transfer = QPushButton("이적")
+        self.btn_transfer.setCheckable(True)
+        self.btn_transfer.clicked.connect(lambda: self.switch_page(6))
+        layout.addWidget(self.btn_transfer)
+
         for title in (
             "◉  데이터 센터",
             "♟  스태프",
             "▲  훈련",
             "✚  의료 센터",
-            "⇄  이적",
             "₩  재정",
         ):
             placeholder = QPushButton(title.split("  ", 1)[-1])
@@ -1993,7 +2206,7 @@ class MainWindow(QMainWindow):
         self.league_home.set_save_id(self.save_id)
         self.save_database.save_governance_state(
             self.save_id,
-            self.board_vision_page.export_state(),
+            self._governance_state_for_save(),
         )
         if show_message:
             QMessageBox.information(self, "게임 저장", "구단 정보가 저장되었습니다.")
@@ -2097,6 +2310,7 @@ class MainWindow(QMainWindow):
         self.btn_manage.setChecked(page_index == 3)
         self.btn_search.setChecked(page_index == 4)
         self.btn_tactics.setChecked(page_index == 5)
+        self.btn_transfer.setChecked(page_index == 6)
         self.btn_club_info.setChecked(False)
         section_titles = {
             0: ("수신함", "구단 운영과 리그의 주요 메시지"),
@@ -2105,6 +2319,7 @@ class MainWindow(QMainWindow):
             3: ("선수단", "1군·2군 선수단 관리"),
             4: ("탐색", "구단과 선수를 통합 검색"),
             5: ("전술", "타순·수비 위치·선발 로테이션·불펜 운용"),
+            6: ("이적", "외국인 선수 재계약·방출 및 FA 시장"),
         }
         title, context = section_titles.get(page_index, ("구단 운영", self.club_name))
         self.calendar_bar.set_section(title, context)
@@ -2119,6 +2334,18 @@ class MainWindow(QMainWindow):
             self.sidebar.show()
         if page_index == 5:
             self.tactics_page.reload()
+        if page_index == 6:
+            self.foreign_market_page.refresh()
+
+    def _foreign_roster_changed(self):
+        self.my_team_manager.refresh_all()
+        self.player_search.players = self.player_search._load_players()
+        self.player_search.search()
+        if hasattr(self, "foreign_market_page"):
+            self.foreign_market_page.refresh()
+        self.calendar_bar.set_search_entries(
+            TEAM_INFO.keys(), self.player_search.players
+        )
 
     def apply_team_theme(self):
         c = self.colors

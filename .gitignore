@@ -3,6 +3,7 @@ __pycache__/
 .idea/
 .agents/
 venv/
+.venv/
 build/
 dist/
 data/kbo_fm_saves.db

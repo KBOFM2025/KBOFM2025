@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .paths import DATA_DIR, PLAYERS_DB_PATH
 from .roster_data import ROSTER_PLAYERS, build_roster_rows
+from .contract_data import CONTRACT_COLUMNS, apply_contract_metadata
 
 
 ROSTER_IMPORT_VERSION = "kbo-2025-10-31-v1"
@@ -142,7 +143,19 @@ CREATE_PLAYERS_TABLE = """
         draft_year INTEGER,
         draft_pick INTEGER,
         school TEXT DEFAULT '',
-        arrival_date TEXT
+        arrival_date TEXT,
+        contract_start_date TEXT DEFAULT '',
+        contract_end_date TEXT DEFAULT '',
+        contract_type TEXT DEFAULT '',
+        contract_years INTEGER DEFAULT 1,
+        contract_total INTEGER DEFAULT 0,
+        contract_currency TEXT DEFAULT 'KRW',
+        contract_salary INTEGER DEFAULT 0,
+        contract_bonus INTEGER DEFAULT 0,
+        contract_option INTEGER DEFAULT 0,
+        contract_transfer_fee INTEGER DEFAULT 0,
+        contract_source_url TEXT DEFAULT '',
+        contract_note TEXT DEFAULT ''
     )
 """
 
@@ -172,6 +185,7 @@ ROSTER_COLUMNS = {
     "draft_pick": "INTEGER",
     "school": "TEXT DEFAULT ''",
     "arrival_date": "TEXT",
+    **CONTRACT_COLUMNS,
 }
 
 PLAYER_ABILITY_COLUMNS = {
@@ -893,6 +907,7 @@ def ensure_player_database():
         _import_pitcher_abilities(connection)
         _import_final_first_team(connection)
         _import_2025_draft_players(connection)
+        apply_contract_metadata(connection)
         _create_ability_views(connection)
         connection.execute("CREATE INDEX IF NOT EXISTS idx_players_team ON players(team)")
         connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_players_uid ON players(player_uid)")
@@ -922,6 +937,7 @@ def ensure_2025_draft_players(db_path=PLAYERS_DB_PATH):
     try:
         _migrate_columns(connection)
         changed = _import_2025_draft_players(connection)
+        apply_contract_metadata(connection)
         connection.commit()
         return changed
     finally:

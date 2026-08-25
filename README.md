@@ -1,109 +1,183 @@
-# KBO Manager 2025
+# KBO FM 2025
 
-2025년 KBO 리그를 배경으로 한 데스크톱 야구 구단 운영 시뮬레이션입니다. 감독을 생성하고 10개 구단 중 하나를 선택해 선수단과 라인업을 관리하는 게임을 목표로 개발하고 있습니다.
+KBO FM 2025는 2025시즌 종료 시점의 KBO를 배경으로 하는 비공식 데스크톱 야구 구단 운영 시뮬레이션입니다. 감독을 만들고 10개 구단 중 하나를 맡아 이사회 목표, 선수단, 전술, 계약, FA·외국인 시장과 스토브리그 일정을 관리합니다.
 
-> 현재 개발 중인 프로젝트입니다. 실제 경기 시뮬레이션과 시즌 진행 기능은 아직 완성되지 않았습니다.
+> 현재 개발 중인 알파 버전입니다. 11월부터 2월까지의 구단 운영 시스템을 순차적으로 완성하고 있으며, 정규시즌 경기 시뮬레이션은 아직 개발 중입니다.
 
-## 빠른 실행
+## 가장 쉬운 실행 방법 (Windows)
 
-### 1. 저장소 받기
+### 1. Python 설치
+
+[Python 공식 다운로드 페이지](https://www.python.org/downloads/windows/)에서 Python 3.10 이상을 설치합니다. Python 3.11 또는 3.12를 권장합니다.
+
+설치 화면에서는 반드시 `Add Python to PATH`를 선택합니다.
+
+### 2. 프로젝트 받기
+
+Git을 사용하는 경우 PowerShell에서 다음 명령을 실행합니다.
 
 ```powershell
 git clone https://github.com/KBOFM2025/KBOFM2025.git
 cd KBOFM2025
 ```
 
-ZIP으로 받은 경우 압축을 푼 뒤 PowerShell에서 해당 폴더로 이동하면 됩니다.
+Git을 사용하지 않는 경우 GitHub의 `Code → Download ZIP`을 누르고 압축을 풉니다. 압축을 풀지 않은 ZIP 내부에서는 게임을 실행하지 마세요.
 
-### 2. 가상환경과 패키지 설치
+### 3. `run_game.bat` 실행
+
+프로젝트 폴더의 `run_game.bat`을 더블클릭합니다.
+
+처음 실행할 때 스크립트가 자동으로 다음 작업을 수행합니다.
+
+1. `.venv` 가상환경 생성
+2. PySide6 설치
+3. 로컬 AI 모델 존재 여부 확인
+4. `main.py` 실행
+
+처음 한 번은 PySide6 다운로드 때문에 시간이 걸릴 수 있습니다. 이후 실행부터는 바로 게임을 시작합니다.
+
+로컬 AI 모델이 없어도 게임은 실행됩니다. 이 경우 AI가 필요한 선택 기능만 폴백 모드로 동작하며 트레이드·선수 면담 등의 규칙 기반 시스템은 그대로 사용할 수 있습니다.
+
+## 수동 실행 방법
+
+명령어로 직접 실행하려면 프로젝트 루트에서 다음 순서대로 진행합니다.
 
 ```powershell
-python -m venv venv
-venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install PySide6
-```
-
-PowerShell 실행 정책 때문에 가상환경 활성화가 차단되면 현재 창에서 다음 명령을 먼저 실행합니다.
-
-```powershell
+python -m venv .venv
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-venv\Scripts\Activate.ps1
-```
-
-### 3. 게임 실행
-
-```powershell
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 python main.py
 ```
 
-최초 실행 시 `data/players.db`가 자동으로 확인·갱신됩니다. 게임 저장 파일은 `data/kbo_fm_saves.db`에 생성됩니다.
+명령 프롬프트(cmd)를 사용한다면 활성화 명령은 다음과 같습니다.
 
-## 핵심 기능
+```bat
+.venv\Scripts\activate.bat
+python main.py
+```
 
-### 감독과 구단 생성
+## 권장 실행 환경
 
-- 새 감독 프로필과 사용자 구단명 생성
-- 염경엽·김경문·김성근 감독 스타일 프리셋
-- 11개 감독 능력치와 20점 척도 포인트 배분
-- 6개 감독 능력 영역 레이더 차트
-- CAMP1·CAMP2 기준 게임 시작 시점 선택
-- 10개 KBO 구단별 색상·마스코트·구단 정보 적용
+| 항목 | 권장 사양 |
+|---|---|
+| 운영체제 | Windows 10/11 64비트 |
+| Python | 3.11 또는 3.12 |
+| 화면 | 1600×900 이상, Windows 배율 100~125% |
+| 메모리 | 기본 실행 8GB 이상 |
+| 로컬 AI 사용 | 16GB RAM 이상, GPU 가속 권장 |
+| 필수 패키지 | PySide6 |
 
-### 선수단 관리
+기본 게임은 인터넷 연결 없이 실행할 수 있습니다. 최초 패키지 설치와 선택적인 AI 모델 다운로드에는 인터넷 연결이 필요합니다.
 
-- 2025년 10월 31일 기준 10개 구단 선수 636명 수록
-- KBO 선수 ID, 생년월일, 투타, 신장·체중, 경력 저장
-- 1군·C팀 명단과 라인업 관리
-- 승격·강등과 타순 변경 내용 SQLite DB 반영
-- 구단 선택 단계에서 전체 선수단 미리보기
+## 새 게임 진행 순서
 
-### 전체화면 선수 상세 페이지
+1. 시작 화면에서 `새로 생성` 선택
+2. 감독 이름과 감독 스타일 설정
+3. 11개 감독 능력치를 20점 척도로 배분
+4. KBO 10개 구단 중 담당 구단 선택
+5. 시작 시점 선택
+6. 이사회와 구단 비전 협의
+7. 공식 선임 기사 확인
+8. 수신함에서 취임 기자회견 진행
+9. 스토브리그 업무 시작
 
-선수 이름을 클릭하면 팝업이 아닌 전체 페이지형 선수 보고서가 열립니다.
+선택할 수 있는 시작 시점은 다음과 같습니다.
 
-- 좌측: 선수 카드, 신체정보, 연봉, 계약·가치·잠재력 틀
-- 중앙: 타자/투수 능력치, 2025 실제 기록, 코칭스태프 보고서
-- 우측: 종합평가, 데이터 신뢰도, 야구장 포지션 맵과 숙련도
-- 구단별 고유 색상 팔레트 적용
-- 미수집 항목은 삭제하지 않고 `미평가` 또는 `-`로 표시
-- 선수 유형에 따라 타자·투수 화면 자동 전환
+| 시작 시점 | 게임 날짜 | 내용 |
+|---|---:|---|
+| 스토브리그 시작 | 2025-11-01 | FA·보류선수·2차 드래프트 준비부터 시작 |
+| 2차 드래프트 이후 | 2025-11-27 | 지명 결과를 반영하고 선수단 정리부터 시작 |
+| 계약·캠프 준비 단계 | 2025-12-15 | 계약을 마무리하고 캠프 준비부터 시작 |
 
-### 게임 화면과 저장
+## 현재 구현된 주요 기능
 
-- SQLite 기반 새 게임 저장·불러오기·삭제
-- 게임 날짜 표시와 하루 진행
-- 전체 뉴스 센터와 날짜별 소식
-- 미확인 뉴스 개수와 확인 상태 저장
-- 감독 부임 직후 구단 공식 발표 뉴스
-- 정규리그 순위와 선수 랭킹 화면
+### 감독 생성과 구단 선택
 
-### 로컬 구단 운영 AI
+- 염경엽·김경문·김성근 스타일 프리셋과 사용자 스타일
+- 타격·투수·수비·주루 지도, 경기 운영, 투수 교체, 대타, 데이터 분석, 유망주 육성, 훈련·체력 관리, 리더십 능력치
+- 20점 척도 능력 배분과 레이더 차트
+- 10개 구단의 연고지, 창단연도, 우승 기록, 모기업, 단장·팬 성향, 목표와 마스코트 정보
+- 사용자 구단 이름 지정
 
-이사회·단장 협상과 상대 구단의 주요 일정 판단에는 로컬 Qwen 모델을 사용할 수 있습니다.
-하루 진행에 필요한 선수 상태·훈련·부상·1군/2군 편성은 빠른 시뮬레이션 엔진이 처리하고,
-응답 생성 시간이 필요한 구단 AI 판단은 백그라운드에서 실행됩니다.
+### 수신함과 스토브리그 일정
 
-- 기본 권장 모델: `Qwen3-4B-Q4_K_M.gguf`
-- 저사양 폴백: `Qwen3-1.7B-Q4_K_M.gguf`
-- 로컬 서버: `llama.cpp`의 OpenAI 호환 서버
-- 기본 주소: `http://127.0.0.1:8080/v1`
-- 응답 검증: 잘못된 JSON과 허용되지 않은 결정 차단
-- 폴백: 모델 서버가 꺼져 있어도 날짜 진행과 구단 시뮬레이션은 계속 수행
-- 종료 처리: 제공 스크립트로 시작한 모델 서버는 게임 종료 시 함께 종료
+- 메시지 유형별 전용 UI: 이사회, 기자회견, 메디컬, 트레이드, 선수 면담, 선수단 변동, 리그 뉴스
+- 읽은 메시지 회색 표시와 일자별 누적
+- 다음 날짜 진행 시 최소 2초 로딩 화면과 다른 구단 진행 상황 표시
+- 필수 업무 미처리 시 날짜 진행 차단
+- 2025년 11월부터 2026년 2월까지의 KBO·구단 일정
+- 11월 3일 보류선수·계약 현황 1차 검토와 선수별 감독 방침 저장
+- 2차 드래프트 보호명단·지명 결과 흐름
 
-프로필 기준값은 `data/config/club_governance_profiles.json`에 있으며 선수 DB와 분리되어 있습니다.
+### 선수단과 선수 상세 정보
 
-## AI 모델 다운로드
+- 10개 구단 선수 DB와 1군·2군 분류
+- FM형 선수단 표, 현재 능력·잠재력·컨디션·피로·부상 상태
+- 전체 화면 선수 상세 페이지와 실제 선수 사진 연결
+- 타자·투수 능력치, 실제 2025 기록, 계약·연봉 정보
+- 별도 FA 탭에서 등록일수, 시즌별 인정 기록, 부족 시즌과 예상 FA 시점 확인
+- 비FA 다년계약과 옵션 계약 반영
+- 메디컬 뉴스, 부상 진단, 치료 방침과 복귀 일정
 
-GGUF 모델 가중치는 용량과 배포 정책 때문에 GitHub 저장소에 포함하지 않습니다. 저장소를 받은 뒤
-[ggml-org의 Qwen3-4B GGUF 페이지](https://huggingface.co/ggml-org/Qwen3-4B-GGUF)에서
-`Qwen3-4B-Q4_K_M.gguf`를 내려받아 `models` 폴더에 넣는 것을 권장합니다.
-4B 파일이 없으면 실행 스크립트는 1.7B 파일을 자동으로 사용합니다.
+### 전술
 
-### 방법 1: Hugging Face CLI 사용 권장
+- 여러 전술 버전 생성·저장·활성화
+- 1~9번 타순과 수비 포메이션 구성
+- 1군 선수 드래그 앤 드롭 배치
+- 1~5선발 로테이션과 불펜 역할 설정
+- 경기 초반(1~3회), 중반(4~7회), 후반(8~9회) 운영 계획
 
-프로젝트 루트의 PowerShell에서 실행합니다.
+### 이적과 계약
+
+- 실제 선수 가치·연봉·연령·포지션 수요를 반영하는 트레이드 규칙 엔진
+- 현금, 추가 선수, 추후 지명 선수와 복합 보상 협상
+- 외국인 선수 재계약·방출과 생성형 외국인 FA 시장
+- 구단 스카우터 능력에 따른 후보와 정보 정확도 차이
+- 외국인 선수 세부 협상과 구단별 예산 표시
+- FA 자격과 계약 만료 상태 연동
+
+### 이사회와 대화형 업무
+
+- 구단별 운영 성향과 목표를 반영하는 5단계 이사회 협의
+- 구단 방향, 현재 전력, 재정, 육성·성과 균형을 반영하는 규칙 기반 평가
+- 취임 기자회견과 지역지·KBS·MBC·SBS·SPOTV 기자 질문
+- AI 호출 없이 반복 가능한 규칙 기반 선수 면담과 트레이드 협상
+
+## 저장 데이터
+
+| 경로 | 내용 |
+|---|---|
+| `data/players.db` | 선수, 능력치, 기록과 계약 데이터 |
+| `data/kbo_fm_saves.db` | 생성한 감독, 구단, 날짜, 뉴스와 게임 상태 |
+| `data/source/` | 선수단과 실제 기록 원본 CSV |
+| `data/logs/crash.log` | 비정상 종료와 Python·Qt 오류 로그 |
+| `data/ai_logs/` | 선택적인 로컬 AI 서버 로그 |
+
+게임 진행 중 변경 사항은 게임 안에서 `게임 저장`을 눌렀을 때 세이브 DB에 반영됩니다. 저장하지 않고 종료하면 마지막 저장 이후 진행 내용은 유지되지 않습니다.
+
+세이브를 백업하려면 게임을 완전히 종료한 뒤 `data/kbo_fm_saves.db`를 다른 폴더에 복사하세요. 다른 PC로 옮길 때도 같은 위치에 파일을 넣으면 됩니다.
+
+## 선택 기능: 로컬 AI
+
+로컬 AI는 게임 실행에 필수가 아닙니다. 현재는 이사회·구단 방향과 타 구단의 일부 판단에 사용하며, 트레이드와 선수 면담은 빠르고 일관된 규칙 엔진이 담당합니다. 향후 경기 운영 AI에도 연결할 예정입니다.
+
+### 1. llama.cpp 설치
+
+```powershell
+winget install llama.cpp
+```
+
+설치 후 PowerShell을 새로 열어 `llama-server.exe`가 인식되는지 확인합니다.
+
+```powershell
+llama-server.exe --version
+```
+
+### 2. 모델 다운로드
+
+권장 모델은 `Qwen3-4B-Q4_K_M.gguf`이며 약 2.5GB입니다.
 
 ```powershell
 python -m pip install --upgrade huggingface_hub
@@ -111,55 +185,25 @@ New-Item -ItemType Directory -Force models | Out-Null
 hf download ggml-org/Qwen3-4B-GGUF Qwen3-4B-Q4_K_M.gguf --local-dir models
 ```
 
-### 방법 2: PowerShell로 직접 다운로드
-
-```powershell
-New-Item -ItemType Directory -Force models | Out-Null
-Invoke-WebRequest `
-  -Uri "https://huggingface.co/ggml-org/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf?download=true" `
-  -OutFile "models/Qwen3-4B-Q4_K_M.gguf"
-```
-
-다운로드 결과를 확인합니다.
-
-```powershell
-Get-Item models/Qwen3-4B-Q4_K_M.gguf | Select-Object Name, Length
-```
-
-Q4_K_M 파일 크기는 약 2.5GB입니다. 권장 배치는 다음과 같습니다.
+저사양 PC에서는 `Qwen3-1.7B-Q4_K_M.gguf`를 사용할 수 있습니다. 파일을 다음 위치에 둡니다.
 
 ```text
 KBOFM2025/
 └─ models/
    ├─ Qwen3-4B-Q4_K_M.gguf
-   └─ Qwen3-1.7B-Q4_K_M.gguf  # 선택 폴백
+   └─ Qwen3-1.7B-Q4_K_M.gguf  # 선택적인 저사양 폴백
 ```
 
-## llama.cpp 설치 및 AI 실행
+모델 파일은 용량 문제로 GitHub 저장소에 포함되지 않습니다. 모델이 있으면 `main.py`가 `llama-server`를 백그라운드에서 자동으로 시작합니다.
 
-Windows에서는 `llama.cpp`를 설치합니다.
-
-```powershell
-winget install llama.cpp
-```
-
-설치와 모델 다운로드가 끝나면 첫 번째 PowerShell에서 서버를 실행합니다.
+AI를 명시적으로 끄려면 다음과 같이 실행합니다.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/start_local_ai.ps1
-```
-
-두 번째 PowerShell에서 게임을 실행합니다.
-
-```powershell
-$env:KBOFM_AI_ENABLED="1"
+$env:KBOFM_AI_ENABLED="0"
 python main.py
 ```
 
-서버는 `127.0.0.1:8080`에서 `kbofm-local`이라는 별칭으로 실행되며 로그는
-`data/ai_logs`에 기록됩니다.
-
-Ollama의 OpenAI 호환 주소를 사용하는 경우 실행 전에 환경변수를 지정합니다.
+Ollama처럼 다른 OpenAI 호환 로컬 서버를 사용하려면 다음 환경변수를 지정합니다.
 
 ```powershell
 $env:KBOFM_AI_BASE_URL="http://127.0.0.1:11434/v1"
@@ -167,203 +211,122 @@ $env:KBOFM_AI_MODEL="qwen3:4b"
 python main.py
 ```
 
-로컬 AI를 사용하지 않으려면 다음과 같이 명시적으로 비활성화할 수 있습니다.
+## 자주 발생하는 실행 문제
+
+### `python` 또는 `py`를 찾을 수 없음
+
+Python을 다시 설치하면서 `Add Python to PATH`를 선택한 뒤 터미널과 탐색기를 다시 엽니다.
+
+### `No module named PySide6`
+
+```powershell
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+### 기존 가상환경이 다른 PC의 Python을 가리킴
+
+프로젝트를 다른 PC로 복사했다면 기존 `venv` 또는 `.venv` 폴더를 삭제하고 `run_game.bat`을 다시 실행합니다. 가상환경은 PC마다 새로 만들어야 합니다.
+
+### 창이 잠시 나타난 뒤 종료됨
+
+PowerShell에서 실행하면 오류를 바로 확인할 수 있습니다.
+
+```powershell
+.venv\Scripts\python.exe main.py
+```
+
+비정상 종료 기록은 `data/logs/crash.log`에 남습니다. 오류를 제보할 때 이 파일의 마지막 부분과 어떤 화면에서 문제가 발생했는지 함께 전달해 주세요.
+
+### 로컬 AI 연결 실패 또는 시간 초과
+
+AI는 선택 기능이므로 우선 끄고 실행할 수 있습니다.
 
 ```powershell
 $env:KBOFM_AI_ENABLED="0"
-python main.py
+.venv\Scripts\python.exe main.py
 ```
 
-## 데이터 기준
+AI를 사용하려면 다음 항목을 확인합니다.
 
-| 구분 | 기준 |
-|---|---|
-| 선수 소속 | 2025년 10월 31일 |
-| 타격·투수·주루 기록 | 2025 KBO 시즌 |
-| 선수 프로필 | KBO 공식 프로필 기반 |
-| 구단·감독 메타데이터 | 2026년 7월 15일 확인 기준 |
+- `models` 폴더에 GGUF 파일이 있는지
+- `llama-server.exe --version`이 정상 실행되는지
+- 8080 포트를 다른 프로그램이 사용 중인지
+- `data/ai_logs/local_ai.stderr.log`의 오류 내용
 
-선수단은 2025 등록 선수 명단을 시작점으로 2025년 2월 11일부터 10월 31일까지 발표된 소속선수 추가 등록, 자유계약선수, 웨이버, 임의해지·복귀, 군보류, 트레이드와 개명을 순서대로 반영했습니다.
+### 선수 DB 초기화 또는 선수 ID 오류
 
-주요 원본과 감사 자료는 다음 파일에 있습니다.
+게임을 종료한 뒤 `data/players.db`를 백업하고 이름을 변경한 다음 다시 실행하면 원본 CSV를 기준으로 DB가 재구성됩니다. 세이브 파일인 `data/kbo_fm_saves.db`는 먼저 별도로 백업하세요.
 
-- `data/source/kbo_2025_final_roster.csv`
-- `data/source/kbo_2025_membership_movements.csv`
-- `data/source/kbo_2025_player_profiles.csv`
-- `scripts/build_kbo_roster_snapshot.ps1`
-- `scripts/fetch_kbo_player_profiles.ps1`
+## 개발자를 위한 실행과 검사
 
-## 타자 능력치
-
-현재 타자 317명에 대해 다음 능력치를 1~20으로 계산해 DB에 저장합니다.
-
-| 영역 | 능력치 |
-|---|---|
-| 타격 | 컨택, 파워, 선구안, 배트 컨트롤, 타이밍, 번트 |
-| 주루 | 주력, 주루 판단 |
-| 수비 | 수비범위, 포구, 송구력, 송구 정확도, 수비판단 |
-| 멘탈 | 침착성, 리더십, 적극성 |
-
-수비와 멘탈 능력치는 스키마와 화면 틀만 준비되어 있으며 현재 값은 `NULL`입니다.
-
-능력치 계산에는 타율, ISO, 홈런율, 볼넷율, 삼진율, 희생번트, 도루 시도와 성공률, 주루사·견제사, 투수 유형별 기록을 사용합니다. 작은 표본은 실제 타석·타수·주루 기회를 기준으로 리그 평균 쪽으로 보정합니다.
-
-- 평균적인 능력: 약 10
-- 상위 10%: 14 이상
-- 상위 1%: 18 이상
-- 19~20: 극히 예외적인 기록에만 부여
-- 1군 기록이 없는 선수: 퓨처스 기록과 레벨 보정 사용
-- 1군·퓨처스 기록이 모두 없는 선수: 중립값 사용
-
-전체 타자 능력치는 다음 명령으로 다시 계산할 수 있습니다.
+테스트 실행:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/calculate_kbo_2025_hitter_abilities.ps1
+.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-결과 파일은 `data/source/kbo_2025_hitter_abilities.csv`이며, 공식 계산 버전은 `kbo-hitter-abilities-v2-compressed`입니다.
-
-## 2025 시즌 기록
-
-### 타자
-
-`data/source/kbo_2025_first_team_hitting.csv`에 타율, 경기, 타석, 안타, 2루타, 3루타, 홈런, 타점, 도루, 볼넷, 삼진, 출루율, 장타율, OPS, 희생번트와 파생지표가 저장됩니다.
-
-### 투수
-
-`data/source/kbo_2025_first_team_pitching.csv`에 ERA, 경기, 승패, 세이브, 홀드, 이닝, 피안타, 피홈런, 볼넷, 탈삼진과 WHIP가 저장됩니다.
-
-### 주루와 상황별 기록
-
-- `data/source/kbo_2025_running.csv`: 도루 시도, 도루, 도루실패, 성공률, 주루사, 견제사
-- `data/source/kbo_2025_hitter_situation_splits.csv`: 주자, 볼카운트, 이닝, 타순, 투수 유형, 아웃카운트별 기록
-- `data/source/kbo_2025_futures_hitting.csv`: 퓨처스 타자 성적
-
-## 실행 환경
-
-- Windows 10/11
-- Python 3.10 이상 권장
-- PySide6
-- SQLite
-
-PowerShell에서 가상환경과 의존성을 준비합니다.
+실행 파일 빌드:
 
 ```powershell
-python -m venv venv
-venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install PySide6 pyinstaller
+.venv\Scripts\python.exe -m pip install pyinstaller
+.venv\Scripts\pyinstaller.exe main.spec
 ```
 
-기존 `venv`가 다른 PC의 Python 경로를 가리키면 삭제한 뒤 다시 생성해야 합니다.
-
-## 실행 방법
-
-프로젝트 루트에서 실행합니다.
-
-```powershell
-python main.py
-```
-
-최초 실행 시 `data/players.db` 스키마와 선수 데이터가 확인됩니다. 게임 저장 파일은 `data/kbo_fm_saves.db`에 생성되며 Git에는 포함되지 않습니다.
-
-## 실행 파일 빌드
-
-```powershell
-pyinstaller main.spec
-```
-
-빌드 결과는 `dist` 폴더에 생성됩니다. `main.spec`에는 이미지, 최종 선수단, 타자 능력치, 2025 타격·투수 기록이 포함되어 있습니다.
+빌드 결과는 `dist/main.exe`에 생성됩니다. 현재 `main.spec`은 이미지와 주요 선수·기록 데이터를 포함하지만 로컬 AI 모델과 개인 세이브는 포함하지 않습니다.
 
 ## 프로젝트 구조
 
 ```text
-KBO-Manager-2025/
-├─ main.py
-├─ main.spec
+KBOFM2025/
+├─ main.py                 # 실행 진입점
+├─ run_game.bat            # Windows 자동 설치·실행
+├─ requirements.txt        # 필수 Python 패키지
+├─ main.spec               # PyInstaller 설정
 ├─ app/
-│  ├─ application.py
-│  ├─ windows.py
-│  ├─ config/
-│  │  ├─ managers.py
-│  │  └─ teams.py
-│  └─ views/
-│     ├─ team_roster_preview.py
-│     ├─ team_manager.py
-│     └─ team_manage/
-│        ├─ first_team.py
-│        ├─ second_team.py
-│        ├─ set_lineup.py
-│        └─ player_profile.py
-├─ database/
-│  ├─ paths.py
-│  ├─ player_database.py
-│  ├─ roster_data.py
-│  └─ save_database.py
+│  ├─ application.py       # 부팅 화면과 앱 생명주기
+│  ├─ windows.py           # 화면 연결과 메인 윈도우
+│  ├─ ai/                  # 선택적인 로컬 AI 연결
+│  ├─ config/              # 구단·감독·시즌 일정 설정
+│  ├─ services/            # 시뮬레이션·협상·계약 규칙
+│  └─ views/               # 수신함·선수단·전술·이적 UI
+├─ database/               # 선수 DB와 세이브 저장소
 ├─ data/
-│  ├─ players.db
+│  ├─ config/
 │  └─ source/
-├─ scripts/
-└─ image/
-   └─ Mascort/
+├─ image/                  # 구단·선수·구장·UI 이미지
+├─ models/                 # 로컬 GGUF 모델(저장소 제외)
+├─ scripts/                # 데이터 수집·가공·AI 실행 도구
+└─ tests/                  # 규칙 엔진과 일정 테스트
 ```
 
-## 주요 스크립트
+## 데이터 기준과 주의사항
 
-| 스크립트 | 용도 |
-|---|---|
-| `build_kbo_roster_snapshot.ps1` | 선수 이동을 반영한 최종 선수단 생성 |
-| `fetch_kbo_player_profiles.ps1` | 선수 공식 프로필 수집 |
-| `fetch_kbo_2025_stats.ps1` | 2025 1군 타격·투수 및 퓨처스 기록 수집 |
-| `fetch_kbo_2025_hitter_detail.ps1` | 타자 세부·상황별 기록 수집 |
-| `fetch_kbo_2025_running.ps1` | 공식 주루 기록 수집 |
-| `calculate_kbo_2025_hitter_abilities.ps1` | 타자 능력치 1~20 계산 |
-| `import_kbo_2025_hitter_abilities.mjs` | 계산된 타자 능력치를 SQLite DB에 반영 |
+- 선수단 시작점: 2025년 10월 31일
+- 실제 타격·투수·주루 기록: 2025 KBO 시즌
+- 선수 프로필과 계약 정보: 프로젝트 데이터 스냅샷 기준
+- 게임 안의 구단·팬·단장 성향: 실제 공개 자료를 참고한 게임 플레이용 해석값
+- 생성형 외국인 선수와 일부 뉴스·이벤트: 게임용 가상 데이터
+
+일부 선수의 수비·멘탈·잠재력, 계약 세부 조건과 사진은 데이터 신뢰도에 따라 `미평가` 또는 `-`로 표시될 수 있습니다.
 
 ## 현재 제한사항
 
-- 투수 전용 세부 능력치는 아직 기존 임시 능력치를 사용합니다.
-- 수비·멘탈·잠재력·계약기간과 시장가치는 아직 일부 항목이 평가되지 않았습니다.
-- 선수 사진은 DB와 연결되지 않아 이름 카드가 표시됩니다.
-- 정규시즌 경기 결과를 만드는 타석 단위 경기 시뮬레이션은 개발 예정입니다.
-- 일부 구단·팬·미디어 성향은 게임 플레이용 해석값입니다.
-
-## 개발 로드맵
-
-1. 투수 능력치 모델과 구종 데이터 구축
-2. 수비·멘탈·포지션 숙련도 평가
-3. 타석 단위 경기 시뮬레이션 엔진
-4. 체력·컨디션·부상과 성장 시스템
-5. 감독 AI의 라인업·대타·도루·투수 교체 판단
-6. 경기 기록 누적과 정규시즌 일정
-7. 중계 문장, 뉴스와 인터뷰 콘텐츠
-
-## 데이터베이스 호환성
-
-선수 DB는 기존 `con`, `pow`, `eye`, `def` 필드를 보존하면서 타자 전용 능력치를 별도 컬럼으로 추가합니다. 기존 화면과 투수 임시 능력치가 깨지지 않도록 레거시 필드는 자동으로 덮어쓰지 않습니다.
-
-수비와 멘탈은 다음 SQLite 뷰로 분리해 조회할 수 있습니다.
-
-- `player_defense_abilities`
-- `player_mental_abilities`
+- 정규시즌 타석 단위 경기 시뮬레이션과 경기 중 감독 AI는 개발 중입니다.
+- 11월 이후 일정의 일부 업무는 화면과 규칙을 계속 확장하고 있습니다.
+- 데이터 센터·의료 센터·재정 메뉴 일부는 후속 개발용 자리표시자입니다.
+- 실제 구단의 내부 평가나 계약 판단과 게임 내 알고리즘 결과는 다를 수 있습니다.
+- 개발 중 DB 스키마가 변경될 경우 오래된 세이브는 완전히 호환되지 않을 수 있습니다.
 
 ## 고지
 
-이 프로젝트는 KBO 및 각 구단과 공식적으로 관련이 없는 비공식 개인 개발 프로젝트입니다. 구단명, 선수명, 기록과 이미지의 권리는 각 권리자에게 있으며, 공개·배포 시 원자료의 이용 조건을 별도로 확인해야 합니다.
+이 프로젝트는 KBO 및 KBO 소속 구단과 공식적으로 관련이 없는 비공식 개인 개발 프로젝트입니다. 구단명, 선수명, 기록, 로고와 이미지의 권리는 각 권리자에게 있습니다. 프로젝트를 공개하거나 재배포할 때는 원자료와 이미지의 이용 조건을 별도로 확인해야 합니다.
 
+## 개발 화면
 
+아래 이미지는 개발 과정의 화면이며 현재 버전과 일부 다를 수 있습니다.
 
+<img width="1191" height="761" alt="KBO FM 시작 화면" src="https://github.com/user-attachments/assets/557e04cd-adc6-4934-84f5-926f049f46db" />
 
-## 실행 사진
+<img width="1280" height="820" alt="KBO FM 선수 상세 화면" src="https://github.com/user-attachments/assets/ca411cf4-1ab5-4603-b76e-4d08c98d8ecf" />
 
-<img width="1191" height="761" alt="image" src="https://github.com/user-attachments/assets/557e04cd-adc6-4934-84f5-926f049f46db" />
-
-<img width="1170" height="736" alt="image" src="https://github.com/user-attachments/assets/9f924e3b-2e35-41c7-94e6-4660219411fb" />
-
-<img width="1280" height="656" alt="image" src="https://github.com/user-attachments/assets/2cd10660-516c-487f-9b1d-bc574c9b2d19" />
-
-<img width="1280" height="820" alt="image" src="https://github.com/user-attachments/assets/ca411cf4-1ab5-4603-b76e-4d08c98d8ecf" />
-
-<img width="1280" height="809" alt="image" src="https://github.com/user-attachments/assets/20d8d1f0-54ff-42cf-ba62-97030e4cd5e4" />
-
-<img width="1280" height="807" alt="image" src="https://github.com/user-attachments/assets/0e48b551-9f0e-464f-94fe-c53c7871151b" />
+<img width="1280" height="807" alt="KBO FM 게임 화면" src="https://github.com/user-attachments/assets/0e48b551-9f0e-464f-9b1d-bc574c9b2d19" />

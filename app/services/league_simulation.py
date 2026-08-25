@@ -19,8 +19,10 @@ from database.league_simulation_repository import LeagueSimulationRepository
 
 POSITION_MINIMUMS = {"P": 13, "C": 2, "IF": 6, "OF": 5}
 ROSTER_EVALUATION_DATES = {
-    "2025-11-12", "2025-11-27", "2025-12-15", "2025-12-22",
-    "2026-01-19", "2026-01-31", "2026-02-07", "2026-02-14",
+    "2025-11-03", "2025-11-12", "2025-11-19", "2025-11-21",
+    "2025-11-25", "2025-11-27", "2025-11-30", "2025-12-15",
+    "2025-12-22", "2025-12-29", "2026-01-02", "2026-01-12",
+    "2026-01-19", "2026-01-25", "2026-01-31", "2026-02-07", "2026-02-14",
     "2026-02-19", "2026-02-21", "2026-02-28",
 }
 INJURIES = (
@@ -261,6 +263,7 @@ class LeagueSimulationService:
                     )
                 return completed
             self.repository.begin_run(connection, self.save_id, day)
+            weekly_report_due = self._weekly_report_due(connection)
             self._progress(
                 status="선수 컨디션과 부상 상태를 계산하고 있습니다.",
                 state="global",
@@ -381,7 +384,6 @@ class LeagueSimulationService:
             )
             if events:
                 _sim_log(f"일정 이벤트 {len(events)}건 반영 · Qwen 검토 대기 {queued_count}건")
-            self.repository.add_league_news(connection, self.save_id, day, decisions)
             connection.execute(
                 "UPDATE game_saves SET current_date=?, season_day=season_day+1, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                 (day, self.save_id),
@@ -396,7 +398,8 @@ class LeagueSimulationService:
                 "season_phase": phase_name, "schedule_event_count": len(events),
                 "activated_rookie_count": activated_rookies,
             }
-            self._add_daily_report(connection, summary)
+            if weekly_report_due:
+                self._add_weekly_report(connection, summary, simulation_date)
             self.repository.complete_run(connection, self.save_id, day, summary)
             _sim_log(f"{day} 트랜잭션 저장 완료 · 엔트리 이동 {len(decisions)}건 · 전체 편성 {lineup_count}건")
             return summary
@@ -742,10 +745,13 @@ class LeagueSimulationService:
         return injuries, recoveries
 
     def _add_medical_news(self, connection, simulation_date, injuries, recoveries):
-        """모든 구단의 부상과 복귀를 선수별 상세 뉴스로 기록한다."""
+        """타 구단 1군 신규 부상은 주간 보고를 기다리지 않고 속보로 기록한다."""
         day = simulation_date.isoformat()
         for injury in injuries:
-            if injury["squad"] != "1군":
+            if (
+                injury["squad"] != "1군"
+                or injury["team"] == self.managed_team
+            ):
                 continue
             expected_return = simulation_date + timedelta(days=injury["expected_days"])
             return_date = f"{expected_return.year}년 {expected_return.month}월 {expected_return.day}일"
@@ -769,7 +775,10 @@ class LeagueSimulationService:
             _sim_log(f"부상 뉴스 · {headline}")
 
         for recovery in recoveries:
-            if recovery["squad"] != "1군":
+            if (
+                recovery["squad"] != "1군"
+                or recovery["team"] != self.managed_team
+            ):
                 continue
             headline = f"{recovery['team']} {recovery['name']}, {recovery['injury_type']}에서 회복"
             body = (
@@ -785,28 +794,6 @@ class LeagueSimulationService:
                 (self.save_id, day, headline, body),
             )
             _sim_log(f"복귀 뉴스 · {headline}")
-
-        active = connection.execute(
-            """SELECT state.team, player.name, player.pos, player.status,
-            state.injury_type, state.injury_days
-            FROM player_simulation_states state
-            JOIN playerdb.players player ON player.id=state.player_id
-            WHERE state.save_id=? AND state.injury_days>0 AND player.status=1
-            ORDER BY state.team, player.status DESC, state.injury_days DESC, player.name""",
-            (self.save_id,),
-        ).fetchall()
-        if active:
-            details = [
-                f"• {row['team']} · {row['name']}({row['pos']}, {'1군' if row['status'] else '2군'})"
-                f" — {row['injury_type']}, 복귀까지 {row['injury_days']}일"
-                for row in active
-            ]
-            connection.execute(
-                """INSERT OR IGNORE INTO daily_news
-                (save_id,news_date,category,headline,body,created_at)
-                VALUES (?,?, '의료 센터', ?, ?, CURRENT_TIMESTAMP)""",
-                (self.save_id, day, f"KBO 부상자 현황 · 총 {len(active)}명", "\n".join(details)),
-            )
 
     def _apply_decisions(self, connection, day, decisions):
         for decision in decisions:
@@ -1103,20 +1090,142 @@ class LeagueSimulationService:
                 "injured_count": sum(states[p["id"]]["injury_days"] > 0 for p in players),
                 "roster_need": ",".join(needs)}
 
-    def _add_daily_report(self, connection, summary):
-        changed = ", ".join(summary["changed_teams"]) or "없음"
+    def _weekly_report_due(self, connection):
+        """완료된 리그 진행 7일마다 정기 보고서를 생성한다."""
+        row = connection.execute(
+            """
+            SELECT COUNT(*) AS completed_days
+            FROM simulation_runs
+            WHERE save_id=? AND status='completed'
+            """,
+            (self.save_id,),
+        ).fetchone()
+        completed_days = int(row["completed_days"] if row else 0)
+        return (completed_days + 1) % 7 == 0
+
+    def _weekly_team_changes(self, connection, report_date):
+        """최근 7일의 구단별 유의미한 변동을 사람이 읽을 수 있게 정리한다."""
+        period_start = report_date - timedelta(days=6)
+        start_day = period_start.isoformat()
+        end_day = report_date.isoformat()
+        baseline_day = (period_start - timedelta(days=1)).isoformat()
+
+        decisions = connection.execute(
+            """
+            SELECT team, player_name, action
+            FROM team_roster_decisions
+            WHERE save_id=? AND decision_date BETWEEN ? AND ?
+            ORDER BY decision_date, id
+            """,
+            (self.save_id, start_day, end_day),
+        ).fetchall()
+        injuries = connection.execute(
+            """
+            SELECT team, player_name, injury_type, expected_days
+            FROM player_injury_events
+            WHERE save_id=? AND event_date BETWEEN ? AND ?
+            ORDER BY event_date, id
+            """,
+            (self.save_id, start_day, end_day),
+        ).fetchall()
+        current_rows = connection.execute(
+            """
+            SELECT * FROM team_daily_states
+            WHERE save_id=? AND simulation_date=?
+            """,
+            (self.save_id, end_day),
+        ).fetchall()
+        baseline_rows = connection.execute(
+            """
+            SELECT state.*
+            FROM team_daily_states state
+            JOIN (
+                SELECT team, MAX(simulation_date) AS simulation_date
+                FROM team_daily_states
+                WHERE save_id=? AND simulation_date<=?
+                GROUP BY team
+            ) latest
+              ON latest.team=state.team
+             AND latest.simulation_date=state.simulation_date
+            WHERE state.save_id=?
+            """,
+            (self.save_id, baseline_day, self.save_id),
+        ).fetchall()
+
+        by_team_decisions = defaultdict(list)
+        for row in decisions:
+            action = "1군 콜업" if row["action"] == "promote" else "2군 이동"
+            by_team_decisions[row["team"]].append(
+                f"{row['player_name']} {action}"
+            )
+        by_team_injuries = defaultdict(list)
+        for row in injuries:
+            by_team_injuries[row["team"]].append(
+                f"{row['player_name']} {row['injury_type']} "
+                f"({int(row['expected_days'])}일)"
+            )
+
+        current = {row["team"]: dict(row) for row in current_rows}
+        baseline = {row["team"]: dict(row) for row in baseline_rows}
+        result = {}
+        for team in TEAM_INFO:
+            changes = []
+            moves = by_team_decisions.get(team, [])
+            if moves:
+                shown = ", ".join(moves[:3])
+                if len(moves) > 3:
+                    shown += f" 외 {len(moves) - 3}건"
+                changes.append(f"엔트리: {shown}")
+            new_injuries = by_team_injuries.get(team, [])
+            if new_injuries:
+                shown = ", ".join(new_injuries[:2])
+                if len(new_injuries) > 2:
+                    shown += f" 외 {len(new_injuries) - 2}명"
+                changes.append(f"신규 부상: {shown}")
+
+            before = baseline.get(team)
+            after = current.get(team)
+            if before and after:
+                before_injured = int(before["injured_count"])
+                after_injured = int(after["injured_count"])
+                if before_injured != after_injured:
+                    changes.append(
+                        f"부상자 {before_injured}명→{after_injured}명"
+                    )
+                before_need = str(before.get("roster_need") or "")
+                after_need = str(after.get("roster_need") or "")
+                if before_need != after_need:
+                    changes.append(
+                        f"보강 과제: {after_need or '해소'}"
+                    )
+            result[team] = " · ".join(changes) if changes else "변동 없음"
+        return period_start, result
+
+    def _add_weekly_report(self, connection, summary, report_date):
+        period_start, team_changes = self._weekly_team_changes(
+            connection, report_date
+        )
+        changed_count = sum(
+            detail != "변동 없음" for detail in team_changes.values()
+        )
+        team_lines = "\n".join(
+            f"• {team}: {team_changes[team]}" for team in TEAM_INFO
+        )
         body = (
+            f"보고 기간: {period_start:%Y.%m.%d} ~ {report_date:%Y.%m.%d}\n"
             f"10개 구단 {summary['player_count']}명 상태 처리 완료 · "
-            f"1군 신규 부상 {summary['first_team_injury_count']}명 · "
-            f"1군 복귀 {summary['first_team_recovery_count']}명\n"
-            f"1·2군 타순/투수 보직 {summary['lineup_assignment_count']}건 편성 · "
-            f"엔트리 이동 {summary['roster_decision_count']}건 · 변동 구단: {changed}\n"
-            f"중요 일정 AI 검토 {summary['ai_queue_count']}건은 백그라운드에서 진행됩니다."
+            f"변동 구단 {changed_count}개 · 변동 없음 {len(TEAM_INFO) - changed_count}개\n"
+            f"주간 엔트리 이동과 부상 변동을 전일 및 직전 보고 상태와 비교했습니다.\n\n"
+            f"[구단별 변동]\n{team_lines}"
         )
         connection.execute(
             """INSERT OR IGNORE INTO daily_news
             (save_id,news_date,category,headline,body,created_at)
             VALUES (?,?, '리그 시뮬레이션', ?, ?, CURRENT_TIMESTAMP)""",
-            (self.save_id, summary["simulation_date"],
-             f"{summary['season_phase']} · 10개 구단 하루 진행 완료", body),
+            (
+                self.save_id,
+                summary["simulation_date"],
+                f"{summary['season_phase']} · 10개 구단 주간 진행 보고",
+                body,
+            ),
         )

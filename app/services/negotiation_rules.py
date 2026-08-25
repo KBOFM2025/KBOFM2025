@@ -2,11 +2,36 @@
 
 
 LEVELS = {
-    1: {"label": "대폭 완화", "base_trust_delta": -8},
-    2: {"label": "일부 완화", "base_trust_delta": -3},
-    3: {"label": "원안 합의", "base_trust_delta": 0},
-    4: {"label": "도전 합의", "base_trust_delta": 3},
-    5: {"label": "최고 목표", "base_trust_delta": 6},
+    1: {
+        "label": "대폭 완화",
+        "fm_label": "RELAXED",
+        "description": "단장 원안보다 목표 부담을 크게 낮춥니다. 핵심 안건에서는 이사회가 강하게 반대할 수 있습니다.",
+        "base_trust_delta": 0,
+    },
+    2: {
+        "label": "일부 완화",
+        "fm_label": "REDUCED",
+        "description": "단장 원안을 한 단계 낮춘 현실적인 절충안입니다. 구단 성향과 추진 상황에 따라 조건부 승인이 가능합니다.",
+        "base_trust_delta": 0,
+    },
+    3: {
+        "label": "단장 원안",
+        "fm_label": "BOARD PLAN",
+        "description": "구단이 현재 전력, 재정, 육성 계획을 종합해 제시한 기준안입니다.",
+        "base_trust_delta": 0,
+    },
+    4: {
+        "label": "도전 목표",
+        "fm_label": "AMBITIOUS",
+        "description": "원안보다 높은 성과와 빠른 실행을 약속합니다. 감독 역량과 구단 자원이 부족하면 이사회가 실행 위험을 지적합니다.",
+        "base_trust_delta": 0,
+    },
+    5: {
+        "label": "최고 목표",
+        "fm_label": "MAXIMUM",
+        "description": "가장 공격적인 약속입니다. 승인되면 기대치가 크게 높아지며 미달 시 감독 평가에 강하게 반영됩니다.",
+        "base_trust_delta": 0,
+    },
 }
 
 PRIORITY_WEIGHTS = {"필수": 2.0, "중요": 1.4, "장기": 1.2, "권장": 0.8}

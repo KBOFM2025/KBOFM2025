@@ -133,6 +133,30 @@ SIMULATION_SCHEMA = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS foreign_contract_decisions (
+        save_id INTEGER NOT NULL,
+        player_id INTEGER NOT NULL,
+        team TEXT NOT NULL,
+        decision TEXT NOT NULL,
+        previous_salary INTEGER NOT NULL,
+        offer_salary INTEGER NOT NULL DEFAULT 0,
+        decided_at TEXT NOT NULL,
+        PRIMARY KEY(save_id, player_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS foreign_fa_market (
+        save_id INTEGER NOT NULL,
+        candidate_id TEXT NOT NULL,
+        player_json TEXT NOT NULL,
+        asking_salary INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'available',
+        signed_team TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY(save_id, candidate_id)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS team_training_plans (
         save_id INTEGER NOT NULL,
         plan_date TEXT NOT NULL,

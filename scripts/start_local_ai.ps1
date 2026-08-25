@@ -1,6 +1,6 @@
 param(
     [int]$Port = 8080,
-    [int]$ContextSize = 4096,
+    [int]$ContextSize = 8192,
     [string]$ModelPath = ""
 )
 

@@ -199,11 +199,11 @@ class ManagerWelcomePage(QWidget):
         outer.addSpacing(24)
 
         actions = QHBoxLayout()
-        hint = QLabel("구단 비전 협의 요청이 메인 수신함에 도착해 있습니다.")
+        hint = QLabel("수신함에 취임 기자회견 참석 요청이 도착했습니다. 해당 메시지에서 공식 일정을 진행할 수 있습니다.")
         hint.setObjectName("Hint")
         actions.addWidget(hint)
         actions.addStretch()
-        continue_button = QPushButton("메인 화면으로  →")
+        continue_button = QPushButton("구단 수신함으로  →")
         continue_button.setObjectName("ContinueButton")
         continue_button.clicked.connect(self.continue_requested.emit)
         actions.addWidget(continue_button)

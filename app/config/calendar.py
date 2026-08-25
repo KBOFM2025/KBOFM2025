@@ -6,22 +6,22 @@ DEFAULT_START_POINT = "camp1_before"
 
 START_POINTS = {
     "camp1_before": {
-        "title": "CAMP1 시작 전",
+        "title": "스토브리그 시작",
         "month": 11,
         "day": 1,
-        "description": "1차 스프링캠프 출발 전부터 선수단을 점검하고 훈련 계획을 직접 구성합니다.",
+        "description": "FA·보류선수·2차 드래프트 준비부터 2026시즌 구성을 시작합니다.",
     },
     "camp1_after": {
-        "title": "CAMP1 끝난 직후",
+        "title": "2차 드래프트 이후",
         "month": 11,
         "day": 27,
-        "description": "1차 캠프의 훈련 결과와 선수 컨디션이 반영된 시점부터 구단 운영을 시작합니다.",
+        "description": "2차 드래프트 결과를 반영하고 보류선수 및 계약 대상을 정리합니다.",
     },
     "camp2_before": {
-        "title": "CAMP2 시작 전",
+        "title": "계약·캠프 준비 단계",
         "month": 12,
         "day": 15,
-        "description": "실전 중심의 2차 캠프를 앞두고 라인업과 개막 엔트리 경쟁을 관리합니다.",
+        "description": "FA·외국인·연봉 협상을 마무리하며 1월 캠프 계획을 준비합니다.",
     },
 }
 

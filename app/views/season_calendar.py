@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QSizePolicy,
+    QSplitter,
     QVBoxLayout,
     QWidget,
 )
@@ -37,6 +38,7 @@ class SeasonCalendarPage(QWidget):
         self.visible_month = visible.month
         self.selected_date = visible
         self.day_buttons = []
+        self._compact_mode = False
 
         root = QVBoxLayout(self)
         root.setContentsMargins(20, 16, 20, 18)
@@ -49,9 +51,9 @@ class SeasonCalendarPage(QWidget):
         header.addWidget(self.back_button)
         header.addSpacing(8)
         title_box = QVBoxLayout()
-        title = QLabel("KBO 시즌 일정")
-        title.setObjectName("CalendarTitle")
-        title_box.addWidget(title)
+        self.title = QLabel("KBO 시즌 일정")
+        self.title.setObjectName("CalendarTitle")
+        title_box.addWidget(self.title)
         self.range_label = QLabel("2025.11.01 — 2026.02.28  ·  구단 운영 및 공식 KBO 일정")
         self.range_label.setObjectName("CalendarSubtitle")
         title_box.addWidget(self.range_label)
@@ -76,11 +78,13 @@ class SeasonCalendarPage(QWidget):
         header.addWidget(self.next_button)
         root.addLayout(header)
 
-        body = QHBoxLayout()
-        body.setSpacing(12)
-        calendar_panel = QFrame()
-        calendar_panel.setObjectName("CalendarPanel")
-        calendar_layout = QVBoxLayout(calendar_panel)
+        self.body_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.body_splitter.setObjectName("CalendarSplitter")
+        self.body_splitter.setChildrenCollapsible(False)
+        self.body_splitter.setHandleWidth(8)
+        self.calendar_panel = QFrame()
+        self.calendar_panel.setObjectName("CalendarPanel")
+        calendar_layout = QVBoxLayout(self.calendar_panel)
         calendar_layout.setContentsMargins(10, 10, 10, 10)
         calendar_layout.setSpacing(5)
 
@@ -102,13 +106,12 @@ class SeasonCalendarPage(QWidget):
         for column in range(7):
             self.month_grid.setColumnStretch(column, 1)
         calendar_layout.addLayout(self.month_grid, 1)
-        body.addWidget(calendar_panel, 7)
+        self.body_splitter.addWidget(self.calendar_panel)
 
-        detail = QFrame()
-        detail.setObjectName("CalendarDetail")
-        detail.setMinimumWidth(285)
-        detail.setMaximumWidth(390)
-        detail_layout = QVBoxLayout(detail)
+        self.detail_panel = QFrame()
+        self.detail_panel.setObjectName("CalendarDetail")
+        self.detail_panel.setMinimumWidth(245)
+        detail_layout = QVBoxLayout(self.detail_panel)
         detail_layout.setContentsMargins(18, 17, 18, 17)
         detail_layout.setSpacing(10)
         self.detail_date = QLabel()
@@ -129,8 +132,11 @@ class SeasonCalendarPage(QWidget):
         self.detail_hint.setWordWrap(True)
         self.detail_hint.setObjectName("DetailHint")
         detail_layout.addWidget(self.detail_hint)
-        body.addWidget(detail, 3)
-        root.addLayout(body, 1)
+        self.body_splitter.addWidget(self.detail_panel)
+        self.body_splitter.setStretchFactor(0, 7)
+        self.body_splitter.setStretchFactor(1, 3)
+        self.body_splitter.setSizes((850, 330))
+        root.addWidget(self.body_splitter, 1)
 
         self.setStyleSheet(self._style())
         self.refresh_month()
@@ -148,6 +154,8 @@ class SeasonCalendarPage(QWidget):
             QPushButton:hover {{ border: 1px solid {accent_light}; background: #28333e; }}
             QPushButton#CalendarBackButton {{ background: transparent; border: 1px solid #465462; padding: 9px 14px; }}
             QFrame#CalendarPanel, QFrame#CalendarDetail {{ background: #171d24; border: 1px solid #35414d; border-radius: 7px; }}
+            QSplitter#CalendarSplitter::handle {{ background: #10151b; border-radius: 3px; }}
+            QSplitter#CalendarSplitter::handle:hover {{ background: {accent}; }}
             QLabel[weekend="false"], QLabel[weekend="true"] {{ color: #8e9aa8; padding: 4px; font-weight: 700; }}
             QLabel[weekend="true"] {{ color: #d1a0a8; }}
             QPushButton[day="true"] {{ text-align: left; padding: 8px; color: #dfe6ed; background: #151b21; border: 1px solid #2d3944; border-radius: 4px; font-size: 12px; font-weight: 600; }}
@@ -164,7 +172,33 @@ class SeasonCalendarPage(QWidget):
             QLabel#EventDetail {{ color: #b8c2cc; font-size: 12px; }}
             QLabel#EventTask {{ color: #e8edf2; background: #222b34; border-left: 3px solid {accent_light}; padding: 8px; font-size: 12px; }}
             QLabel#DetailHint {{ color: #778594; font-size: 12px; }}
+            SeasonCalendarPage[compact="true"] QLabel#CalendarTitle {{ font-size: 19px; }}
+            SeasonCalendarPage[compact="true"] QLabel#MonthLabel {{ font-size: 17px; }}
+            SeasonCalendarPage[compact="true"] QPushButton[day="true"] {{ padding: 5px; font-size: 11px; }}
         """
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        compact = self.width() < 980
+        if compact == self._compact_mode:
+            return
+        self._compact_mode = compact
+        self.setProperty("compact", compact)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.range_label.setVisible(not compact)
+        self.today_button.setVisible(not compact)
+        self.back_button.setText("←" if compact else "←  수신함으로")
+        self.month_label.setFixedWidth(112 if compact else 150)
+        self.month_grid.setHorizontalSpacing(2 if compact else 4)
+        self.month_grid.setVerticalSpacing(2 if compact else 4)
+        self.body_splitter.setOrientation(
+            Qt.Orientation.Vertical if compact else Qt.Orientation.Horizontal
+        )
+        self.detail_panel.setMinimumWidth(0 if compact else 245)
+        self.detail_panel.setMinimumHeight(220 if compact else 0)
+        self.body_splitter.setSizes((520, 260) if compact else (850, 330))
+        self.refresh_month()
 
     def set_game_date(self, game_date):
         self.game_date = game_date
@@ -213,7 +247,10 @@ class SeasonCalendarPage(QWidget):
                 events = SEASON_EVENTS.get(day, ())
                 text = str(day_number)
                 if events:
-                    text += f"\n● {events[0]['title']}"
+                    event_title = events[0]["title"]
+                    if self._compact_mode and len(event_title) > 9:
+                        event_title = event_title[:9] + "…"
+                    text += f"\n● {event_title}"
                     if len(events) > 1:
                         text += f"\n  +{len(events) - 1}개"
                 button = QPushButton(text)

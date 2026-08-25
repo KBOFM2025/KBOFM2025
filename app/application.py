@@ -1,6 +1,7 @@
 """KBO FM의 가벼운 실행 진입점과 시작 로딩 흐름."""
 
 import sys
+import threading
 from time import monotonic
 
 
@@ -30,6 +31,7 @@ def run():
         "worker": None,
         "start_window": None,
         "save_database": None,
+        "ai_boot_thread": None,
     }
     splash = StartupSplash()
     splash.show_centered()
@@ -90,10 +92,39 @@ def run():
         except Exception as error:
             startup_failed(f"{type(error).__name__}: {error}")
 
+    def launch_ai_boot():
+        """게임 UI 준비를 막지 않고 로컬 모델을 병렬로 불러온다."""
+        def boot():
+            try:
+                from app.ai.local_model import ensure_local_ai_server
+
+                status = ensure_local_ai_server()
+                print(f"[게임 시작] {status['message']}", flush=True)
+            except Exception as error:
+                print(
+                    f"[게임 시작] 로컬 AI 자동 시작 실패 · "
+                    f"{type(error).__name__}: {error}",
+                    flush=True,
+                )
+
+        thread = threading.Thread(
+            target=boot,
+            name="KBOFM-Local-AI-Boot",
+            daemon=True,
+        )
+        state["ai_boot_thread"] = thread
+        thread.start()
+
     # 이벤트 루프가 부팅 화면을 한 번 그린 다음 초기화를 시작한다.
+    QTimer.singleShot(0, launch_ai_boot)
     QTimer.singleShot(0, launch_startup_worker)
     exit_code = app.exec()
-    mark_clean_shutdown()
+    try:
+        from app.ai.local_model import stop_owned_local_ai_server
+
+        stop_owned_local_ai_server()
+    finally:
+        mark_clean_shutdown()
     return exit_code
 
 

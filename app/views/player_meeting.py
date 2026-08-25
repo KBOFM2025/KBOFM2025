@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.ai.negotiation_worker import NegotiationWorker
 from app.utils import resource_path
 
 
@@ -25,24 +24,40 @@ MEETING_RESPONSES = (
         "훈련에서 경쟁력을 증명하면 분명히 출전 기회를 주겠다. 평가 기준도 투명하게 공개하겠다.",
         "현재 선수단 경쟁 상황과 네 역할을 솔직히 설명하겠다. 필요한 부분을 함께 보완하자.",
         "기용은 감독의 권한이다. 결정에 불만을 갖기보다 훈련장에서 먼저 증명해야 한다.",
+        "네가 생각하는 가장 적합한 역할과 원하는 출전 방식을 먼저 구체적으로 말해 달라.",
+        "최근 훈련 기록과 포지션 경쟁 데이터를 함께 보면서 부족한 항목부터 정하자.",
+        "담당 코치와 개인 훈련 계획을 만들고 2주 뒤 같은 기준으로 다시 평가하겠다.",
+        "당장 출전을 보장할 수는 없다. 다만 경쟁에서 제외된 것은 아니며 기준은 모두에게 같다.",
     ),
     (
         "네가 원하는 역할을 구체적으로 말해 달라. 가능한 부분과 어려운 부분을 분명하게 답하겠다.",
         "다음 훈련 기간에 명확한 평가 기회를 주고, 기준을 충족하면 1군 경쟁에 포함하겠다.",
         "출전만 약속할 수는 없지만 성장 계획과 단계별 목표는 지금 함께 정할 수 있다.",
         "모든 선수가 같은 기준으로 경쟁한다. 특별 대우를 요구한다면 받아들이기 어렵다.",
+        "선발, 교체 출전, 2군 조정 가운데 네가 받아들일 수 있는 역할의 우선순위를 말해 달라.",
+        "수비·주루·체력·최근 경기력 가운데 두 가지 목표를 정하고 달성 여부로 판단하겠다.",
+        "코치진에게 별도 평가를 요청하고 다음 엔트리 검토일에 결과를 직접 설명하겠다.",
+        "팀 사정상 지금 역할을 즉시 바꾸기는 어렵다. 약속할 수 있는 범위만 솔직히 말하겠다.",
     ),
     (
         "지금까지의 노력을 인정한다. 코칭스태프와 네 의견을 다시 검토해 가장 맞는 역할을 찾겠다.",
         "수비와 체력 지표를 개선하면 대수비와 선발 기회를 순서대로 제공하겠다.",
         "팀이 필요로 하는 역할과 네 장점을 연결하자. 결과가 나오면 기회도 자연스럽게 늘어난다.",
         "팀보다 개인의 출전만 앞세운다면 더 이상의 면담은 의미가 없다.",
+        "현재 역할을 유지하되 특정 상황에서 우선 기용하는 단계적 확대안을 제안하겠다.",
+        "최근 기록을 기준으로 경쟁 선수와 같은 표에서 비교하고 부족한 항목을 공개하겠다.",
+        "담당 코치의 주간 보고서와 네 의견을 함께 받아 다음 면담에서 역할을 확정하겠다.",
+        "현재 경쟁 선수의 경기력이 더 낫다는 판단은 바뀌지 않았다. 뒤집을 기회는 훈련에서 열어두겠다.",
     ),
     (
         "우리의 목표는 같다. 네가 팀에 중요한 선수라는 점을 행동과 계획으로 보여주겠다.",
         "앞으로의 기용 계획을 코치진과 공유하고 약속한 평가 시점에 직접 결과를 설명하겠다.",
         "오늘 정한 목표를 기준으로 다시 면담하자. 그때는 감정이 아니라 기록으로 판단하겠다.",
         "결정은 바뀌지 않는다. 지금 역할을 받아들이지 못한다면 다른 선택도 검토하겠다.",
+        "이번 합의는 단계적 기용 확대안으로 정리하겠다. 첫 기회에서 맡을 역할도 미리 알려주겠다.",
+        "평가일과 필수 지표를 문서로 남기고 달성하면 다음 엔트리 회의에서 반드시 검토하겠다.",
+        "담당 코치와 매주 진행 상황을 확인하고 약속한 날짜에 내가 직접 최종 답변하겠다.",
+        "출전 보장은 하지 않겠다. 그러나 공정한 재평가와 결과 설명은 감독으로서 책임지겠다.",
     ),
 )
 
@@ -62,6 +77,22 @@ MEETING_CHOICE_STYLES = (
     {
         "tone": "강경한 지시",
         "intent": "감독 권한과 팀 결정을 앞세워 선수 요구를 받아들이지 않는다.",
+    },
+    {
+        "tone": "역할 협상",
+        "intent": "선수가 원하는 보직과 출전 형태를 확인하고 가능한 범위를 조율한다.",
+    },
+    {
+        "tone": "데이터 기준",
+        "intent": "기록과 경쟁 지표를 공개하고 측정 가능한 평가 기준을 제시한다.",
+    },
+    {
+        "tone": "코칭 지원",
+        "intent": "담당 코치와 훈련 계획, 재평가 일정을 연결한다.",
+    },
+    {
+        "tone": "솔직한 한계",
+        "intent": "보장할 수 없는 요구는 거절하되 공정한 재평가 기회는 남긴다.",
     },
 )
 
@@ -174,7 +205,7 @@ class PlayerMeetingPage(QWidget):
 
         choice_panel = QFrame()
         choice_panel.setObjectName("ChoicePanel")
-        choice_panel.setMaximumHeight(286)
+        choice_panel.setMaximumHeight(410)
         choices = QVBoxLayout(choice_panel)
         choices.setContentsMargins(18, 12, 18, 16)
         choices.setSpacing(8)
@@ -190,11 +221,11 @@ class PlayerMeetingPage(QWidget):
         self.choice_grid = QGridLayout()
         self.choice_grid.setSpacing(8)
         self.choice_buttons = []
-        for index in range(4):
+        for index in range(8):
             button = QPushButton()
             button.setObjectName("MeetingChoice")
             button.setCursor(Qt.CursorShape.PointingHandCursor)
-            button.setMinimumHeight(58)
+            button.setMinimumHeight(70)
             button.clicked.connect(
                 lambda _checked=False, choice=index: self._choose_response(choice)
             )
@@ -330,7 +361,11 @@ class PlayerMeetingPage(QWidget):
         for number, (button, text) in enumerate(
             zip(self.choice_buttons, response_set), start=1
         ):
-            button.setText(f"{number}. {text}")
+            tone = MEETING_CHOICE_STYLES[number - 1]["tone"]
+            button.setText(f"{number}. {tone}\n{text}")
+            button.setToolTip(
+                f"{MEETING_CHOICE_STYLES[number - 1]['intent']}\n\n{text}"
+            )
             button.setEnabled(active)
         if data.get("resolved"):
             self.status_label.setText(data.get("result_text", "면담이 종료됐습니다."))
@@ -349,27 +384,24 @@ class PlayerMeetingPage(QWidget):
             min(int(state.get("round", 0)), len(MEETING_RESPONSES) - 1)
         ]
         message = response_set[index]
-        try:
-            context = self.event_service.negotiation_context(
-                self.save_id, int(self.current_event["id"]), message
-            )
-            context["manager_choice"] = {
+        manager_choice = {
                 "number": index + 1,
                 **MEETING_CHOICE_STYLES[index],
-            }
+        }
+        try:
+            response = self.event_service.rule_based_negotiation_response(
+                self.save_id,
+                int(self.current_event["id"]),
+                message,
+                manager_choice,
+            )
         except Exception as error:
             QMessageBox.critical(self, "면담 오류", str(error))
             return
         for button in self.choice_buttons:
             button.setEnabled(False)
-        self.status_label.setText("선수가 감독의 말을 생각하고 있습니다…")
-        self.worker = NegotiationWorker(context, self)
-        self.worker.response_ready.connect(
-            lambda response, text=message: self._receive_response(text, response)
-        )
-        self.worker.response_failed.connect(self._response_failed)
-        self.worker.finished.connect(self._worker_finished)
-        self.worker.start()
+        self.status_label.setText("선수의 성격·역할·사기를 기준으로 답변을 판정했습니다.")
+        self._receive_response(message, response)
 
     def _receive_response(self, manager_message, response):
         try:
@@ -396,8 +428,8 @@ class PlayerMeetingPage(QWidget):
             QMessageBox.critical(self, "면담 결과 처리 오류", str(error))
 
     def _response_failed(self, message):
-        self.status_label.setText("선수의 응답을 만들지 못했습니다. 다시 선택할 수 있습니다.")
-        QMessageBox.warning(self, "면담 AI", message)
+        self.status_label.setText("선수의 응답을 계산하지 못했습니다. 다시 선택할 수 있습니다.")
+        QMessageBox.warning(self, "면담 판정", message)
 
     def _worker_finished(self):
         worker = self.worker

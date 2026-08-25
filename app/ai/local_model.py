@@ -7,6 +7,7 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 from http import client as http_client
 from pathlib import Path
 from urllib import parse
@@ -22,6 +23,124 @@ def local_ai_enabled():
         "false",
         "off",
         "no",
+    }
+
+
+def _local_ai_health_url(base_url=None):
+    base_url = (
+        base_url
+        or os.getenv("KBOFM_AI_BASE_URL", "http://127.0.0.1:8080/v1")
+    ).rstrip("/")
+    endpoint = parse.urlsplit(base_url)
+    port = endpoint.port or (443 if endpoint.scheme == "https" else 80)
+    return endpoint.scheme or "http", endpoint.hostname, port
+
+
+def local_ai_ready(base_url=None, timeout=1.0):
+    """llama.cpp 서버가 모델 로딩까지 끝내고 요청을 받을 수 있는지 확인한다."""
+    try:
+        scheme, hostname, port = _local_ai_health_url(base_url)
+        connection_class = (
+            http_client.HTTPSConnection
+            if scheme == "https"
+            else http_client.HTTPConnection
+        )
+        connection = connection_class(hostname, port, timeout=timeout)
+        try:
+            connection.request("GET", "/health")
+            response = connection.getresponse()
+            response.read()
+            return response.status == 200
+        finally:
+            connection.close()
+    except (http_client.HTTPException, TimeoutError, OSError):
+        return False
+
+
+def ensure_local_ai_server(progress_callback=None, startup_timeout=None):
+    """main.py 부팅 중 로컬 AI 서버를 시작하고 모델 준비 완료까지 기다린다."""
+    if not local_ai_enabled():
+        return {
+            "ready": False,
+            "started": False,
+            "message": "환경 설정에서 로컬 AI가 비활성화되어 있습니다.",
+        }
+    if local_ai_ready():
+        return {
+            "ready": True,
+            "started": False,
+            "message": "실행 중인 로컬 AI 서버를 사용합니다.",
+        }
+
+    project_root = Path(__file__).resolve().parents[2]
+    script_path = project_root / "scripts" / "start_local_ai.ps1"
+    if not script_path.exists():
+        return {
+            "ready": False,
+            "started": False,
+            "message": f"AI 시작 스크립트를 찾을 수 없습니다: {script_path}",
+        }
+
+    context_size = int(os.getenv("KBOFM_AI_CONTEXT_SIZE", "8192"))
+    timeout = float(
+        startup_timeout or os.getenv("KBOFM_AI_STARTUP_TIMEOUT", "120")
+    )
+    if progress_callback is not None:
+        progress_callback("Qwen 로컬 AI 서버를 시작하고 있습니다")
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    try:
+        result = subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(script_path),
+                "-ContextSize",
+                str(context_size),
+            ],
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            errors="replace",
+            timeout=20,
+            creationflags=flags,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        return {
+            "ready": False,
+            "started": False,
+            "message": f"로컬 AI 실행 명령 실패: {error}",
+        }
+    if result.returncode != 0:
+        reason = (result.stderr or result.stdout or "알 수 없는 오류").strip()
+        return {
+            "ready": False,
+            "started": False,
+            "message": f"로컬 AI 서버 시작 실패: {reason}",
+        }
+
+    deadline = time.monotonic() + max(5.0, timeout)
+    while time.monotonic() < deadline:
+        if local_ai_ready(timeout=1.0):
+            return {
+                "ready": True,
+                "started": True,
+                "message": (
+                    f"로컬 AI 준비 완료 · 컨텍스트 {context_size}"
+                ),
+            }
+        if progress_callback is not None:
+            progress_callback("Qwen 모델을 메모리에 불러오고 있습니다")
+        time.sleep(0.35)
+    return {
+        "ready": False,
+        "started": True,
+        "message": (
+            f"로컬 AI 준비 시간이 {int(timeout)}초를 초과했습니다. "
+            "data/ai_logs/local_ai.stderr.log를 확인하십시오."
+        ),
     }
 
 
@@ -78,7 +197,7 @@ class LocalModelClient:
             "presence_penalty": 1.2,
             "max_tokens": (
                 480 if is_team_batch
-                else 360 if is_batch_review
+                else 240 if is_batch_review
                 else 180 if is_player_meeting
                 else 220
             ),
@@ -99,7 +218,15 @@ class LocalModelClient:
             http_client.HTTPSConnection if endpoint.scheme == "https"
             else http_client.HTTPConnection
         )
-        request_timeout = max(self.timeout, 75) if is_batch_review or is_team_batch else self.timeout
+        if is_batch_review:
+            request_timeout = max(
+                self.timeout,
+                float(os.getenv("KBOFM_AI_BOARD_TIMEOUT", "180")),
+            )
+        elif is_team_batch:
+            request_timeout = max(self.timeout, 120)
+        else:
+            request_timeout = self.timeout
         connection = connection_class(endpoint.hostname, endpoint.port, timeout=request_timeout)
         with self._connection_lock:
             self._connection = connection

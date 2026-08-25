@@ -232,6 +232,11 @@ class NewsFeedPage(QWidget):
         combined, known = [], set()
         for news in [*stored, *self.initial_news]:
             item = dict(news)
+            if (
+                item["category"] == "리그 시뮬레이션"
+                and "10개 구단 하루 진행 완료" in item["headline"]
+            ):
+                continue
             if item["category"] == "의료 센터" and (
                 "발생 당시 소속은 2군," in item["body"] or "기존 2군 선수단" in item["body"]
             ):
@@ -629,10 +634,10 @@ class DailyNewsPage(QWidget):
     @staticmethod
     def _camp_headline(game_date):
         if (game_date.month, game_date.day) < (11, 27):
-            return "CAMP1 훈련 계획과 선수단 상태 점검"
+            return "스토브리그 전력 분석과 선수단 상태 점검"
         if (game_date.month, game_date.day) < (12, 15):
-            return "CAMP1 평가 정리와 CAMP2 준비"
-        return "CAMP2 실전 운영과 개막 엔트리 경쟁"
+            return "1차 캠프 평가 정리와 실전 캠프 준비"
+        return "2차 캠프 실전 운영과 개막 엔트리 경쟁"
 
     @staticmethod
     def _camp_body(game_date):

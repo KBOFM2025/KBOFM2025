@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
-from app.config import TEAM_EMOJIS
+from app.team_assets import set_team_logo
 from app.player_ratings import core_rating_values
 from database import PLAYERS_DB_PATH
 
@@ -56,8 +56,9 @@ class ClubSquadPage(QWidget):
         back.setObjectName("BackButton")
         back.clicked.connect(self.back_requested.emit)
         header_layout.addWidget(back)
-        emblem = QLabel(TEAM_EMOJIS.get(team_name, "⚾"))
-        emblem.setFont(QFont("Segoe UI Emoji", 22))
+        emblem = QLabel()
+        emblem.setFixedSize(72, 48)
+        set_team_logo(emblem, team_name, 66, 42)
         header_layout.addWidget(emblem)
         heading = QVBoxLayout()
         title = QLabel(f"{team_name} 선수단")
@@ -123,9 +124,10 @@ class ClubSquadPage(QWidget):
         layout.addLayout(filters)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(10)
+        self.table.setColumnCount(11)
         self.table.setHorizontalHeaderLabels(
-            ["선수명", "포지션", "나이", "종합", "컨디션", "경기 감각", "사기", "훈련조", "현재 역할", "상태"]
+            ["선수명", "포지션", "나이", "종합", "컨디션", "경기 감각", "사기",
+             "훈련조", "현재 역할", "계약 만료", "상태"]
         )
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -137,7 +139,7 @@ class ClubSquadPage(QWidget):
         header_view = self.table.horizontalHeader()
         header_view.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         self.table.setColumnWidth(0, 118)
-        for column in (1, 2, 3, 4, 5, 6, 9):
+        for column in (1, 2, 3, 4, 5, 6, 9, 10):
             header_view.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         for column in (7, 8):
             header_view.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
@@ -189,7 +191,8 @@ class ClubSquadPage(QWidget):
             values = (
                 player.get("name", "-"), player.get("pos", "-"), player.get("age", "-"), overall,
                 state.get("condition", "-"), state.get("match_sharpness", "-"), state.get("morale", "-"),
-                state.get("squad_group", roster_name), assignments.get(player["id"], "대기"), status,
+                state.get("squad_group", roster_name), assignments.get(player["id"], "대기"),
+                player.get("contract_end_date") or "2025-11-30", status,
             )
             for column, value in enumerate(values):
                 item = QTableWidgetItem(str(value))
@@ -251,6 +254,7 @@ class ClubSquadPage(QWidget):
                 "-",
                 rookie["school"],
                 f"{rookie['round_no']}R · 전체 {rookie['overall_pick']}순위",
+                "2026-11-30",
                 "입단 예정",
             )
             for column, value in enumerate(values):

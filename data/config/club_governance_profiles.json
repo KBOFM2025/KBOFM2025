@@ -1,126 +1,604 @@
 {
-  "schema_version": 1,
-  "as_of": "2025-10-31",
-  "scale": {"minimum": 1, "average": 10, "maximum": 20},
+  "schema_version": 4,
+  "simulation_baseline": "2025-10-31",
+  "research_updated": "2026-08-24",
+  "scale": {
+    "minimum": 1,
+    "average": 10,
+    "maximum": 20
+  },
+  "methodology": "2025 시즌 공식 발표와 단장 인터뷰·구단 취재에서 확인되는 반복적 운영 행동을 내부 판정값으로 환산했다. 사용자 협상은 대폭 완화부터 최고 목표까지 5단계로 진행하며, 수치 자체는 공개하지 않고 결정과 근거만 제공한다.",
   "clubs": {
     "KIA 타이거즈": {
       "general_manager": {
         "name": "심재학",
-        "style": "현장 위임을 바탕으로 우승 가능성이 보이면 미래 자원도 활용하는 승부형 단장",
-        "traits": {"negotiation": 14, "boldness": 16, "win_now": 17, "development": 15, "data": 13, "economy": 9, "manager_autonomy": 18, "winning_pressure": 18}
+        "style": "우승 전력을 유지하면서 트레이드와 해외 육성으로 다음 전력도 준비하는 현장 협업형 단장",
+        "traits": {
+          "negotiation": 15,
+          "boldness": 16,
+          "win_now": 18,
+          "development": 16,
+          "data": 14,
+          "economy": 10,
+          "manager_autonomy": 17,
+          "winning_pressure": 19
+        }
       },
       "ownership": {
         "name": "기아·현대자동차그룹",
-        "style": "전통과 팬 여론을 중시하며 우승 경쟁 전력을 기대하는 대기업 구단",
-        "traits": {"financial_support": 17, "performance_pressure": 18, "long_term_development": 14, "manager_autonomy": 15, "brand_value": 18, "stability": 17}
+        "style": "타이거즈의 우승 전통과 전국적 브랜드 가치를 중시하며 정상권 유지를 요구하는 대기업 구단",
+        "traits": {
+          "financial_support": 17,
+          "performance_pressure": 19,
+          "long_term_development": 15,
+          "manager_autonomy": 15,
+          "brand_value": 19,
+          "stability": 17
+        }
+      },
+      "board_policy": {
+        "competitive_window": "win_now",
+        "execution_drive": 18,
+        "investment_aggression": 17,
+        "risk_tolerance": 16,
+        "roster_continuity": 15,
+        "preferred_levels": {
+          "season_result": 5,
+          "long_term_vision": 3,
+          "front_office_style": 4,
+          "club_identity": 4,
+          "roster_balance": 3
+        },
+        "hard_floors": {
+          "season_result": 4,
+          "long_term_vision": 2,
+          "front_office_style": 3,
+          "club_identity": 3,
+          "roster_balance": 2
+        },
+        "rationale": "디펜딩 챔피언급 성과 압박이 크지만 젊은 자원과 해외 육성도 병행한다. 우승 목표 후퇴에는 매우 보수적이다.",
+        "sources": [
+          {
+            "title": "KIA 공식 트레이드 발표",
+            "url": "https://tigers.co.kr/contents/news/1033213"
+          },
+          {
+            "title": "KIA 젊은 투수 미국 육성 파견",
+            "url": "https://news.mt.co.kr/mtview.php?VN=&no=2025062817362279989"
+          }
+        ]
       }
     },
     "삼성 라이온즈": {
       "general_manager": {
         "name": "이종열",
-        "style": "전력 공백이 명확하면 FA와 트레이드로 빠르게 보강하는 적극 투자형 단장",
-        "traits": {"negotiation": 15, "boldness": 17, "win_now": 18, "development": 14, "data": 14, "economy": 8, "manager_autonomy": 15, "winning_pressure": 18}
+        "style": "전력 공백에는 FA와 외국인 영입으로 빠르게 대응하면서 젊은 주축 성장도 요구하는 적극 보강형 단장",
+        "traits": {
+          "negotiation": 15,
+          "boldness": 18,
+          "win_now": 19,
+          "development": 15,
+          "data": 14,
+          "economy": 9,
+          "manager_autonomy": 15,
+          "winning_pressure": 19
+        }
       },
       "ownership": {
-        "name": "삼성·제일기획",
-        "style": "명문 구단의 정상권 복귀와 지속적인 브랜드 경쟁력을 요구하는 소유 구조",
-        "traits": {"financial_support": 18, "performance_pressure": 18, "long_term_development": 14, "manager_autonomy": 15, "brand_value": 18, "stability": 16}
+        "name": "제일기획·삼성",
+        "style": "명문 구단의 정상권 복귀와 지속적인 브랜드 경쟁력을 동시에 요구하는 대기업 구단",
+        "traits": {
+          "financial_support": 18,
+          "performance_pressure": 19,
+          "long_term_development": 15,
+          "manager_autonomy": 15,
+          "brand_value": 19,
+          "stability": 16
+        }
+      },
+      "board_policy": {
+        "competitive_window": "win_now",
+        "execution_drive": 19,
+        "investment_aggression": 18,
+        "risk_tolerance": 16,
+        "roster_continuity": 15,
+        "preferred_levels": {
+          "season_result": 5,
+          "long_term_vision": 3,
+          "front_office_style": 4,
+          "club_identity": 4,
+          "roster_balance": 3
+        },
+        "hard_floors": {
+          "season_result": 4,
+          "long_term_vision": 2,
+          "front_office_style": 3,
+          "club_identity": 3,
+          "roster_balance": 2
+        },
+        "rationale": "한국시리즈 재도전이 최우선이며 필요한 포지션에는 즉시 투자한다. 극단적인 베테랑 편중은 경계한다.",
+        "sources": [
+          {
+            "title": "이종열 단장 2025 우승 도전 인터뷰",
+            "url": "https://dgmbc.com/NewsArticle/627483"
+          },
+          {
+            "title": "삼성의 FA·외국인 적극 보강",
+            "url": "https://www.sportschosun.com/baseball/2025-02-15/202502140100088700013431"
+          }
+        ]
       }
     },
     "LG 트윈스": {
       "general_manager": {
         "name": "차명석",
-        "style": "내부 육성으로 기반을 만들고 필요한 마지막 조각에 선별 투자하는 균형형 단장",
-        "traits": {"negotiation": 17, "boldness": 15, "win_now": 16, "development": 17, "data": 16, "economy": 10, "manager_autonomy": 16, "winning_pressure": 18}
+        "style": "FA·외국인 보강과 내부 육성, 현장 소통으로 지속 가능한 우승 구조를 만드는 균형형 단장",
+        "traits": {
+          "negotiation": 18,
+          "boldness": 16,
+          "win_now": 18,
+          "development": 18,
+          "data": 16,
+          "economy": 11,
+          "manager_autonomy": 17,
+          "winning_pressure": 19
+        }
       },
       "ownership": {
         "name": "LG그룹·LG스포츠",
-        "style": "장기 운영과 우승 전력 유지를 동시에 지원하며 높은 성과 기준을 적용하는 구단",
-        "traits": {"financial_support": 19, "performance_pressure": 19, "long_term_development": 17, "manager_autonomy": 16, "brand_value": 19, "stability": 19}
+        "style": "장기 투자와 운영 안정성을 바탕으로 우승 전력과 팬 경험을 모두 높은 수준으로 요구하는 구단",
+        "traits": {
+          "financial_support": 19,
+          "performance_pressure": 19,
+          "long_term_development": 18,
+          "manager_autonomy": 17,
+          "brand_value": 20,
+          "stability": 19
+        }
+      },
+      "board_policy": {
+        "competitive_window": "sustained_contender",
+        "execution_drive": 19,
+        "investment_aggression": 18,
+        "risk_tolerance": 15,
+        "roster_continuity": 19,
+        "preferred_levels": {
+          "season_result": 5,
+          "long_term_vision": 4,
+          "front_office_style": 4,
+          "club_identity": 5,
+          "roster_balance": 4
+        },
+        "hard_floors": {
+          "season_result": 4,
+          "long_term_vision": 3,
+          "front_office_style": 3,
+          "club_identity": 4,
+          "roster_balance": 3
+        },
+        "rationale": "단발성 올인보다 강한 전력을 오래 유지하는 구조를 선호한다. 우승·팬 기준 후퇴와 육성 희생 모두 저항이 크다.",
+        "sources": [
+          {
+            "title": "차명석 단장 장기 구조와 소통 인터뷰",
+            "url": "https://www.kmib.co.kr/article/view_amp.asp?arcid=1763543576"
+          },
+          {
+            "title": "LG의 유망 포수 육성 선택",
+            "url": "https://sports.khan.co.kr/article/202503121414013"
+          }
+        ]
       }
     },
     "두산 베어스": {
       "general_manager": {
         "name": "김태룡",
-        "style": "장기 경험과 팜 시스템을 바탕으로 내부 대체 자원을 적극 활용하는 운영형 단장",
-        "traits": {"negotiation": 17, "boldness": 13, "win_now": 15, "development": 17, "data": 12, "economy": 14, "manager_autonomy": 13, "winning_pressure": 17}
+        "style": "강한 내부 육성 체계로 공백을 메우고 외부 보강은 선별 집행하는 시스템 중심 단장",
+        "traits": {
+          "negotiation": 17,
+          "boldness": 13,
+          "win_now": 15,
+          "development": 18,
+          "data": 13,
+          "economy": 15,
+          "manager_autonomy": 14,
+          "winning_pressure": 17
+        }
       },
       "ownership": {
         "name": "두산그룹",
-        "style": "육성 시스템과 경쟁력을 중시하되 대형 외부 투자는 선택적으로 집행하는 구단",
-        "traits": {"financial_support": 14, "performance_pressure": 17, "long_term_development": 16, "manager_autonomy": 14, "brand_value": 17, "stability": 15}
+        "style": "화수분 시스템과 경쟁 문화를 중시하며 투자 효율과 가을야구 성과를 함께 요구하는 구단",
+        "traits": {
+          "financial_support": 14,
+          "performance_pressure": 17,
+          "long_term_development": 18,
+          "manager_autonomy": 14,
+          "brand_value": 18,
+          "stability": 15
+        }
+      },
+      "board_policy": {
+        "competitive_window": "balanced",
+        "execution_drive": 15,
+        "investment_aggression": 13,
+        "risk_tolerance": 13,
+        "roster_continuity": 16,
+        "preferred_levels": {
+          "season_result": 4,
+          "long_term_vision": 4,
+          "front_office_style": 3,
+          "club_identity": 4,
+          "roster_balance": 5
+        },
+        "hard_floors": {
+          "season_result": 3,
+          "long_term_vision": 3,
+          "front_office_style": 2,
+          "club_identity": 3,
+          "roster_balance": 4
+        },
+        "rationale": "당장 성적도 요구하지만 내부 대체 자원과 육성 선순환을 훼손하는 올인에는 저항한다.",
+        "sources": [
+          {
+            "title": "김태룡 단장의 팜 시스템·프런트 운영 인터뷰",
+            "url": "https://www.forbeskorea.co.kr/news/articleView.html?idxno=323455"
+          },
+          {
+            "title": "2025 두산의 화수분 야구 부활 방향",
+            "url": "https://v.daum.net/v/uXoiKbCn0W"
+          }
+        ]
       }
     },
     "KT 위즈": {
       "general_manager": {
         "name": "나도현",
-        "style": "검증된 주축과 감독 체제의 안정성을 중시하며 필요한 즉시 전력을 보강하는 단장",
-        "traits": {"negotiation": 14, "boldness": 14, "win_now": 17, "development": 12, "data": 13, "economy": 9, "manager_autonomy": 17, "winning_pressure": 17}
+        "style": "검증된 주축과 감독 체제의 안정성을 우선하고 필요한 포지션만 표적 보강하는 운영 안정형 단장",
+        "traits": {
+          "negotiation": 15,
+          "boldness": 14,
+          "win_now": 17,
+          "development": 13,
+          "data": 14,
+          "economy": 11,
+          "manager_autonomy": 18,
+          "winning_pressure": 17
+        }
       },
       "ownership": {
         "name": "KT",
-        "style": "급격한 개입보다 안정적인 운영 체계와 지속 가능한 상위권 경쟁을 선호하는 구단",
-        "traits": {"financial_support": 15, "performance_pressure": 16, "long_term_development": 15, "manager_autonomy": 17, "brand_value": 16, "stability": 18}
+        "style": "급격한 개편보다 검증된 운영 체계와 지속 가능한 상위권 경쟁력을 선호하는 구단",
+        "traits": {
+          "financial_support": 15,
+          "performance_pressure": 16,
+          "long_term_development": 15,
+          "manager_autonomy": 18,
+          "brand_value": 16,
+          "stability": 19
+        }
+      },
+      "board_policy": {
+        "competitive_window": "stable_contender",
+        "execution_drive": 14,
+        "investment_aggression": 14,
+        "risk_tolerance": 11,
+        "roster_continuity": 19,
+        "preferred_levels": {
+          "season_result": 4,
+          "long_term_vision": 3,
+          "front_office_style": 4,
+          "club_identity": 3,
+          "roster_balance": 3
+        },
+        "hard_floors": {
+          "season_result": 3,
+          "long_term_vision": 2,
+          "front_office_style": 3,
+          "club_identity": 2,
+          "roster_balance": 2
+        },
+        "rationale": "핵심 전력과 운영 연속성을 큰 자산으로 본다. 대규모 개편보다 명확한 약점 보강과 실행 가능한 목표를 선호한다.",
+        "sources": [
+          {
+            "title": "KT의 필요 포지션 표적 트레이드",
+            "url": "https://v.daum.net/v/20250625183500704"
+          }
+        ]
       }
     },
     "SSG 랜더스": {
       "general_manager": {
         "name": "김재현",
-        "style": "핵심 베테랑과 젊은 선수의 성장을 함께 가져가는 리모델링 균형형 단장",
-        "traits": {"negotiation": 15, "boldness": 14, "win_now": 14, "development": 17, "data": 14, "economy": 11, "manager_autonomy": 17, "winning_pressure": 16}
+        "style": "베테랑 경쟁력과 차세대 코어를 연결하고 데이터 기반 팜을 강화하는 세대교체형 단장",
+        "traits": {
+          "negotiation": 15,
+          "boldness": 15,
+          "win_now": 16,
+          "development": 19,
+          "data": 18,
+          "economy": 12,
+          "manager_autonomy": 16,
+          "winning_pressure": 17
+        }
       },
       "ownership": {
         "name": "신세계그룹",
-        "style": "야구단을 그룹의 핵심 콘텐츠로 활용하며 성적과 팬 경험 모두에 적극 투자하는 구단",
-        "traits": {"financial_support": 19, "performance_pressure": 18, "long_term_development": 16, "manager_autonomy": 12, "brand_value": 19, "stability": 15}
+        "style": "야구단을 핵심 콘텐츠로 활용하며 성적·팬 경험·청라돔 시대 브랜드 성장을 적극 추진하는 구단",
+        "traits": {
+          "financial_support": 20,
+          "performance_pressure": 18,
+          "long_term_development": 18,
+          "manager_autonomy": 12,
+          "brand_value": 20,
+          "stability": 15
+        }
+      },
+      "board_policy": {
+        "competitive_window": "transition_contender",
+        "execution_drive": 18,
+        "investment_aggression": 19,
+        "risk_tolerance": 16,
+        "roster_continuity": 13,
+        "preferred_levels": {
+          "season_result": 4,
+          "long_term_vision": 4,
+          "front_office_style": 3,
+          "club_identity": 5,
+          "roster_balance": 5
+        },
+        "hard_floors": {
+          "season_result": 3,
+          "long_term_vision": 3,
+          "front_office_style": 2,
+          "club_identity": 4,
+          "roster_balance": 4
+        },
+        "rationale": "현재 경쟁력과 2028 청라돔 시대의 코어를 함께 준비한다. 데이터 육성·세대교체·팬 경험 후퇴를 받아들이기 어렵다.",
+        "sources": [
+          {
+            "title": "SSG 퓨처스 환경·데이터 육성 혁신",
+            "url": "https://www.ssglanders.com/media/news/detail?idx=19740"
+          },
+          {
+            "title": "팬 의견을 반영한 SSG 멤버십",
+            "url": "https://app.ssglanders.com/noticeView?seq=2935"
+          }
+        ]
       }
     },
     "롯데 자이언츠": {
       "general_manager": {
         "name": "박준혁",
-        "style": "일관된 시스템과 스카우트·육성을 강조하면서 현장 권한을 존중하는 단장",
-        "traits": {"negotiation": 14, "boldness": 13, "win_now": 14, "development": 18, "data": 13, "economy": 12, "manager_autonomy": 17, "winning_pressure": 16}
+        "style": "육성·스카우트 시스템을 구조화하고 현장 소통으로 지속 가능한 전력을 만드는 체질 개선형 단장",
+        "traits": {
+          "negotiation": 15,
+          "boldness": 14,
+          "win_now": 15,
+          "development": 19,
+          "data": 14,
+          "economy": 13,
+          "manager_autonomy": 17,
+          "winning_pressure": 18
+        }
       },
       "ownership": {
         "name": "롯데그룹",
-        "style": "부산 팬덤과 그룹 브랜드 효과를 중시하며 가을야구 성과를 강하게 요구하는 구단",
-        "traits": {"financial_support": 18, "performance_pressure": 19, "long_term_development": 14, "manager_autonomy": 13, "brand_value": 19, "stability": 13}
+        "style": "부산 팬덤과 그룹 브랜드 효과를 중시하며 오랜 무관을 끝낼 가시적 성과를 요구하는 구단",
+        "traits": {
+          "financial_support": 18,
+          "performance_pressure": 20,
+          "long_term_development": 16,
+          "manager_autonomy": 14,
+          "brand_value": 20,
+          "stability": 13
+        }
+      },
+      "board_policy": {
+        "competitive_window": "build_and_compete",
+        "execution_drive": 17,
+        "investment_aggression": 18,
+        "risk_tolerance": 15,
+        "roster_continuity": 13,
+        "preferred_levels": {
+          "season_result": 4,
+          "long_term_vision": 5,
+          "front_office_style": 3,
+          "club_identity": 5,
+          "roster_balance": 5
+        },
+        "hard_floors": {
+          "season_result": 3,
+          "long_term_vision": 4,
+          "front_office_style": 2,
+          "club_identity": 4,
+          "roster_balance": 4
+        },
+        "rationale": "팬의 즉시 성과 요구와 육성 체계 재건을 동시에 만족해야 한다. 무계획한 소진도 성과 없는 유예도 반대한다.",
+        "sources": [
+          {
+            "title": "박준혁 단장 육성 시스템·소통 인터뷰",
+            "url": "https://www.busan.go.kr/news/snsbusan01/view?bbsNo=1&dataNo=69489&srchThemeNo=233"
+          }
+        ]
       }
     },
     "한화 이글스": {
       "general_manager": {
         "name": "손혁",
-        "style": "검증된 FA와 즉시 전력을 적극 확보해 우승 시기를 앞당기는 윈나우형 단장",
-        "traits": {"negotiation": 15, "boldness": 18, "win_now": 19, "development": 13, "data": 14, "economy": 7, "manager_autonomy": 14, "winning_pressure": 19}
+        "style": "검증된 FA와 즉시 전력에 과감하게 투자해 신구장 시대의 우승 시계를 앞당기는 공격 투자형 단장",
+        "traits": {
+          "negotiation": 16,
+          "boldness": 19,
+          "win_now": 20,
+          "development": 14,
+          "data": 14,
+          "economy": 8,
+          "manager_autonomy": 14,
+          "winning_pressure": 20
+        }
       },
       "ownership": {
         "name": "한화그룹",
-        "style": "신구장 시대의 우승 도전을 위해 강한 재정 지원과 높은 성과 기준을 함께 적용하는 구단",
-        "traits": {"financial_support": 19, "performance_pressure": 19, "long_term_development": 16, "manager_autonomy": 13, "brand_value": 19, "stability": 16}
+        "style": "장기 리빌딩의 결실을 우승으로 전환하도록 강한 재정 지원과 높은 성과 기준을 함께 적용하는 구단",
+        "traits": {
+          "financial_support": 20,
+          "performance_pressure": 20,
+          "long_term_development": 16,
+          "manager_autonomy": 13,
+          "brand_value": 20,
+          "stability": 16
+        }
+      },
+      "board_policy": {
+        "competitive_window": "all_in",
+        "execution_drive": 20,
+        "investment_aggression": 20,
+        "risk_tolerance": 18,
+        "roster_continuity": 14,
+        "preferred_levels": {
+          "season_result": 5,
+          "long_term_vision": 3,
+          "front_office_style": 5,
+          "club_identity": 5,
+          "roster_balance": 3
+        },
+        "hard_floors": {
+          "season_result": 5,
+          "long_term_vision": 2,
+          "front_office_style": 4,
+          "club_identity": 4,
+          "roster_balance": 2
+        },
+        "rationale": "축적한 유망주와 외부 투자를 우승으로 전환해야 한다. 우승 목표나 투자 추진력을 낮추는 안건에 가장 강하게 반대한다.",
+        "sources": [
+          {
+            "title": "한화의 대규모 FA·비FA 투자",
+            "url": "https://v.daum.net/v/20251121003118926"
+          },
+          {
+            "title": "한화의 추가 보강 검토",
+            "url": "https://v.daum.net/v/20251120004146949"
+          }
+        ]
       }
     },
     "NC 다이노스": {
       "general_manager": {
         "name": "임선남",
-        "style": "데이터와 기대가치, 유망주 육성을 우선해 효율적인 선수단을 구성하는 단장",
-        "traits": {"negotiation": 16, "boldness": 12, "win_now": 11, "development": 18, "data": 18, "economy": 18, "manager_autonomy": 16, "winning_pressure": 14}
+        "style": "데이터와 선수 가치, 젊은 코어를 우선해 제한된 자원으로 효율적인 선수단을 만드는 분석형 단장",
+        "traits": {
+          "negotiation": 16,
+          "boldness": 13,
+          "win_now": 12,
+          "development": 19,
+          "data": 19,
+          "economy": 18,
+          "manager_autonomy": 17,
+          "winning_pressure": 14
+        }
       },
       "ownership": {
         "name": "엔씨소프트",
-        "style": "데이터와 디지털 정체성, 젊은 코어의 장기 성장을 중시하는 효율 중심 구단",
-        "traits": {"financial_support": 13, "performance_pressure": 15, "long_term_development": 18, "manager_autonomy": 18, "brand_value": 17, "stability": 16}
+        "style": "데이터·디지털 정체성과 젊은 코어의 장기 성장을 중시하고 효율적 의사 결정을 요구하는 구단",
+        "traits": {
+          "financial_support": 13,
+          "performance_pressure": 15,
+          "long_term_development": 19,
+          "manager_autonomy": 18,
+          "brand_value": 17,
+          "stability": 16
+        }
+      },
+      "board_policy": {
+        "competitive_window": "developing",
+        "execution_drive": 15,
+        "investment_aggression": 12,
+        "risk_tolerance": 14,
+        "roster_continuity": 14,
+        "preferred_levels": {
+          "season_result": 3,
+          "long_term_vision": 5,
+          "front_office_style": 4,
+          "club_identity": 4,
+          "roster_balance": 5
+        },
+        "hard_floors": {
+          "season_result": 1,
+          "long_term_vision": 4,
+          "front_office_style": 3,
+          "club_identity": 3,
+          "roster_balance": 4
+        },
+        "rationale": "고비용 올인보다 데이터 육성과 선수 가치 선순환을 우선한다. 프런트 분석과 장기 코어 계획을 무시하면 강하게 반대한다.",
+        "sources": [
+          {
+            "title": "NC 젊은 투수 데이터 기반 해외 육성",
+            "url": "https://www.sportschosun.com/baseball/2025-10-25/202510250100151590020135"
+          },
+          {
+            "title": "NC 육성과 승리 병행 구상",
+            "url": "https://v.daum.net/v/7ZUxcm9HhR"
+          }
+        ]
       }
     },
     "키움 히어로즈": {
       "general_manager": {
         "name": "허승필",
-        "style": "육성·지명권·선수 가치의 선순환을 최우선으로 하는 자산관리형 단장",
-        "traits": {"negotiation": 14, "boldness": 9, "win_now": 8, "development": 19, "data": 16, "economy": 19, "manager_autonomy": 14, "winning_pressure": 10}
+        "style": "육성·지명권·계약 효율과 선수 가치의 선순환을 최우선으로 보는 자산 관리형 단장",
+        "traits": {
+          "negotiation": 15,
+          "boldness": 11,
+          "win_now": 8,
+          "development": 20,
+          "data": 16,
+          "economy": 20,
+          "manager_autonomy": 14,
+          "winning_pressure": 11
+        }
       },
       "ownership": {
-        "name": "서울히어로즈·키움증권 네이밍 스폰서",
-        "style": "모기업 지원 없이 육성과 선수 가치 창출로 생존하는 독립 운영 구단",
-        "traits": {"financial_support": 7, "performance_pressure": 17, "long_term_development": 19, "manager_autonomy": 15, "brand_value": 19, "stability": 12}
+        "name": "서울히어로즈",
+        "style": "모기업 지원 없이 육성·이적·선수 가치 창출로 지속 가능성을 확보해야 하는 독립 운영 구단",
+        "traits": {
+          "financial_support": 7,
+          "performance_pressure": 16,
+          "long_term_development": 20,
+          "manager_autonomy": 15,
+          "brand_value": 18,
+          "stability": 11
+        }
+      },
+      "board_policy": {
+        "competitive_window": "rebuild",
+        "execution_drive": 13,
+        "investment_aggression": 7,
+        "risk_tolerance": 15,
+        "roster_continuity": 9,
+        "preferred_levels": {
+          "season_result": 2,
+          "long_term_vision": 5,
+          "front_office_style": 3,
+          "club_identity": 4,
+          "roster_balance": 5
+        },
+        "hard_floors": {
+          "season_result": 1,
+          "long_term_vision": 5,
+          "front_office_style": 3,
+          "club_identity": 3,
+          "roster_balance": 5
+        },
+        "rationale": "현재 순위를 위해 미래 자산과 예산 효율을 훼손하는 제안은 거부한다. 육성·기회·가치 상승에는 높은 추진력을 보인다.",
+        "sources": [
+          {
+            "title": "키움의 2025 리빌딩·젊은 선수 기회 기조",
+            "url": "https://www.youtube.com/watch?v=pnGM1MkYUaM"
+          },
+          {
+            "title": "키움 히어로즈 공식 구단 자료",
+            "url": "https://heroesbaseball.co.kr"
+          }
+        ]
       }
     }
   }
