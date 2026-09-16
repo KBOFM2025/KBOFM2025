@@ -189,6 +189,7 @@ class GovernanceSaveTests(unittest.TestCase):
                     "INSERT INTO gm_objective_defaults VALUES (?, ?, ?, ?, ?)",
                     ("한화 이글스", "손혁", "season_result", 4, "구버전"),
                 )
+            connection.close()
             database = SaveDatabase(path)
             self.assertEqual(
                 5,

@@ -739,11 +739,11 @@ class ClubInfoPage(QWidget):
             }}
             QLabel#ClubIdentity {{
                 color: #8493a1;
-                font-size: 12px;
+                font-size: 14px;
             }}
             QLabel#HeaderStatus {{
                 color: {colors['accent_light']};
-                font-size: 11px;
+                font-size: 13px;
                 font-weight: 900;
             }}
             QPushButton#BackButton {{
@@ -770,7 +770,7 @@ class ClubInfoPage(QWidget):
                 border: none;
                 border-bottom: 3px solid transparent;
                 padding: 0 20px;
-                font-size: 13px;
+                font-size: 15px;
                 font-weight: 800;
             }}
             QPushButton#SectionActive {{
@@ -798,7 +798,7 @@ class ClubInfoPage(QWidget):
             }}
             QLabel#HeroEyebrow {{
                 color: {colors['accent_light']};
-                font-size: 11px;
+                font-size: 13px;
                 font-weight: 900;
             }}
             QLabel#HeroTitle {{
@@ -808,12 +808,12 @@ class ClubInfoPage(QWidget):
             }}
             QLabel#HeroBaseName {{
                 color: #8d9ba8;
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 750;
             }}
             QLabel#HeroDescription {{
                 color: #c1ccd5;
-                font-size: 14px;
+                font-size: 15px;
             }}
             QFrame#MascotFrame {{
                 background: rgba(8, 13, 18, 125);
@@ -822,7 +822,7 @@ class ClubInfoPage(QWidget):
             }}
             QLabel#MascotName {{
                 color: #9cabba;
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 750;
             }}
             QFrame#GoalChip {{
@@ -832,12 +832,12 @@ class ClubInfoPage(QWidget):
             }}
             QLabel#GoalLabel {{
                 color: {colors['accent_light']};
-                font-size: 10px;
+                font-size: 13px;
                 font-weight: 900;
             }}
             QLabel#GoalText {{
                 color: #e7edf2;
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 700;
             }}
             QFrame#MetricCard {{
@@ -847,7 +847,7 @@ class ClubInfoPage(QWidget):
             }}
             QLabel#MetricLabel {{
                 color: #7f8e9b;
-                font-size: 11px;
+                font-size: 13px;
                 font-weight: 800;
             }}
             QLabel#MetricValue {{
@@ -857,7 +857,7 @@ class ClubInfoPage(QWidget):
             }}
             QLabel#MetricNote {{
                 color: #657582;
-                font-size: 10px;
+                font-size: 13px;
             }}
             QFrame#InfoCard {{
                 background: #171e25;
@@ -871,7 +871,7 @@ class ClubInfoPage(QWidget):
             }}
             QLabel#CardEyebrow {{
                 color: {colors['accent_light']};
-                font-size: 10px;
+                font-size: 13px;
                 font-weight: 900;
             }}
             QFrame#PlayerCard {{
@@ -883,7 +883,7 @@ class ClubInfoPage(QWidget):
                 color: white;
                 background: {colors['accent']};
                 padding: 6px;
-                font-size: 11px;
+                font-size: 13px;
                 font-weight: 900;
                 border-top-left-radius: 5px;
                 border-top-right-radius: 5px;
@@ -898,7 +898,7 @@ class ClubInfoPage(QWidget):
                 background: transparent;
                 border: none;
                 padding: 2px;
-                font-size: 14px;
+                font-size: 15px;
                 font-weight: 900;
             }}
             QPushButton#PlayerNameLink:hover {{
@@ -906,7 +906,7 @@ class ClubInfoPage(QWidget):
             }}
             QLabel#PlayerMeta {{
                 color: #82919e;
-                font-size: 11px;
+                font-size: 13px;
             }}
             QFrame#InsightBlock {{
                 background: #11171d;
@@ -916,44 +916,44 @@ class ClubInfoPage(QWidget):
             }}
             QLabel#InsightTitle {{
                 color: {colors['accent_light']};
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 900;
             }}
             QLabel#InsightText {{
                 color: #acbac6;
-                font-size: 12px;
+                font-size: 14px;
             }}
             QWidget#StadiumPhoto {{
                 color: #81909d;
                 background: #10171e;
                 border: 1px solid #34414c;
                 border-radius: 5px;
-                font-size: 11px;
+                font-size: 13px;
             }}
             QLabel#StadiumName {{
                 color: white;
                 padding-top: 6px;
-                font-size: 14px;
+                font-size: 15px;
                 font-weight: 900;
             }}
             QLabel#StadiumMeta {{
                 color: #82919e;
                 padding-bottom: 2px;
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 700;
             }}
             QLabel#FactName {{
                 color: #788794;
                 padding: 8px 0;
                 border-bottom: 1px solid #28333d;
-                font-size: 11px;
+                font-size: 13px;
                 font-weight: 750;
             }}
             QLabel#FactValue {{
                 color: #d7e0e7;
                 padding: 8px 0;
                 border-bottom: 1px solid #28333d;
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 700;
             }}
             QFrame#LegendCard {{
@@ -965,22 +965,22 @@ class ClubInfoPage(QWidget):
                 color: white;
                 background: {colors['accent']};
                 border-radius: 4px;
-                font-size: 14px;
+                font-size: 15px;
                 font-weight: 900;
             }}
             QLabel#LegendName {{
                 color: white;
-                font-size: 14px;
+                font-size: 15px;
                 font-weight: 900;
             }}
             QLabel#LegendRole {{
                 color: {colors['accent_light']};
-                font-size: 10px;
+                font-size: 13px;
                 font-weight: 800;
             }}
             QLabel#BodyText {{
                 color: #8e9daa;
-                font-size: 11px;
+                font-size: 13px;
             }}
             QTableWidget {{
                 color: #dbe4eb;
@@ -997,7 +997,7 @@ class ClubInfoPage(QWidget):
                 border: none;
                 border-right: 1px solid #303b45;
                 padding: 7px;
-                font-size: 11px;
+                font-size: 13px;
                 font-weight: 800;
             }}
         """

@@ -358,7 +358,7 @@ class BaseballFieldWidget(QWidget):
             )
 
         painter.setPen(QColor("#a7d8c4"))
-        painter.setFont(QFont("Malgun Gothic", 9, QFont.Weight.Bold))
+        painter.setFont(QFont("Malgun Gothic", 10, QFont.Weight.Bold))
         painter.drawText(
             QRectF(14, 12, width - 28, 24),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
@@ -388,10 +388,10 @@ class BaseballFieldWidget(QWidget):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(badge, 3, 3)
         painter.setPen(QColor("#0b161b"))
-        painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, position)
         painter.setPen(QColor("#f2f6f8") if name != "미정" else QColor("#75838e"))
-        painter.setFont(QFont("Malgun Gothic", 9, QFont.Weight.Bold))
+        painter.setFont(QFont("Malgun Gothic", 10, QFont.Weight.Bold))
         painter.drawText(
             QRectF(rect.left() + 51, rect.top() + 22, rect.width() - 57, 25),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
@@ -412,7 +412,7 @@ class BaseballFieldWidget(QWidget):
         else:
             painter.fillRect(rect, QColor("#2a3b45"))
             painter.setPen(QColor("#e8f0f3"))
-            painter.setFont(QFont("Malgun Gothic", 8, QFont.Weight.Bold))
+            painter.setFont(QFont("Malgun Gothic", 10, QFont.Weight.Bold))
             painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, name[-2:])
         painter.restore()
         painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -519,7 +519,7 @@ class PitchingPlanWidget(QWidget):
         bullpen_width = (width - 52) / 2
         low_x = 20
         high_x = low_x + bullpen_width + column_gap
-        painter.setFont(QFont("Malgun Gothic", 8, QFont.Weight.Bold))
+        painter.setFont(QFont("Malgun Gothic", 10, QFont.Weight.Bold))
         painter.setPen(QColor("#83a4b5"))
         painter.drawText(low_x, bullpen_top + 22, "LONG / LOW LEVERAGE")
         painter.setPen(QColor("#66d2a4"))
@@ -563,14 +563,14 @@ class PitchingPlanWidget(QWidget):
         self._draw_portrait(painter, portrait, name, photo_path, accent)
         text_left = portrait.right() + 8
         painter.setPen(QColor(accent))
-        painter.setFont(QFont("Malgun Gothic", 8, QFont.Weight.Bold))
+        painter.setFont(QFont("Malgun Gothic", 10, QFont.Weight.Bold))
         painter.drawText(
             QRectF(text_left, rect.top() + 3, rect.right() - text_left - 6, 17),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             role,
         )
         painter.setPen(QColor("#eef3f5") if name != "미정" else QColor("#74828d"))
-        painter.setFont(QFont("Malgun Gothic", 9, QFont.Weight.Bold))
+        painter.setFont(QFont("Malgun Gothic", 10, QFont.Weight.Bold))
         painter.drawText(
             QRectF(text_left, rect.top() + 20, rect.right() - text_left - 6, rect.height() - 21),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
@@ -591,7 +591,7 @@ class PitchingPlanWidget(QWidget):
         else:
             painter.fillRect(rect, QColor("#2a3b45"))
             painter.setPen(QColor("#edf3f5"))
-            painter.setFont(QFont("Malgun Gothic", 7, QFont.Weight.Bold))
+            painter.setFont(QFont("Malgun Gothic", 10, QFont.Weight.Bold))
             painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, name[-2:])
         painter.restore()
         painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -628,7 +628,7 @@ class SetLineupTab(QWidget):
         row.setContentsMargins(10, 7, 10, 7)
         row.setSpacing(6)
         title = QLabel("전술 버전")
-        title.setFont(QFont("Malgun Gothic", 10, QFont.Weight.Bold))
+        title.setFont(QFont("Malgun Gothic", 11, QFont.Weight.Bold))
         row.addWidget(title)
         self.version_combo = QComboBox()
         self.version_combo.setMinimumWidth(180)
@@ -679,35 +679,35 @@ class SetLineupTab(QWidget):
         }
         QLabel#activeBadge {
             color: #78d8ad; background: #18382e; border: 1px solid #28604c;
-            border-radius: 8px; padding: 2px 8px; font-size: 10px; font-weight: 700;
+            border-radius: 8px; padding: 2px 8px; font-size: 13px; font-weight: 700;
         }
         QLabel#countBadge {
             color: #d8e2e8; background: #26343e; border: 1px solid #475661;
-            border-radius: 8px; padding: 2px 9px; font-size: 10px; font-weight: 800;
+            border-radius: 8px; padding: 2px 9px; font-size: 13px; font-weight: 800;
         }
         QFrame#visualHeader {
             background: #17232b; border: 1px solid #344650; border-radius: 3px;
         }
         QFrame#visualHeader QLabel { color: #dce7eb; }
-        QLabel#visualStatus { color: #65d5a5; font-size: 10px; }
+        QLabel#visualStatus { color: #65d5a5; font-size: 13px; }
         QFrame#approachPanel {
             background: #121c23; border: 1px solid #30414b; border-radius: 3px;
         }
         QFrame#approachPanel QLabel {
             color: #aebcc5; border-right: 1px solid #2f3d46;
-            padding: 2px 8px; font-size: 9px; font-weight: 650;
+            padding: 2px 8px; font-size: 13px; font-weight: 650;
         }
         QFrame#phaseCard {
             background: #121a21; border: 1px solid #34434e; border-radius: 5px;
         }
         QLabel[phaseTitle="true"] {
-            color: #f0f4f6; font-size: 13px; font-weight: 800;
+            color: #f0f4f6; font-size: 15px; font-weight: 800;
         }
         QLabel[phaseInnings="true"] {
-            color: #8fa0ac; font-size: 10px; font-weight: 700;
+            color: #8fa0ac; font-size: 13px; font-weight: 700;
         }
         QLabel[planLabel="true"] {
-            color: #b9c5cc; font-size: 10px; font-weight: 650;
+            color: #b9c5cc; font-size: 13px; font-weight: 650;
         }
         QComboBox[planControl="true"] {
             min-width: 100px; background: #1b2730; border-color: #41515d;
@@ -717,18 +717,18 @@ class SetLineupTab(QWidget):
         }
         QLabel#gamePlanSummary {
             color: #b8c7cf; background: #111920; border: 1px solid #33424c;
-            border-radius: 3px; padding: 8px 12px; font-size: 10px;
+            border-radius: 3px; padding: 8px 12px; font-size: 13px;
         }
-        QLabel#tacticHint { color: #91a2b1; padding: 1px 3px; font-size: 10px; }
-        QLabel#poolTitle { color: #f0f4f6; font-size: 12px; font-weight: 850; padding-top: 4px; }
-        QLabel#poolHelp { color: #7f929f; font-size: 9px; padding-top: 4px; }
+        QLabel#tacticHint { color: #91a2b1; padding: 1px 3px; font-size: 13px; }
+        QLabel#poolTitle { color: #f0f4f6; font-size: 14px; font-weight: 850; padding-top: 4px; }
+        QLabel#poolHelp { color: #7f929f; font-size: 13px; padding-top: 4px; }
         QListWidget#firstTeamPool {
             color: #dce6eb; background: #0e171e; border: 1px solid #344650;
             border-radius: 4px; outline: none; padding: 4px;
         }
         QListWidget#firstTeamPool::item {
             background: #18242c; border: 1px solid #2f414c; border-radius: 3px;
-            margin: 1px; padding: 3px 8px; font-size: 10px; font-weight: 700;
+            margin: 1px; padding: 3px 8px; font-size: 13px; font-weight: 700;
         }
         QListWidget#firstTeamPool::item:hover { background: #223642; border-color: #587183; }
         QListWidget#firstTeamPool::item:selected { background: #29577a; border-color: #6d9abb; }
@@ -757,7 +757,7 @@ class SetLineupTab(QWidget):
         QHeaderView::section {
             background: #202a33; color: #c9d3da; border: none;
             border-right: 1px solid #35434e; border-bottom: 1px solid #46545f;
-            padding: 6px; font-size: 10px; font-weight: 700;
+            padding: 6px; font-size: 13px; font-weight: 700;
         }
         QTabWidget::pane { border: 1px solid #34424e; }
         """
@@ -787,7 +787,7 @@ class SetLineupTab(QWidget):
         visual_header_layout = QHBoxLayout(visual_header)
         visual_header_layout.setContentsMargins(10, 6, 10, 6)
         visual_title = QLabel("수비 포메이션")
-        visual_title.setFont(QFont("Malgun Gothic", 10, QFont.Weight.Bold))
+        visual_title.setFont(QFont("Malgun Gothic", 11, QFont.Weight.Bold))
         visual_header_layout.addWidget(visual_title)
         visual_header_layout.addStretch()
         visual_status = QLabel("균형 수비  ·  표준 시프트")
@@ -863,7 +863,7 @@ class SetLineupTab(QWidget):
         visual_header_row = QHBoxLayout(visual_header)
         visual_header_row.setContentsMargins(10, 6, 10, 6)
         visual_title = QLabel("투수 운용도")
-        visual_title.setFont(QFont("Malgun Gothic", 10, QFont.Weight.Bold))
+        visual_title.setFont(QFont("Malgun Gothic", 11, QFont.Weight.Bold))
         visual_header_row.addWidget(visual_title)
         visual_header_row.addStretch()
         visual_header_row.addWidget(QLabel("선발 → 승리조 → 마무리"))
@@ -874,6 +874,10 @@ class SetLineupTab(QWidget):
 
         editor_column = QVBoxLayout()
         editor_column.setSpacing(6)
+        conversion_note = QLabel('선발 전환: 기존 보직과 관계없이 1군 투수를 선택할 수 있습니다.\n'
+                                 '기존 불펜 배정을 비운 뒤 선발 슬롯에 배치하고 라인업을 저장하세요. 체력·구종도 확인하세요.')
+        conversion_note.setWordWrap(True)
+        editor_column.addWidget(conversion_note)
         starter_header = QHBoxLayout()
         starter_title = QLabel("선발 로테이션")
         starter_title.setFont(QFont("Malgun Gothic", 11, QFont.Weight.Bold))

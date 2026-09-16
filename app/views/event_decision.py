@@ -37,6 +37,8 @@ class EventDecisionPage(QWidget):
         self.choice_buttons = []
         self.roster_audit_players = []
         self.roster_decision_boxes = []
+        self.draft_protection_players = []
+        self.draft_protection_boxes = []
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -92,6 +94,10 @@ class EventDecisionPage(QWidget):
         self.roster_audit_panel.setVisible(False)
         page.addWidget(self.roster_audit_panel)
 
+        self.draft_protection_panel = self._build_draft_protection_panel()
+        self.draft_protection_panel.setVisible(False)
+        page.addWidget(self.draft_protection_panel)
+
         choice_title = QLabel("감독 결정")
         choice_title.setObjectName("ChoiceTitle")
         page.addWidget(choice_title)
@@ -122,16 +128,16 @@ class EventDecisionPage(QWidget):
         kicker = QLabel("ROSTER & CONTRACT REVIEW")
         kicker.setObjectName("RosterAuditKicker")
         heading.addWidget(kicker)
-        title = QLabel("2026 선수단 1차 분류")
-        title.setObjectName("RosterAuditTitle")
-        heading.addWidget(title)
-        note = QLabel(
+        self.roster_panel_title = QLabel("2026 선수단 1차 분류")
+        self.roster_panel_title.setObjectName("RosterAuditTitle")
+        heading.addWidget(self.roster_panel_title)
+        self.roster_panel_note = QLabel(
             "프런트 권고를 참고해 선수별 방침을 정하십시오. "
             "이번 단계에서는 실제 방출이나 계약 체결이 발생하지 않습니다."
         )
-        note.setObjectName("RosterAuditNote")
-        note.setWordWrap(True)
-        heading.addWidget(note)
+        self.roster_panel_note.setObjectName("RosterAuditNote")
+        self.roster_panel_note.setWordWrap(True)
+        heading.addWidget(self.roster_panel_note)
         top.addLayout(heading, 1)
         self.apply_recommendations_button = QPushButton("프런트 권고 일괄 적용")
         self.apply_recommendations_button.setObjectName("ApplyRecommendations")
@@ -215,9 +221,10 @@ class EventDecisionPage(QWidget):
         footer.setObjectName("RosterAuditFooter")
         footer_layout = QHBoxLayout(footer)
         footer_layout.setContentsMargins(13, 9, 13, 9)
-        footer_layout.addWidget(QLabel(
+        self.roster_footer_text = QLabel(
             "다음 단계  ·  11월 25일 보류선수 명단 제출 점검에서 최종 확정"
-        ))
+        )
+        footer_layout.addWidget(self.roster_footer_text)
         footer_layout.addStretch()
         self.roster_selection_summary = QLabel()
         self.roster_selection_summary.setObjectName("RosterSelectionSummary")
@@ -225,7 +232,50 @@ class EventDecisionPage(QWidget):
         layout.addWidget(footer)
         return panel
 
+    def _build_draft_protection_panel(self):
+        panel = QFrame()
+        panel.setObjectName("RosterAuditPanel")
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(20, 18, 20, 20)
+        layout.setSpacing(11)
+
+        heading = QLabel("2차 드래프트 · 우리 구단 보호선수 확정")
+        heading.setObjectName("RosterAuditTitle")
+        layout.addWidget(heading)
+        note = QLabel(
+            "자동 제외 선수는 선택할 필요가 없습니다. 지명 자격이 있는 선수 중 "
+            "정확히 35명을 보호해야 하며, 나머지는 11월 19일 지명 대상이 됩니다."
+        )
+        note.setObjectName("RosterAuditNote")
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        self.draft_protection_summary = QLabel("보호 0 / 35")
+        self.draft_protection_summary.setObjectName("RosterSelectionSummary")
+        layout.addWidget(self.draft_protection_summary)
+
+        self.draft_protection_table = QTableWidget(0, 8)
+        self.draft_protection_table.setObjectName("RosterAuditTable")
+        self.draft_protection_table.setHorizontalHeaderLabels((
+            "선수", "포지션", "나이", "1·2군", "현재 능력",
+            "잠재력", "보호 점수", "감독 결정",
+        ))
+        self.draft_protection_table.verticalHeader().setVisible(False)
+        self.draft_protection_table.setEditTriggers(
+            QAbstractItemView.EditTrigger.NoEditTriggers
+        )
+        self.draft_protection_table.setAlternatingRowColors(True)
+        self.draft_protection_table.setShowGrid(False)
+        self.draft_protection_table.setMinimumHeight(430)
+        self.draft_protection_table.verticalHeader().setDefaultSectionSize(42)
+        header = self.draft_protection_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        for column in range(1, 8):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        layout.addWidget(self.draft_protection_table)
+        return panel
+
     def _load_roster_audit_players(self):
+        connection = None
         try:
             connection = sqlite3.connect(self.db_path)
             connection.row_factory = sqlite3.Row
@@ -237,7 +287,7 @@ class EventDecisionPage(QWidget):
         except sqlite3.Error:
             return []
         finally:
-            if "connection" in locals():
+            if connection is not None:
                 connection.close()
 
         reviewed = []
@@ -286,6 +336,12 @@ class EventDecisionPage(QWidget):
     def _populate_roster_audit(self):
         self.roster_audit_players = self._load_roster_audit_players()
         self.roster_decision_boxes.clear()
+        schedule_id = str(
+            (((self.current_event or {}).get("payload") or {}).get(
+                "schedule_event"
+            ) or {}).get("event_id") or ""
+        )
+        is_final = schedule_id == "reserve_submit"
         decision_payload = dict(
             (((self.current_event or {}).get("payload") or {}).get(
                 "manager_decision"
@@ -295,10 +351,33 @@ class EventDecisionPage(QWidget):
             int(item.get("player_id") or 0): str(item.get("decision") or "")
             for item in decision_payload.get("players", [])
         }
+        if is_final and not saved_decisions:
+            connection = sqlite3.connect(self.event_service.saves_db_path)
+            connection.row_factory = sqlite3.Row
+            try:
+                rows = connection.execute(
+                    """
+                    SELECT player_id, decision FROM roster_audit_decisions
+                    WHERE save_id=? AND team=?
+                    """,
+                    (self.save_id, self.team_name),
+                ).fetchall()
+                saved_decisions = {
+                    int(row["player_id"]): (
+                        "자유계약 공시"
+                        if row["decision"] == "방출 후보" else row["decision"]
+                    )
+                    for row in rows
+                }
+            except sqlite3.OperationalError:
+                saved_decisions = {}
+            finally:
+                connection.close()
         table = self.roster_audit_table
         table.setRowCount(len(self.roster_audit_players))
         options = (
-            "보류·재계약", "계약 재검토", "퓨처스 육성", "방출 후보",
+            "보류·재계약", "계약 재검토", "퓨처스 육성",
+            "자유계약 공시" if is_final else "방출 후보",
         )
         for row, player in enumerate(self.roster_audit_players):
             report = player["_fa_report"]
@@ -357,10 +436,13 @@ class EventDecisionPage(QWidget):
             decision.setObjectName("RosterDecision")
             decision.setFixedHeight(32)
             decision.addItems(options)
+            recommended_decision = player["_recommendation"]
+            if is_final and recommended_decision == "방출 후보":
+                recommended_decision = "자유계약 공시"
             decision.setCurrentText(
                 saved_decisions.get(
                     int(player.get("id") or 0),
-                    player["_recommendation"],
+                    recommended_decision,
                 )
             )
             decision.currentTextChanged.connect(
@@ -411,6 +493,7 @@ class EventDecisionPage(QWidget):
             "계약 재검토": "review",
             "퓨처스 육성": "develop",
             "방출 후보": "release",
+            "자유계약 공시": "release",
         }.get(str(decision), "neutral")
         box.setProperty("tone", tone)
         box.style().unpolish(box)
@@ -425,7 +508,12 @@ class EventDecisionPage(QWidget):
                 f"{label} {counts.get(label, 0)}"
                 for label in (
                     "보류·재계약", "계약 재검토",
-                    "퓨처스 육성", "방출 후보",
+                    "퓨처스 육성",
+                    "자유계약 공시"
+                    if any(
+                        box.findText("자유계약 공시") >= 0
+                        for box in self.roster_decision_boxes
+                    ) else "방출 후보",
                 )
             )
         )
@@ -450,6 +538,87 @@ class EventDecisionPage(QWidget):
                     self.roster_audit_players, self.roster_decision_boxes
                 )
             ]
+        }
+
+    def _populate_draft_protection(self):
+        self.draft_protection_players = []
+        self.draft_protection_boxes.clear()
+        connection = sqlite3.connect(self.event_service.saves_db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            rows = connection.execute(
+                """
+                SELECT * FROM second_draft_pool
+                WHERE save_id=? AND original_team=?
+                  AND classification!='automatic_exempt'
+                ORDER BY protection_score DESC, player_name
+                """,
+                (self.save_id, self.team_name),
+            ).fetchall()
+            self.draft_protection_players = [dict(row) for row in rows]
+        finally:
+            connection.close()
+
+        table = self.draft_protection_table
+        table.setRowCount(len(self.draft_protection_players))
+        for row, player in enumerate(self.draft_protection_players):
+            values = (
+                player.get("player_name") or "-",
+                player.get("position_group") or "-",
+                player.get("age") or "-",
+                "1군" if int(player.get("roster_status") or 0) else "2군",
+                f"{float(player.get('overall') or 0):.1f}",
+                f"{float(player.get('potential') or 0):.1f}",
+                f"{float(player.get('protection_score') or 0):.1f}",
+            )
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(str(value))
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                table.setItem(row, column, item)
+            decision = QComboBox()
+            decision.setObjectName("RosterDecision")
+            decision.addItems(("보호선수", "지명 가능"))
+            decision.setCurrentText(
+                "보호선수"
+                if player.get("classification") == "protected" else "지명 가능"
+            )
+            decision.currentTextChanged.connect(
+                self._update_draft_protection_summary
+            )
+            table.setCellWidget(row, 7, decision)
+            self.draft_protection_boxes.append(decision)
+        self._update_draft_protection_summary()
+
+    def _update_draft_protection_summary(self, _value=None):
+        protected = sum(
+            box.currentText() == "보호선수"
+            for box in self.draft_protection_boxes
+        )
+        required = min(35, len(self.draft_protection_boxes))
+        self.draft_protection_summary.setText(
+            f"보호 {protected} / {required} · 지명 가능 "
+            f"{len(self.draft_protection_boxes) - protected}"
+        )
+        tone = "#76c89b" if protected == required else "#ef7474"
+        self.draft_protection_summary.setStyleSheet(f"color:{tone}; font-weight:800;")
+
+    def _draft_protection_resolution(self):
+        protected_ids = [
+            int(player["player_id"])
+            for player, box in zip(
+                self.draft_protection_players, self.draft_protection_boxes
+            )
+            if box.currentText() == "보호선수"
+        ]
+        required = min(35, len(self.draft_protection_players))
+        if len(protected_ids) != required:
+            raise ValueError(f"보호선수를 정확히 {required}명 선택해 주십시오.")
+        return {
+            "team": self.team_name,
+            "event_date": str(
+                (self.current_event or {}).get("event_date") or "2025-11-12"
+            ),
+            "protected_player_ids": protected_ids,
         }
 
     def _build_medical_panel(self):
@@ -585,6 +754,7 @@ class EventDecisionPage(QWidget):
         return panel
 
     def _medical_player_record(self, payload):
+        connection = None
         try:
             connection = sqlite3.connect(self.db_path)
             connection.row_factory = sqlite3.Row
@@ -603,7 +773,7 @@ class EventDecisionPage(QWidget):
         except (sqlite3.Error, TypeError, ValueError):
             return {}
         finally:
-            if "connection" in locals():
+            if connection is not None:
                 connection.close()
 
     def _set_medical_event(self, event):
@@ -698,22 +868,58 @@ class EventDecisionPage(QWidget):
         is_medical = event_type == "injury"
         is_roster_audit = (
             event_type == "schedule"
-            and schedule_event.get("event_id") == "roster_audit"
+            and schedule_event.get("event_id") in {
+                "roster_audit", "reserve_submit",
+            }
+        )
+        is_reserve_submit = (
+            event_type == "schedule"
+            and schedule_event.get("event_id") == "reserve_submit"
+        )
+        is_draft_protection = (
+            event_type == "schedule"
+            and schedule_event.get("event_id") == "second_draft_protect"
         )
         self.category_label.setText(
             "선수단 관리 · 계약/보류"
             if is_roster_audit else
             str(event.get("category") or "구단 업무")
         )
-        self.briefing_card.setVisible(not is_medical and not is_roster_audit)
+        self.briefing_card.setVisible(
+            not is_medical and not is_roster_audit and not is_draft_protection
+        )
         self.medical_panel.setVisible(is_medical)
         self.roster_audit_panel.setVisible(is_roster_audit)
+        self.draft_protection_panel.setVisible(is_draft_protection)
         if is_medical:
             self._set_medical_event(event)
         if is_roster_audit:
+            self.roster_panel_title.setText(
+                "2026 보류선수 명단 최종 제출"
+                if is_reserve_submit else "2026 선수단 1차 분류"
+            )
+            self.roster_panel_note.setText(
+                "선수별 최종 결정을 제출하면 퓨처스 편성과 자유계약 공시가 "
+                "즉시 선수단 데이터에 반영됩니다."
+                if is_reserve_submit else
+                "프런트 권고를 참고해 선수별 방침을 정하십시오. 이번 단계에서는 "
+                "실제 방출이나 계약 체결이 발생하지 않습니다."
+            )
+            self.roster_footer_text.setText(
+                "최종 단계  ·  자유계약 공시 선택 선수는 제출 즉시 구단 명단에서 제외"
+                if is_reserve_submit else
+                "다음 단계  ·  11월 25일 보류선수 명단 제출 점검에서 최종 확정"
+            )
             self._populate_roster_audit()
+        if is_draft_protection:
+            self._populate_draft_protection()
         self.choice_title.setText(
-            "1차 검토안 제출" if is_roster_audit else "감독 결정"
+            "보류선수 명단 제출"
+            if is_reserve_submit else
+            "1차 검토안 제출"
+            if is_roster_audit else
+            "보호선수 명단 제출"
+            if is_draft_protection else "감독 결정"
         )
         while self.choice_layout.count():
             item = self.choice_layout.takeAt(0)
@@ -736,10 +942,18 @@ class EventDecisionPage(QWidget):
             label = choice.get("label", "확인")
             description = choice.get("description", "")
             if is_roster_audit:
-                label = "선수단 1차 분류안 저장"
+                label = (
+                    "보류선수 명단 최종 제출"
+                    if is_reserve_submit else "선수단 1차 분류안 저장"
+                )
                 description = (
+                    "선택한 자유계약·육성 결정을 실제 선수단에 반영합니다."
+                    if is_reserve_submit else
                     "선수별 감독 방침을 저장하고 11월 25일 최종 검토로 넘깁니다."
                 )
+            elif is_draft_protection:
+                label = "보호선수 35인 최종 확정"
+                description = "선택한 보호 명단을 11월 19일 2차 드래프트에 적용합니다."
             button = QPushButton(
                 f"{label}\n{description}"
             )
@@ -760,6 +974,8 @@ class EventDecisionPage(QWidget):
             button.setEnabled(False)
         try:
             resolution_data = (
+                self._draft_protection_resolution()
+                if self.draft_protection_panel.isVisible() else
                 self._roster_audit_resolution()
                 if self.roster_audit_panel.isVisible() else None
             )
@@ -785,24 +1001,24 @@ class EventDecisionPage(QWidget):
             QLabel {{ color: #dce5ed; font-family: 'Malgun Gothic', 'Segoe UI'; }}
             QPushButton#Back {{ color: #dce5ed; background: #202932; border: 1px solid #46535e; padding: 8px 14px; font-weight: 700; }}
             QPushButton#Back:hover {{ background: {c['accent']}; }}
-            QLabel#Date {{ color: #82919d; font-size: 12px; }}
-            QLabel#Category, QLabel#Kicker {{ color: {c['accent_light']}; font-size: 12px; font-weight: 800; }}
+            QLabel#Date {{ color: #82919d; font-size: 14px; }}
+            QLabel#Category, QLabel#Kicker {{ color: {c['accent_light']}; font-size: 14px; font-weight: 800; }}
             QLabel#Headline {{ color: white; font-size: 27px; font-weight: 900; }}
             QFrame#BriefingCard {{ background: #171f27; border: 1px solid #3a4854; border-left: 4px solid {c['accent']}; }}
             QLabel#Body {{ color: #d1dbe4; font-size: 15px; line-height: 1.5; }}
             QFrame#RosterAuditPanel {{ background: #111820; border: 1px solid #40515e; border-radius: 4px; }}
-            QLabel#RosterAuditKicker {{ color: #d7ad52; font-size: 10px; font-weight: 900; }}
+            QLabel#RosterAuditKicker {{ color: #d7ad52; font-size: 13px; font-weight: 900; }}
             QLabel#RosterAuditTitle {{ color: white; font-size: 24px; font-weight: 900; }}
-            QLabel#RosterAuditNote {{ color: #aebbc5; font-size: 12px; }}
+            QLabel#RosterAuditNote {{ color: #aebbc5; font-size: 14px; }}
             QPushButton#ApplyRecommendations {{ color: #e8edf1; background: #26323c; border: 1px solid #566572; padding: 9px 14px; font-weight: 800; }}
             QPushButton#ApplyRecommendations:hover {{ color: white; background: #34434f; border-color: #d0aa53; }}
             QFrame#RosterSummaryCard {{ background: #18232c; border: 1px solid #334653; border-top: 3px solid #4c849f; border-radius: 3px; }}
-            QLabel#RosterSummaryLabel {{ color: #8798a5; font-size: 9px; font-weight: 800; }}
+            QLabel#RosterSummaryLabel {{ color: #8798a5; font-size: 13px; font-weight: 800; }}
             QLabel#RosterSummaryValue {{ color: white; font-size: 20px; font-weight: 900; }}
-            QLabel#RosterAuditGuide {{ color: #86bad8; background: #18242d; border-left: 3px solid #4e9cca; padding: 8px 10px; font-size: 10px; }}
-            QTableWidget#RosterAuditTable {{ color: #dbe4eb; background: #11171d; alternate-background-color: #182028; border: 1px solid #3b4955; gridline-color: transparent; selection-background-color: #244a65; selection-color: white; font-size: 11px; outline: none; }}
+            QLabel#RosterAuditGuide {{ color: #86bad8; background: #18242d; border-left: 3px solid #4e9cca; padding: 8px 10px; font-size: 13px; }}
+            QTableWidget#RosterAuditTable {{ color: #dbe4eb; background: #11171d; alternate-background-color: #182028; border: 1px solid #3b4955; gridline-color: transparent; selection-background-color: #244a65; selection-color: white; font-size: 13px; outline: none; }}
             QTableWidget#RosterAuditTable::item {{ border-bottom: 1px solid #2b3741; padding: 0 9px; }}
-            QHeaderView::section {{ color: #c5d0d9; background: #202a33; border: none; border-right: 1px solid #384651; border-bottom: 1px solid #4a5965; padding: 9px 7px; font-size: 10px; font-weight: 800; }}
+            QHeaderView::section {{ color: #c5d0d9; background: #202a33; border: none; border-right: 1px solid #384651; border-bottom: 1px solid #4a5965; padding: 9px 7px; font-size: 13px; font-weight: 800; }}
             QWidget#RosterDecisionCell {{ background: transparent; }}
             QComboBox#RosterDecision {{ color: white; background: #202b34; border: 1px solid #4a5a66; border-radius: 2px; padding: 5px 24px 5px 9px; font-weight: 700; }}
             QComboBox#RosterDecision:hover {{ border-color: #d0aa53; }}
@@ -813,35 +1029,35 @@ class EventDecisionPage(QWidget):
             QComboBox#RosterDecision::drop-down {{ border: none; width: 22px; }}
             QComboBox#RosterDecision QAbstractItemView {{ color: white; background: #1a232b; selection-background-color: #35536a; }}
             QFrame#RosterAuditFooter {{ background: #1b232a; border: 1px solid #394650; border-left: 4px solid #d0aa53; }}
-            QFrame#RosterAuditFooter QLabel {{ color: #bdc8d1; font-size: 10px; font-weight: 700; }}
+            QFrame#RosterAuditFooter QLabel {{ color: #bdc8d1; font-size: 13px; font-weight: 700; }}
             QLabel#RosterSelectionSummary {{ color: #f0c766; font-weight: 900; }}
             QFrame#MedicalPanel {{ background: #111820; border: 1px solid #43515e; border-radius: 4px; }}
-            QLabel#MedicalSeverity {{ color: white; background: #a3484e; border-radius: 3px; padding: 5px 11px; font-size: 11px; font-weight: 900; }}
+            QLabel#MedicalSeverity {{ color: white; background: #a3484e; border-radius: 3px; padding: 5px 11px; font-size: 13px; font-weight: 900; }}
             QLabel#MedicalSeverity[level="minor"] {{ background: #58707d; }}
             QLabel#MedicalSeverity[level="care"] {{ background: #a16b29; }}
             QLabel#MedicalSeverity[level="major"] {{ background: #a3484e; }}
-            QLabel#MedicalKicker {{ color: #71bce5; font-size: 10px; font-weight: 900; }}
-            QLabel#MedicalDate {{ color: #8695a2; font-size: 11px; }}
+            QLabel#MedicalKicker {{ color: #71bce5; font-size: 13px; font-weight: 900; }}
+            QLabel#MedicalDate {{ color: #8695a2; font-size: 13px; }}
             QFrame#MedicalIdentity, QFrame#ClinicalCard {{ background: #18222b; border: 1px solid #354654; border-radius: 4px; }}
             QLabel#MedicalPhoto {{ color: white; background: #253642; border: 1px solid #536674; border-radius: 3px; font-size: 28px; font-weight: 900; }}
             QLabel#MedicalPlayer {{ color: white; font-size: 18px; font-weight: 900; }}
-            QLabel#MedicalMeta {{ color: #99a9b6; font-size: 11px; }}
-            QLabel#ClinicalKicker {{ color: #e1b557; font-size: 10px; font-weight: 900; }}
+            QLabel#MedicalMeta {{ color: #99a9b6; font-size: 13px; }}
+            QLabel#ClinicalKicker {{ color: #e1b557; font-size: 13px; font-weight: 900; }}
             QLabel#Diagnosis {{ color: white; font-size: 24px; font-weight: 900; }}
-            QLabel#ClinicalSummary {{ color: #b8c4ce; font-size: 13px; }}
+            QLabel#ClinicalSummary {{ color: #b8c4ce; font-size: 15px; }}
             QFrame#MedicalFact {{ background: #111820; border: 1px solid #2f3d48; border-radius: 3px; }}
-            QLabel#MedicalFactLabel {{ color: #80909e; font-size: 9px; font-weight: 800; }}
-            QLabel#MedicalFactValue {{ color: #e6ebef; font-size: 13px; font-weight: 900; }}
+            QLabel#MedicalFactLabel {{ color: #80909e; font-size: 13px; font-weight: 800; }}
+            QLabel#MedicalFactValue {{ color: #e6ebef; font-size: 15px; font-weight: 900; }}
             QFrame#TreatmentPlan {{ background: #151d24; border: 1px solid #35434e; }}
             QFrame#TreatmentStep {{ background: #1c2730; border: none; border-top: 3px solid #54758b; }}
-            QLabel#TreatmentStepTitle {{ color: #74b8df; font-size: 9px; font-weight: 900; }}
-            QLabel#TreatmentStepValue {{ color: #d8e0e6; font-size: 11px; font-weight: 700; }}
+            QLabel#TreatmentStepTitle {{ color: #74b8df; font-size: 13px; font-weight: 900; }}
+            QLabel#TreatmentStepValue {{ color: #d8e0e6; font-size: 13px; font-weight: 700; }}
             QFrame#MedicalRecommendation {{ background: #20242a; border: 1px solid #54482f; border-left: 4px solid #d3a442; }}
             QLabel#MedicalCross {{ color: #17130a; background: #e0ae43; border-radius: 16px; font-size: 21px; font-weight: 900; }}
-            QLabel#RecommendationTitle {{ color: #f0c664; font-size: 10px; font-weight: 900; }}
-            QLabel#RecommendationBody {{ color: #d3dce3; font-size: 12px; }}
+            QLabel#RecommendationTitle {{ color: #f0c664; font-size: 13px; font-weight: 900; }}
+            QLabel#RecommendationBody {{ color: #d3dce3; font-size: 14px; }}
             QLabel#ChoiceTitle {{ color: white; font-size: 17px; font-weight: 800; margin-top: 4px; }}
-            QPushButton[choice="true"] {{ color: #e3eaf0; background: #1c252e; border: 1px solid #3b4854; padding: 12px 16px; text-align: left; font-size: 13px; font-weight: 700; }}
+            QPushButton[choice="true"] {{ color: #e3eaf0; background: #1c252e; border: 1px solid #3b4854; padding: 12px 16px; text-align: left; font-size: 15px; font-weight: 700; }}
             QPushButton[choice="true"]:hover {{ color: white; background: #263541; border-color: {c['accent_light']}; }}
             QPushButton[choice="true"]:disabled {{ color: #71808c; background: #161d24; }}
             QLabel#Result {{ color: #dff7e8; background: #173226; border-left: 4px solid #4fb77b; padding: 15px; font-weight: 700; }}

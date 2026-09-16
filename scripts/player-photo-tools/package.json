@@ -1,0 +1,10 @@
+{
+  "name": "kbo-player-photo-tools",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "onnxruntime-node": "1.29.0",
+    "playwright-core": "1.62.1",
+    "sharp": "0.35.4"
+  }
+}

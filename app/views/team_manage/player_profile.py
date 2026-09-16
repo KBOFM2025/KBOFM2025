@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QStackedWidget,
     QTableWidget,
@@ -27,8 +28,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.config.national_team_2025 import is_national_team_player
 from app.player_ratings import core_rating_values
+from app.player_photos import resolve_player_photo
 from app.services.fa_eligibility import fa_eligibility_report
+from app.utils import resource_path
 from app.views.team_manage.foreign_negotiation import ForeignNegotiationPanel
 from database.paths import DATA_DIR
 
@@ -42,8 +46,6 @@ DEFAULT_COLORS = {
     "text": "#e5eef8",
 }
 
-PLAYER_PHOTO_DIRECTORY = DATA_DIR.parent / "image" / "players" / "local"
-PLAYER_PHOTO_EXTENSIONS = (".webp", ".png", ".jpg", ".jpeg")
 PITCH_COLUMN_CODES = {
     "pitch_four_seam": "FF", "pitch_sinker": "SI", "pitch_cutter": "FC",
     "pitch_changeup": "CH", "pitch_slider": "SL", "pitch_curve": "CU",
@@ -138,20 +140,7 @@ def _source_path(filename):
 
 
 def _player_photo_path(kbo_player_id, player_name=None, team_name=None):
-    if kbo_player_id:
-        for extension in PLAYER_PHOTO_EXTENSIONS:
-            candidate = PLAYER_PHOTO_DIRECTORY / f"{kbo_player_id}{extension}"
-            if candidate.exists():
-                return candidate
-    team_directories = {"NC 다이노스": "NC", "NC": "NC"}
-    team_directory = team_directories.get(team_name)
-    if player_name and team_directory:
-        directory = DATA_DIR.parent / "image" / "Player_Image" / team_directory
-        for extension in PLAYER_PHOTO_EXTENSIONS:
-            candidate = directory / f"{player_name}{extension}"
-            if candidate.exists():
-                return candidate
-    return None
+    return resolve_player_photo(kbo_player_id, player_name, team_name)
 
 
 @lru_cache(maxsize=2)
@@ -347,6 +336,8 @@ class AttributeColumn(QFrame):
         return super().eventFilter(watched, event)
 
     def set_schema(self, title, fields, player):
+        from app.services.player_potential import profile_for
+        potential = profile_for(player)
         self.title_label.setText(title)
         self.pitch_popup_text.clear()
         try:
@@ -379,8 +370,10 @@ class AttributeColumn(QFrame):
                     f"Whiff {whiff:.1f}% · CSW {csw:.1f}% · 표본 {int(detail.get('n') or 0):,}구"
                 )
             row_frame = self.rows[index][0].parentWidget()
+            if key in potential["caps"]:
+                tooltip += f"\n현재 {rating}/20 · 잠재 상한 {potential['caps'][key]}/20\n게임 추정 · 신뢰도 {potential['confidence']}"
             for widget in (row_frame, name_label, value_label):
-                widget.setToolTip("")
+                widget.setToolTip("" if is_pitch_row else tooltip.strip())
                 if tooltip:
                     self.pitch_popup_text[widget] = tooltip
             value_label.setProperty(
@@ -498,7 +491,11 @@ class PlayerProfilePage(QWidget):
         canvas = QWidget()
         canvas.setObjectName("ProfileCanvas")
         canvas.setMinimumSize(1120, 720)
-        self.page_stack.addWidget(canvas)
+        profile_scroll = QScrollArea()
+        profile_scroll.setWidgetResizable(True)
+        profile_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        profile_scroll.setWidget(canvas)
+        self.page_stack.addWidget(profile_scroll)
         grid = QGridLayout(canvas)
         grid.setContentsMargins(14, 14, 14, 16)
         grid.setHorizontalSpacing(12)
@@ -522,14 +519,14 @@ class PlayerProfilePage(QWidget):
         self.setStyleSheet(f"""
             QWidget {{
                 color: {colors['text']};
-                font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 13px;
+                font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 15px;
             }}
             QWidget#PlayerProfilePage, QWidget#ProfileCanvas, QWidget#FAPage {{ background-color: {colors['bg_dark']}; }}
             QLabel {{ background-color: transparent; border: none; }}
             QToolTip {{
                 color: #edf6ff; background-color: #101820;
                 border: 1px solid {colors['accent_light']}; border-radius: 5px;
-                padding: 8px; font-size: 12px;
+                padding: 8px; font-size: 14px;
             }}
             QFrame#TopNavigation {{
                 min-height: 42px; background-color: {colors['card_bg']};
@@ -537,15 +534,15 @@ class PlayerProfilePage(QWidget):
             }}
             QPushButton[profileNav="true"] {{
                 color: #95a5b6; background: transparent; border: none;
-                padding: 10px 13px; font-size: 13px; font-weight: 500;
+                padding: 10px 13px; font-size: 15px; font-weight: 500;
             }}
             QPushButton[profileNav="true"]:checked {{ color: white; border-bottom: 2px solid {colors['accent_light']}; font-weight: 700; }}
             QPushButton[profileNav="true"]:disabled {{ color: #556474; }}
-            QLabel#HeaderType {{ color: {colors['accent_light']}; padding: 7px 11px; font-size: 12px; font-weight: 700; }}
+            QLabel#HeaderType {{ color: {colors['accent_light']}; padding: 7px 11px; font-size: 14px; font-weight: 700; }}
             QPushButton#BackButton {{
                 color: white; background-color: {colors['tab_selected']};
                 border: 1px solid #405063; border-radius: 6px;
-                padding: 8px 13px; font-size: 13px; font-weight: 600;
+                padding: 8px 13px; font-size: 15px; font-weight: 600;
             }}
             QPushButton#BackButton:hover {{ background-color: {colors['accent']}; }}
             QFrame#LeftCard, QFrame#CenterCard, QFrame#RightCard {{
@@ -561,28 +558,28 @@ class PlayerProfilePage(QWidget):
             }}
             QLabel#CareerTitle {{
                 color: #e0bc68; font-family: 'Malgun Gothic', 'Segoe UI';
-                font-size: 13px; font-weight: 700;
+                font-size: 15px; font-weight: 700;
             }}
             QLabel#CareerBadge {{
                 color: #f5e3b3; background-color: #4b3b1c;
                 border: 1px solid #8b6b2d; border-radius: 8px;
                 padding: 2px 8px; font-family: 'Malgun Gothic', 'Segoe UI';
-                font-size: 10px; font-weight: 500;
+                font-size: 13px; font-weight: 500;
             }}
             QFrame#CareerTimelineRow {{
                 background-color: #151f2c; border: 1px solid #273646;
                 border-radius: 5px;
             }}
             QLabel#CareerMarker {{
-                color: #d5ad54; font-size: 10px;
+                color: #d5ad54; font-size: 13px;
             }}
             QLabel#CareerStep {{
                 color: #91a1b2; font-family: 'Malgun Gothic', 'Segoe UI';
-                font-size: 11px; font-weight: 500;
+                font-size: 13px; font-weight: 500;
             }}
             QLabel#CareerValue {{
                 color: #f2f5f8; font-family: 'Malgun Gothic', 'Segoe UI';
-                font-size: 12px; font-weight: 600;
+                font-size: 14px; font-weight: 600;
             }}
             QLabel#Avatar {{
                 color: white;
@@ -591,17 +588,25 @@ class PlayerProfilePage(QWidget):
             }}
             QLabel#PhysicalLine {{
                 color: #e7eff7; border-top: 1px solid #334252;
-                padding-top: 6px; font-size: 13px; font-weight: 650;
+                padding-top: 6px; font-size: 15px; font-weight: 650;
             }}
             QLabel#PlayerName {{ color: white; font-size: 30px; font-weight: 800; }}
-            QLabel#AccentText {{ color: {colors['accent_light']}; font-size: 14px; font-weight: 600; }}
+            QFrame#NationalTeamBadge {{
+                background-color: #17283a; border: 1px solid #3b6c91;
+                border-radius: 10px;
+            }}
+            QLabel#NationalTeamBadgeText {{
+                color: #d9efff; font-size: 13px; font-weight: 700;
+                padding-right: 7px;
+            }}
+            QLabel#AccentText {{ color: {colors['accent_light']}; font-size: 15px; font-weight: 600; }}
             QLabel#SectionTitle {{
                 color: #edf6ff; border-left: 3px solid {colors['accent']};
                 padding: 3px 0 3px 9px; font-size: 16px; font-weight: 700;
             }}
-            QLabel#ColumnTitle {{ color: {colors['accent_light']}; font-size: 14px; font-weight: 700; padding-bottom: 4px; }}
-            QLabel#Muted {{ color: #8fa0b1; font-size: 12px; }}
-            QLabel#AttributeName {{ color: #b5c0cb; font-size: 13px; font-weight: 400; }}
+            QLabel#ColumnTitle {{ color: {colors['accent_light']}; font-size: 15px; font-weight: 700; padding-bottom: 4px; }}
+            QLabel#Muted {{ color: #8fa0b1; font-size: 14px; }}
+            QLabel#AttributeName {{ color: #b5c0cb; font-size: 15px; font-weight: 400; }}
             QLabel#AttributeValue {{
                 border-radius: 4px; padding: 2px 4px;
                 font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 15px; font-weight: 700;
@@ -618,7 +623,7 @@ class PlayerProfilePage(QWidget):
             QFrame#SeasonBox {{
                 background-color: {colors['tab_selected']}; border: 1px solid #344456; border-radius: 6px;
             }}
-            QLabel#SeasonName {{ color: #92a2b3; font-size: 12px; font-weight: 500; }}
+            QLabel#SeasonName {{ color: #92a2b3; font-size: 14px; font-weight: 500; }}
             QLabel#SeasonValue {{
                 color: white; font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 17px; font-weight: 700;
             }}
@@ -627,24 +632,24 @@ class PlayerProfilePage(QWidget):
                 font-size: 32px; font-weight: 700;
             }}
             QLabel#Stars {{ color: #facc15; font-size: 17px; }}
-            QLabel#Positive {{ color: #4ade80; font-size: 13px; font-weight: 600; }}
+            QLabel#Positive {{ color: #4ade80; font-size: 15px; font-weight: 600; }}
             QLabel#Warning {{ color: #fbbf24; font-weight: 600; }}
             QFrame#FACard {{
                 background-color: #101a24; border: 1px solid #34495b;
                 border-left: 3px solid #3b82f6; border-radius: 6px;
             }}
-            QLabel#FATitle {{ color: #dcecff; font-size: 12px; font-weight: 700; }}
-            QLabel#FAStatus {{ font-size: 13px; font-weight: 750; }}
+            QLabel#FATitle {{ color: #dcecff; font-size: 14px; font-weight: 700; }}
+            QLabel#FAStatus {{ font-size: 15px; font-weight: 750; }}
             QLabel#FAStatus[tone="positive"] {{ color: #55d99b; }}
             QLabel#FAStatus[tone="warning"] {{ color: #f2c15d; }}
             QLabel#FAStatus[tone="muted"] {{ color: #9aa9b8; }}
             QLabel#FAGrade {{
                 color: #f8dda0; background-color: #47391f; border: 1px solid #79602e;
-                border-radius: 7px; padding: 2px 7px; font-size: 10px; font-weight: 700;
+                border-radius: 7px; padding: 2px 7px; font-size: 13px; font-weight: 700;
             }}
-            QLabel#FAProgress {{ color: #b9c9d8; font-size: 11px; }}
-            QLabel#FANote {{ color: #8091a2; font-size: 10px; }}
-            QLabel#FASource {{ color: #69bff3; font-size: 10px; }}
+            QLabel#FAProgress {{ color: #b9c9d8; font-size: 13px; }}
+            QLabel#FANote {{ color: #8091a2; font-size: 13px; }}
+            QLabel#FASource {{ color: #69bff3; font-size: 13px; }}
             QFrame#FAHero, QFrame#FADetailCard {{
                 background-color: {colors['card_bg']}; border: 1px solid #314153; border-radius: 9px;
             }}
@@ -653,7 +658,7 @@ class PlayerProfilePage(QWidget):
             QLabel#FAHeroStatus[tone="positive"] {{ color: #55d99b; }}
             QLabel#FAHeroStatus[tone="warning"] {{ color: #f2c15d; }}
             QLabel#FAHeroStatus[tone="muted"] {{ color: #9aa9b8; }}
-            QLabel#FAMetricTitle {{ color: #8fa0b1; font-size: 11px; }}
+            QLabel#FAMetricTitle {{ color: #8fa0b1; font-size: 13px; }}
             QLabel#FAMetricValue {{ color: #f2f7fc; font-size: 18px; font-weight: 750; }}
             QLabel#FAShortage {{ color: #f5ca69; font-size: 15px; font-weight: 700; }}
             QProgressBar#FAProgressBar {{
@@ -669,9 +674,9 @@ class PlayerProfilePage(QWidget):
                 color: #aebccc; background-color: #202b37; border: none;
                 border-right: 1px solid #354353; padding: 7px; font-weight: 700;
             }}
-            QLabel#BodyText {{ color: #c3cfda; font-size: 13px; }}
-            QLabel#InfoName {{ color: #93a3b4; font-size: 12px; }}
-            QLabel#InfoValue {{ color: #edf3f9; font-size: 13px; font-weight: 600; }}
+            QLabel#BodyText {{ color: #c3cfda; font-size: 15px; }}
+            QLabel#InfoName {{ color: #93a3b4; font-size: 14px; }}
+            QLabel#InfoValue {{ color: #edf3f9; font-size: 15px; font-weight: 600; }}
             QLabel#RolePrimary {{ color: #6ee7a0; background-color: #183e2a; border-radius: 4px; padding: 4px 7px; font-weight: 600; }}
             QLabel#RoleEmpty {{ color: #657487; background-color: #202936; border-radius: 4px; padding: 4px 7px; }}
         """)
@@ -1114,8 +1119,10 @@ class PlayerProfilePage(QWidget):
             text_column.setSpacing(1)
             step_label = QLabel()
             step_label.setObjectName("CareerStep")
+            step_label.setMinimumHeight(20)
             value_label = QLabel()
             value_label.setObjectName("CareerValue")
+            value_label.setMinimumHeight(22)
             value_label.setWordWrap(True)
             text_column.addWidget(step_label)
             text_column.addWidget(value_label)
@@ -1136,12 +1143,44 @@ class PlayerProfilePage(QWidget):
         identity = QVBoxLayout()
         self.name_label = QLabel()
         self.name_label.setObjectName("PlayerName")
+        name_row = QHBoxLayout()
+        name_row.setSpacing(9)
+        name_row.addWidget(self.name_label)
+        self.national_team_badge = QFrame()
+        self.national_team_badge.setObjectName("NationalTeamBadge")
+        self.national_team_badge.setToolTip(
+            "2025 NAVER K-BASEBALL SERIES 대한민국 대표팀 최종 소집 선수"
+        )
+        badge_layout = QHBoxLayout(self.national_team_badge)
+        badge_layout.setContentsMargins(6, 3, 3, 3)
+        badge_layout.setSpacing(5)
+        badge_flag = QLabel()
+        flag_pixmap = QPixmap(
+            str(resource_path("image", "ui", "korea_national_team.svg"))
+        )
+        badge_flag.setPixmap(
+            flag_pixmap.scaled(
+                24,
+                16,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+        badge_text = QLabel("대한민국 국가대표")
+        badge_text.setObjectName("NationalTeamBadgeText")
+        badge_layout.addWidget(badge_flag)
+        badge_layout.addWidget(badge_text)
+        name_row.addWidget(
+            self.national_team_badge,
+            alignment=Qt.AlignmentFlag.AlignVCenter,
+        )
+        name_row.addStretch()
         self.subtitle_label = QLabel()
         self.subtitle_label.setObjectName("AccentText")
         self.career_label = QLabel()
         self.career_label.setObjectName("Muted")
         self.career_label.setWordWrap(True)
-        identity.addWidget(self.name_label)
+        identity.addLayout(name_row)
         identity.addWidget(self.subtitle_label)
         identity.addWidget(self.career_label)
         heading.addLayout(identity, 1)
@@ -1324,6 +1363,7 @@ class PlayerProfilePage(QWidget):
         name = self.player.get("name", "-")
         self._set_player_photo(name)
         self.name_label.setText(name)
+        self.national_team_badge.setVisible(is_national_team_player(self.player))
         self.header_type.setText("투수 PROFILE" if is_pitcher else "타자 PROFILE")
         self.subtitle_label.setText(f"{self.player.get('team', '-')}  ·  {position}")
         self.career_label.setText(_career_summary(self.player))
@@ -1333,11 +1373,14 @@ class PlayerProfilePage(QWidget):
             if self.player.get("team") == "NC 다이노스"
             else "퓨처스팀(2군)"
         )
-        self.status_label.setText(
-            "● 1군 엔트리"
-            if self.player.get("status")
-            else f"● {reserve_label} / 육성"
-        )
+        if self.player.get("sim_squad_group") == "국가대표":
+            self.status_label.setText("● 대한민국 대표팀 차출")
+        else:
+            self.status_label.setText(
+                "● 1군 엔트리"
+                if self.player.get("status")
+                else f"● {reserve_label} / 육성"
+            )
 
         height, weight = self.player.get("height_cm"), self.player.get("weight_kg")
         self.physical_line.setText(
@@ -1405,6 +1448,21 @@ class PlayerProfilePage(QWidget):
         overall = round(sum(ratings) / len(ratings), 1) if ratings else None
         stars = self._stars(overall)
         self.current_stars.setText(f"현재 능력  {stars}")
+        from app.services.player_potential import profile_for
+        potential = profile_for(self.player)
+        if potential["rating"] is not None:
+            low, high = potential["rating_range"]
+            self.potential_stars.setText("잠재력 · 추가 자료 검토 필요" if potential.get("review_required") else f"{potential.get('assessment', '잠재력 추정')}  {potential['rating']} / 200\n평가 범위 {low}–{high} · 신뢰도 {potential['confidence']}")
+            self.potential_stars.setWordWrap(True)
+            lifecycle = potential.get("lifecycle", {})
+            state_label = {"fixed": "잠재력 고정", "developing": "4년차까지 재평가",
+                           "awaiting_history": "전 경력 자료 확인 대기", "entry_unknown": "프로 입단 연도 확인 필요"}.get(lifecycle.get("state"), "")
+            self.potential_stars.setText(self.potential_stars.text() + "\n" + state_label)
+            records = potential.get("evidence", {}).get("records", [])
+            record_text = "\n".join(f"{r['season']} {'과거 1군' if r['level'] == 'historical' else '1군' if r['level'] == 'first_team' else '퓨처스'} · {r['sample']:g} {'상대 타자' if is_pitcher else '타석'}" for r in records)
+            self.potential_stars.setToolTip(potential["note"] + "\n성장 보장이 아닌 능력별 상한의 요약입니다.\n" + (record_text or "선수 ID로 연결된 시즌 기록 없음"))
+        else:
+            self.potential_stars.setText("잠재력 · 평가 자료 부족")
         self.overall_stars.setText(stars)
         self.overall_value.setText(f"{overall} / 20" if overall is not None else "미평가")
         self._set_season_stats(is_pitcher, record)

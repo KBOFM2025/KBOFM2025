@@ -1,0 +1,11 @@
+{
+  "generatedAt": "2026-08-27T11:50:21.342Z",
+  "pipeline": "high-resolution source, original background, aspect ratio preserved",
+  "roster": 636,
+  "files": 635,
+  "uniqueIds": 635,
+  "missing": [
+    "72457"
+  ],
+  "invalid": []
+}

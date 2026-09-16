@@ -194,13 +194,13 @@ class ManagerEventPage(QWidget):
                 background: #171e26; border: 1px solid #3a4652;
             }}
             QLabel {{ color: #dce5ed; font-family: 'Malgun Gothic', 'Segoe UI'; }}
-            QLabel#Category {{ color: {c['accent_light']}; font-size: 12px; font-weight: 800; }}
+            QLabel#Category {{ color: {c['accent_light']}; font-size: 14px; font-weight: 800; }}
             QLabel#Headline {{ color: white; }}
-            QLabel#Body {{ color: #aebac5; font-size: 13px; padding: 4px 0 10px 0; }}
-            QLabel#InfoTitle, QLabel#HintLabel {{ color: #778796; font-size: 11px; font-weight: 700; }}
+            QLabel#Body {{ color: #aebac5; font-size: 15px; padding: 4px 0 10px 0; }}
+            QLabel#InfoTitle, QLabel#HintLabel {{ color: #778796; font-size: 13px; font-weight: 700; }}
             QLabel#Counterpart {{ color: white; font-size: 15px; font-weight: 800; }}
             QLabel#Demand {{ color: #d2dbe3; background: #202934; border-left: 3px solid {c['accent']}; padding: 10px; }}
-            QLabel#Round, QLabel#DateLabel, QLabel#AIStatus {{ color: #82909d; font-size: 11px; }}
+            QLabel#Round, QLabel#DateLabel, QLabel#AIStatus {{ color: #82909d; font-size: 13px; }}
             QLabel#TalkTitle {{ color: white; font-size: 17px; font-weight: 800; }}
             QLabel#Result {{ color: #7ed7aa; font-weight: 700; }}
             QPushButton#BackButton, QPushButton#WithdrawButton {{
@@ -211,13 +211,13 @@ class ManagerEventPage(QWidget):
             QPushButton#WithdrawButton:hover {{ background: #5a2528; }}
             QPushButton#SendButton {{
                 color: white; background: {c['accent']}; border: 1px solid {c['accent_light']};
-                font-size: 13px; font-weight: 800;
+                font-size: 15px; font-weight: 800;
             }}
             QPushButton#SendButton:hover {{ background: {c['accent_light']}; }}
             QPushButton#SendButton:disabled {{ background: #3a434c; color: #7c8791; border-color: #505963; }}
             QPushButton[hint="true"] {{
                 color: #b9c5cf; background: #202934; border: 1px solid #3c4956;
-                padding: 7px; text-align: left; font-size: 11px;
+                padding: 7px; text-align: left; font-size: 13px;
             }}
             QPushButton[hint="true"]:hover {{ color: white; border-color: {c['accent_light']}; }}
             QTextEdit#MessageInput {{

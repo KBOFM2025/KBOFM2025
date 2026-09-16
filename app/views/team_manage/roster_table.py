@@ -1,7 +1,7 @@
 """FM 스타일의 고밀도 선수단 관리 테이블."""
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QColor, QIcon
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -18,7 +18,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.config.national_team_2025 import is_national_team_player
 from app.player_ratings import overall_rating
+from app.utils import resource_path
 
 
 NAME_COLUMN = 4
@@ -81,6 +83,7 @@ class DenseRosterTable(QTableWidget):
         self.setShowGrid(False)
         self.setSortingEnabled(True)
         self.setWordWrap(False)
+        self.setIconSize(QSize(24, 16))
         self.verticalHeader().setVisible(False)
         self.verticalHeader().setDefaultSectionSize(27)
         self.horizontalHeader().setSectionsMovable(True)
@@ -173,9 +176,23 @@ class DenseRosterTable(QTableWidget):
 
         name_item = QTableWidgetItem(player.get("name", "-"))
         name_item.setData(Qt.ItemDataRole.UserRole, player)
-        name_item.setToolTip(
-            f"{player.get('name', '-')} 선수 전체 보고서 열기"
-        )
+        if is_national_team_player(player):
+            name_item.setIcon(
+                QIcon(
+                    str(
+                        resource_path(
+                            "image", "ui", "korea_national_team.svg"
+                        )
+                    )
+                )
+            )
+            name_item.setToolTip(
+                f"{player.get('name', '-')} · 대한민국 국가대표\n선수 전체 보고서 열기"
+            )
+        else:
+            name_item.setToolTip(
+                f"{player.get('name', '-')} 선수 전체 보고서 열기"
+            )
         font = name_item.font()
         font.setBold(True)
         name_item.setFont(font)
@@ -276,7 +293,7 @@ class DenseRosterTable(QTableWidget):
             "background: #10151a;"
             "border: none;"
             "text-align: center;"
-            "font-size: 9px;"
+            "font-size: 13px;"
             "font-weight: 700;"
             "}"
             "QProgressBar::chunk {"
@@ -404,7 +421,7 @@ class DenseRosterTable(QTableWidget):
                 alternate-background-color: #1a1f25;
                 border: 1px solid #343e47;
                 outline: none;
-                font-size: 10px;
+                font-size: 13px;
             }}
             QTableWidget::item {{
                 border-bottom: 1px solid #262d34;
@@ -421,7 +438,7 @@ class DenseRosterTable(QTableWidget):
                 border-right: 1px solid #343e47;
                 border-bottom: 2px solid {colors['accent']};
                 padding: 6px 5px;
-                font-size: 10px;
+                font-size: 13px;
                 font-weight: 800;
             }}
         """
@@ -477,7 +494,7 @@ class DenseRosterTab(QWidget):
             "border: 1px solid rgba(255,255,255,45);"
             "border-radius: 2px;"
             "padding: 7px 13px;"
-            "font-size: 11px;"
+            "font-size: 13px;"
             "font-weight: 800;"
             "}"
             "QPushButton:hover {"
@@ -508,13 +525,13 @@ class DenseRosterTab(QWidget):
             }
             QLabel#RosterInfo {
                 color: #e5ebf0;
-                font-size: 11px;
+                font-size: 13px;
                 font-weight: 800;
             }
             QLabel#RosterHint {
                 color: #778694;
                 padding: 1px 4px;
-                font-size: 9px;
+                font-size: 13px;
             }
             QLineEdit, QComboBox {
                 color: #e5ebf0;
@@ -522,7 +539,7 @@ class DenseRosterTab(QWidget):
                 border: 1px solid #3a4651;
                 border-radius: 2px;
                 padding: 5px 7px;
-                font-size: 10px;
+                font-size: 13px;
             }
             """
         )

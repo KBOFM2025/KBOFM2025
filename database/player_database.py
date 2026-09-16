@@ -909,6 +909,8 @@ def ensure_player_database():
         _import_2025_draft_players(connection)
         apply_contract_metadata(connection)
         _create_ability_views(connection)
+        from app.services.player_potential import populate_potentials
+        populate_potentials(connection)
         connection.execute("CREATE INDEX IF NOT EXISTS idx_players_team ON players(team)")
         connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_players_uid ON players(player_uid)")
         connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_players_kbo_id ON players(kbo_player_id)")
@@ -924,6 +926,8 @@ def ensure_final_roster_assignments(db_path=PLAYERS_DB_PATH):
     try:
         _create_first_team_import_history(connection)
         changed = _import_final_first_team(connection)
+        from app.services.player_potential import populate_potentials
+        populate_potentials(connection)
         connection.commit()
         return changed
     finally:
@@ -937,6 +941,8 @@ def ensure_2025_draft_players(db_path=PLAYERS_DB_PATH):
     try:
         _migrate_columns(connection)
         changed = _import_2025_draft_players(connection)
+        from app.services.player_potential import populate_potentials
+        populate_potentials(connection)
         apply_contract_metadata(connection)
         connection.commit()
         return changed

@@ -46,7 +46,7 @@ class PlayerSearchPage(QWidget):
         title.setStyleSheet(f"color: {colors['accent_light']};")
         layout.addWidget(title)
         subtitle = QLabel("스카우팅 조건을 먼저 설정한 뒤 KBO 선수 데이터베이스를 탐색합니다.")
-        subtitle.setStyleSheet("color: #91a4b7; font-size: 13px;")
+        subtitle.setStyleSheet("color: #91a4b7; font-size: 15px;")
         layout.addWidget(subtitle)
 
         body = QHBoxLayout()
@@ -258,9 +258,9 @@ class PlayerSearchPage(QWidget):
             QWidget {{ background-color: #09131f; color: #dce6ef; font-family: 'Malgun Gothic', 'Segoe UI'; }}
             QFrame#SearchFilters, QFrame#SearchResults {{ background-color: #111d29; border: 1px solid #2b4053; border-radius: 7px; }}
             QLabel#FilterTitle {{ color: white; font-size: 18px; font-weight: 800; }}
-            QLabel#FilterHelp {{ color: #8194a6; font-size: 11px; padding-bottom: 7px; }}
-            QLabel#FieldLabel {{ color: #a9b8c7; font-size: 11px; font-weight: 700; padding-top: 3px; }}
-            QLabel#ResultLabel {{ color: {colors['accent_light']}; font-size: 14px; font-weight: 800; padding: 3px 2px 8px 2px; }}
+            QLabel#FilterHelp {{ color: #8194a6; font-size: 13px; padding-bottom: 7px; }}
+            QLabel#FieldLabel {{ color: #a9b8c7; font-size: 13px; font-weight: 700; padding-top: 3px; }}
+            QLabel#ResultLabel {{ color: {colors['accent_light']}; font-size: 15px; font-weight: 800; padding: 3px 2px 8px 2px; }}
             QLineEdit, QComboBox {{ min-height: 35px; background-color: #0b141e; border: 1px solid #3b5063; border-radius: 4px; padding: 0 9px; }}
             QLineEdit:focus, QComboBox:focus {{ border: 1px solid {colors['accent_light']}; }}
             QPushButton {{ min-height: 36px; border-radius: 4px; padding: 0 14px; font-weight: 800; }}
@@ -269,7 +269,7 @@ class PlayerSearchPage(QWidget):
             QFrame#EmptyState {{ background-color: #0d1823; border: 1px dashed #31475a; border-radius: 5px; }}
             QLabel#EmptyIcon {{ color: {colors['accent_light']}; font-size: 52px; }}
             QLabel#EmptyTitle {{ color: white; font-size: 18px; font-weight: 800; }}
-            QLabel#EmptyText {{ color: #8295a7; font-size: 12px; padding: 0 40px; }}
+            QLabel#EmptyText {{ color: #8295a7; font-size: 14px; padding: 0 40px; }}
             QTableWidget {{ background-color: #0d1b2a; alternate-background-color: #101f31; border: 1px solid #263b52; border-radius: 4px; selection-background-color: {colors['accent']}; }}
             QHeaderView::section {{ background-color: #162a40; border: none; border-bottom: 1px solid #38506a; padding: 10px; font-weight: 700; }}
         """

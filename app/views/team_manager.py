@@ -42,7 +42,7 @@ class MyTeamManager(QWidget):
                 background-color: {c['card_bg']};
                 color: #9ca3af;
                 padding: 8px 18px;
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 600;
                 border: 1px solid {c['card_bg']};
                 border-bottom: none;
@@ -69,7 +69,7 @@ class MyTeamManager(QWidget):
                 border-radius: 3px;
                 padding: 7px 13px;
                 font-family: 'Malgun Gothic', 'Segoe UI';
-                font-size: 11px;
+                font-size: 13px;
                 font-weight: 600;
             }}
             QPushButton#btn_back:hover {{
@@ -115,7 +115,7 @@ class MyTeamManager(QWidget):
         self.roster_summary.setStyleSheet(
             "color: #9fb0bf; background: rgba(17, 25, 34, 180); "
             "border: 1px solid #31404d; border-radius: 2px; "
-            "padding: 6px 10px; font-size: 10px; font-weight: 650;"
+            "padding: 6px 10px; font-size: 13px; font-weight: 650;"
         )
         main_layout.addWidget(self.roster_summary)
 

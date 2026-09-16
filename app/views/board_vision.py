@@ -925,58 +925,58 @@ class BoardVisionPage(QWidget):
         return f"""
             QWidget#BoardVisionPage, QWidget#Objectives {{ background-color: #09131f; }}
             QLabel {{ color: #dce6ef; font-family: 'Malgun Gothic', 'Segoe UI'; }}
-            QLabel#Eyebrow {{ color: {colors['accent_light']}; font-size: 13px; font-weight: 700; }}
+            QLabel#Eyebrow {{ color: {colors['accent_light']}; font-size: 15px; font-weight: 700; }}
             QLabel#PageTitle {{ color: white; }}
             QLabel#Subtitle {{ color: #9badbf; font-size: 15px; }}
-            QLabel#MeetingStatus {{ color: #dce6ef; background-color: #14263a; border: 1px solid #354b63; border-radius: 7px; padding: 9px 14px; font-size: 13px; }}
+            QLabel#MeetingStatus {{ color: #dce6ef; background-color: #14263a; border: 1px solid #354b63; border-radius: 7px; padding: 9px 14px; font-size: 15px; }}
             QFrame#HeaderRule {{ background-color: {colors['accent']}; border: none; }}
             QFrame#BoardPanel {{ background-color: #101e2e; border: 1px solid #30465d; border-radius: 10px; }}
             QScrollArea#BoardProfileScroll {{ background-color: transparent; border: none; }}
             QScrollArea#BoardProfileScroll > QWidget > QWidget {{ background-color: transparent; }}
             QLabel#PanelTitle, QLabel#SectionTitle {{ color: {colors['accent_light']}; font-size: 16px; font-weight: 700; }}
             QLabel#ClubName {{ color: white; border-bottom: 1px solid #30465d; padding-bottom: 12px; font-size: 21px; font-weight: 700; }}
-            QLabel#BoardFact {{ color: #e5edf5; background-color: #0c1825; border-radius: 6px; padding: 10px; font-size: 13px; }}
-            QLabel#EvaluationNote {{ color: #aebdcb; background-color: #0c1825; border-radius: 7px; padding: 12px; font-size: 12px; }}
-            QLabel#TraitSectionTitle {{ color: white; padding-top: 5px; font-size: 14px; font-weight: 700; }}
-            QLabel#TraitGuide {{ color: #71869a; font-size: 11px; }}
+            QLabel#BoardFact {{ color: #e5edf5; background-color: #0c1825; border-radius: 6px; padding: 10px; font-size: 15px; }}
+            QLabel#EvaluationNote {{ color: #aebdcb; background-color: #0c1825; border-radius: 7px; padding: 12px; font-size: 14px; }}
+            QLabel#TraitSectionTitle {{ color: white; padding-top: 5px; font-size: 15px; font-weight: 700; }}
+            QLabel#TraitGuide {{ color: #71869a; font-size: 13px; }}
             QFrame#TraitMeter {{ background-color: #0c1825; border: 1px solid #26394c; border-radius: 6px; }}
-            QLabel#TraitName {{ color: #dce6ef; font-size: 12px; font-weight: 700; }}
-            QLabel#TraitScore {{ color: {colors['accent_light']}; font-size: 11px; font-weight: 700; }}
+            QLabel#TraitName {{ color: #dce6ef; font-size: 14px; font-weight: 700; }}
+            QLabel#TraitScore {{ color: {colors['accent_light']}; font-size: 13px; font-weight: 700; }}
             QLabel#TraitScore[grade="최상"] {{ color: #67e8f9; }}
             QLabel#TraitScore[grade="높음"] {{ color: #86efac; }}
             QLabel#TraitScore[grade="낮음"], QLabel#TraitScore[grade="매우 낮음"] {{ color: #fca5a5; }}
-            QLabel#TraitDescription {{ color: #8194a6; font-size: 10px; }}
+            QLabel#TraitDescription {{ color: #8194a6; font-size: 13px; }}
             QScrollArea#ObjectiveScroll {{ background-color: transparent; border: none; }}
             QFrame#RequiredObjective, QFrame#ImportantObjective, QFrame#LongTermObjective, QFrame#RecommendedObjective {{ background-color: #111f2e; border: 1px solid #30465d; border-radius: 9px; }}
             QFrame#RequiredObjective {{ border-left: 5px solid #ef4444; }}
             QFrame#ImportantObjective {{ border-left: 5px solid #f59e0b; }}
             QFrame#LongTermObjective {{ border-left: 5px solid {colors['accent']}; }}
             QFrame#RecommendedObjective {{ border-left: 5px solid #3b82f6; }}
-            QLabel#ObjectiveBadge {{ color: white; background-color: #26394c; border-radius: 6px; padding: 7px 5px; font-size: 13px; font-weight: 700; }}
+            QLabel#ObjectiveBadge {{ color: white; background-color: #26394c; border-radius: 6px; padding: 7px 5px; font-size: 15px; font-weight: 700; }}
             QLabel#ObjectiveTitle {{ color: white; font-size: 16px; font-weight: 700; }}
-            QLabel#ObjectiveDescription {{ color: #afbfce; font-size: 13px; }}
-            QLabel#ObjectivePeriod {{ color: #8395a7; font-size: 12px; }}
-            QPushButton#NegotiateButton {{ min-height: 30px; padding: 0 10px; color: {colors['accent_light']}; background-color: transparent; border: 1px solid {colors['accent']}; border-radius: 5px; font-size: 12px; }}
+            QLabel#ObjectiveDescription {{ color: #afbfce; font-size: 15px; }}
+            QLabel#ObjectivePeriod {{ color: #8395a7; font-size: 14px; }}
+            QPushButton#NegotiateButton {{ min-height: 30px; padding: 0 10px; color: {colors['accent_light']}; background-color: transparent; border: 1px solid {colors['accent']}; border-radius: 5px; font-size: 14px; }}
             QPushButton#NegotiateButton:hover {{ color: white; background-color: {colors['accent']}; }}
-            QLabel#NegotiationState {{ color: #718396; font-size: 11px; }}
+            QLabel#NegotiationState {{ color: #718396; font-size: 13px; }}
             QLabel#NegotiationState[direction="positive"] {{ color: #4ade80; }}
             QLabel#NegotiationState[direction="negative"] {{ color: #f87171; }}
-            QLabel#BoardNote {{ color: #91a4b6; background-color: #0e1a27; border: 1px solid #26394c; border-radius: 7px; padding: 12px; font-size: 13px; }}
+            QLabel#BoardNote {{ color: #91a4b6; background-color: #0e1a27; border: 1px solid #26394c; border-radius: 7px; padding: 12px; font-size: 15px; }}
             QFrame#NegotiationPanel {{ background-color: #101e2e; border: 1px solid {colors['accent']}; border-radius: 10px; }}
             QLabel#NegotiationTarget {{ color: white; border-bottom: 1px solid #30465d; padding-bottom: 10px; font-size: 17px; font-weight: 700; }}
-            QLabel#CurrentTerms {{ color: #adbdcb; background-color: #0b1723; border-radius: 7px; padding: 12px; font-size: 12px; }}
-            QLabel#ResponseTitle {{ color: {colors['accent_light']}; padding-top: 7px; font-size: 13px; font-weight: 700; }}
-            QLabel#BoardResponse {{ color: #d5e0e9; background-color: {colors['card_bg']}; border-left: 3px solid {colors['accent']}; padding: 12px; font-size: 12px; }}
+            QLabel#CurrentTerms {{ color: #adbdcb; background-color: #0b1723; border-radius: 7px; padding: 12px; font-size: 14px; }}
+            QLabel#ResponseTitle {{ color: {colors['accent_light']}; padding-top: 7px; font-size: 15px; font-weight: 700; }}
+            QLabel#BoardResponse {{ color: #d5e0e9; background-color: {colors['card_bg']}; border-left: 3px solid {colors['accent']}; padding: 12px; font-size: 14px; }}
             QScrollArea#BoardResponseScroll {{ background-color: transparent; border: none; }}
-            QLabel#AIStatus {{ color: #71869a; font-size: 10px; padding: 2px 1px; }}
-            QLabel#NegotiationWarning {{ color: #7f91a3; font-size: 11px; }}
-            QPushButton#Level1Button, QPushButton#Level2Button, QPushButton#Level3Button, QPushButton#Level4Button, QPushButton#Level5Button {{ min-height: 40px; font-size: 13px; text-align: left; padding-left: 13px; }}
+            QLabel#AIStatus {{ color: #71869a; font-size: 13px; padding: 2px 1px; }}
+            QLabel#NegotiationWarning {{ color: #7f91a3; font-size: 13px; }}
+            QPushButton#Level1Button, QPushButton#Level2Button, QPushButton#Level3Button, QPushButton#Level4Button, QPushButton#Level5Button {{ min-height: 40px; font-size: 15px; text-align: left; padding-left: 13px; }}
             QPushButton#Level1Button {{ color: #9fb1c3; border-color: #42566b; }}
             QPushButton#Level2Button {{ color: #7dd3fc; border-color: #2479a5; }}
             QPushButton#Level3Button {{ color: #fcd34d; border-color: #a16207; }}
             QPushButton#Level4Button {{ color: #fdba74; border-color: #c2410c; background-color: #241914; }}
             QPushButton#Level5Button {{ color: #fca5a5; border-color: #b91c1c; background-color: #26151b; }}
-            QLabel#FooterHint {{ color: #8497a9; font-size: 13px; }}
+            QLabel#FooterHint {{ color: #8497a9; font-size: 15px; }}
             QPushButton#AcceptButton {{ color: white; background-color: {colors['accent']}; border: 1px solid {colors['accent_light']}; border-radius: 8px; padding: 13px 24px; font-size: 15px; font-weight: 700; }}
             QPushButton#AcceptButton:hover {{ background-color: {colors['accent_light']}; }}
         """

@@ -19,6 +19,13 @@ NEW_FOREIGN_CAP = NEW_FOREIGN_CAP_USD  # 이전 import 호환
 MARKET_POOL_SIZE = 24
 FOREIGN_CAP_SOURCE = "https://www.koreabaseball.com/MediaNews/Notice/View.aspx?bdSe=7651"
 
+STARTER_ROLES = ("1선발", "2선발", "3선발", "4~5선발")
+STARTER_USAGE = ("선발 30경기 이상", "선발 25경기 이상", "선발 20경기 이상", "등판 기회 보장 없음")
+BULLPEN_ROLES = ("마무리", "필승조", "롱릴리프")
+BULLPEN_USAGE = ("마무리 우선 기용", "접전 8회 우선", "60경기 이상 등판", "상황별 기용")
+HITTER_ROLES = ("중심타선(3~5번)", "상위타선(1~2번)", "하위타선(6~9번)", "플래툰 기용", "대타·수비 보강")
+HITTER_USAGE = ("선발 출장 130경기 이상", "선발 출장 110경기 이상", "선발 출장 90경기 이상", "상대 투수에 따른 기용", "출장 보장 없음")
+
 NAME_POOLS = {
     "미국": (
         ("제이크", "앤더슨"), ("로건", "카터"), ("마커스", "리드"),
@@ -191,6 +198,7 @@ class ForeignPlayerService:
         self.player_db_path = str(player_db_path)
         self.save_id = int(save_id)
         self.team = team
+        self._contract_sessions = {}
         self._ensure_market()
 
     def _save_connect(self):
@@ -416,86 +424,220 @@ class ForeignPlayerService:
             "current_cost": current_cost,
         }
 
-    def submit_negotiation_offer(self, candidate_id, offer, round_number=1):
+    @staticmethod
+    def _role_plan(player):
+        position = player.get("primary_position") or player.get("pos")
+        is_pitcher = player.get("position_group") == "P" or player.get("pos") == "P" or position in {"SP", "RP"}
+        existing_role = str(player.get("role") or "")
+        is_bullpen = position == "RP" or any(
+            keyword in existing_role for keyword in ("마무리", "필승조", "불펜", "롱릴리프", "추격조")
+        )
+        if is_pitcher and not is_bullpen:
+            return STARTER_ROLES + BULLPEN_ROLES, STARTER_USAGE + BULLPEN_USAGE
+        if is_pitcher:
+            return BULLPEN_ROLES + STARTER_ROLES, BULLPEN_USAGE + STARTER_USAGE
+        return HITTER_ROLES, HITTER_USAGE
+
+    def open_agent_talk(self, candidate_id):
+        """국내 FA와 같은 공통 형식으로 외국인 에이전트 협상을 연다."""
+        key = str(candidate_id)
+        existing = self._contract_sessions.get(key)
+        if existing:
+            return dict(existing)
         context = self.negotiation_context(candidate_id)
-        if not context.get("can_negotiate"):
-            return {"accepted": False, "closed": True, "message": context.get("reason", "협상 불가")}
-        salary = max(0, int(offer.get("salary") or 0))
-        bonus = max(0, int(offer.get("bonus") or 0))
-        incentive = max(0, int(offer.get("incentive") or 0))
-        transfer_fee = max(0, int(offer.get("transfer_fee") or 0))
-        total = salary + bonus + incentive + transfer_fee
-        if total > context["max_total"]:
+        player = dict(context.get("player") or {})
+        asking_total = min(int(context.get("asking_salary") or 0), int(context.get("max_total") or 0))
+        asking_salary = round(asking_total * 0.75 / 10_000) * 10_000
+        asking_bonus = round(asking_total * 0.10 / 10_000) * 10_000
+        role_options, usage_options = self._role_plan(player)
+        kind = context.get("kind")
+        status = "preliminary" if context.get("can_negotiate") else "withdrawn"
+        session = {
+            **context, "player": player, "status": status, "currency": "USD",
+            "asking_years": 1, "asking_salary": asking_salary,
+            "asking_bonus": asking_bonus,
+            "asking_incentive": max(0, asking_total - asking_salary - asking_bonus),
+            "asking_transfer_fee": 0, "asking_total": asking_total,
+            "desired_role": role_options[0], "desired_usage": usage_options[0],
+            "role_options": role_options, "usage_options": usage_options,
+            "usage_by_role": {role: STARTER_USAGE if role in STARTER_ROLES else BULLPEN_USAGE
+                              for role in role_options} if any(role in STARTER_ROLES for role in role_options) else {},
+            "role_guidance": ("현재 보직과 관계없이 선발·불펜 전환을 제안할 수 있습니다. "
+                              "계약은 기용 약속이며 선발 능력 상승을 보장하지 않습니다. "
+                              "계약 후 라인업 편성 → 선발 · 불펜에서 배치하고 저장하세요.")
+                              if any(role in STARTER_ROLES for role in role_options) else '',
+            "fields": ("years", "salary", "bonus", "incentive", "transfer_fee", "role", "usage"),
+            "max_value": int(context.get("max_total") or 0), "money_step": 10_000, "max_years": 1,
+            "interest": 50, "lowballs": 0, "discussed_actions": [],
+            "subtitle": "외국인 선수 재계약" if kind == "renew" else "외국인 FA 신규 영입",
+            "summary": (
+                f"{player.get('nationality') or '국적 미상'} · "
+                f"{player.get('primary_position') or player.get('pos') or '-'} · "
+                "정확한 요구 총액은 에이전트 확인 필요"
+            ),
+            "initial_message": (
+                "선수는 KBO에서 맡을 역할과 실제 기용 계획을 금액 조건만큼 중요하게 봅니다. "
+                "정식 제안 전에 구단의 계획을 먼저 협의하겠습니다."
+                if context.get("can_negotiate") else context.get("reason")
+            ),
+            "rules_summary": (
+                f"구단 외국인 계약 총액: ${int(context.get('spent_usd') or 0):,} / "
+                f"${int(context.get('team_cap') or 0):,} · 이번 최대 제안액 "
+                f"${int(context.get('max_total') or 0):,}"
+            ),
+            "demand_revealed": False,
+            "demand_message": (
+                f"선수의 정확한 요구 총액은 ${asking_total:,}입니다. 구성안은 기본 연봉 "
+                f"${asking_salary:,}, 계약금 ${asking_bonus:,}, 인센티브 "
+                f"${max(0, asking_total - asking_salary - asking_bonus):,}이며, "
+                f"'{role_options[0]}' · '{usage_options[0]}' 조건을 기대합니다."
+            ),
+        }
+        self._contract_sessions[key] = session
+        return dict(session)
+
+    def agent_message(self, candidate_id, action):
+        session = self._contract_sessions[str(candidate_id)]
+        if not session.get("can_negotiate"):
+            return session.get("reason", "협상을 진행할 수 없습니다.")
+        if action == "invite":
+            if not session.get("demand_revealed"):
+                return "정식 협상 초대 전에 선수 측 요구 총액을 먼저 확인해 주십시오."
+            session["status"] = "ready"
+            return "선수가 정식 계약 협상에 응하겠습니다. 계약 조건 화면에서 제안을 전달해 주십시오."
+        if action == "later":
+            session["status"] = "deferred"
+            return "알겠습니다. 선수는 다른 구단의 관심도 함께 검토하겠습니다."
+        if action == "reject":
+            session["status"] = "withdrawn"
+            return "구단의 의사를 선수에게 전달하겠습니다. 이번 협의는 종료하겠습니다."
+        if action in session["discussed_actions"]:
+            return "이 항목에 대한 입장은 이미 설명했습니다. 정식 계약 조건을 제시해 주십시오."
+        session["discussed_actions"].append(action)
+        session["status"] = "consulting"
+        if action == "terms":
+            session["demand_revealed"] = True
+            session["summary"] = session["demand_message"]
+            return session["demand_message"]
+        session["interest"] = min(100, session["interest"] + 6)
+        return (
+            f"{self.team}의 계획을 선수에게 전달하겠습니다. 제시한 보직과 기용 약속은 "
+            "계약 후 불만 및 재면담 판단 기준으로도 사용됩니다."
+        )
+
+    def submit_contract_offer(self, candidate_id, offer):
+        """고정 라운드 없이 가치·보장액·기용 약속으로 제안을 평가한다."""
+        session = self._contract_sessions[str(candidate_id)]
+        if session["status"] in {"withdrawn", "signed"}:
+            return {"status": session["status"], "message": "이미 종료된 협상입니다."}
+        if session["status"] not in {"ready", "countered", "accepted"}:
+            return {"status": session["status"], "message": "먼저 에이전트 사전 협의를 마치고 선수를 계약 협상에 초대해 주십시오."}
+        values = {key: max(0, int(offer.get(key) or 0)) for key in (
+            "salary", "bonus", "incentive", "transfer_fee"
+        )}
+        total = sum(values.values())
+        if total > int(session.get("max_total") or 0):
             return {
-                "accepted": False, "closed": False,
-                "message": f"제안 총액 ${total:,}은 현재 제안 가능액 ${context['max_total']:,}을 초과합니다.",
-                "interest": 15,
+                "status": "countered", "interest": session["interest"],
+                "message": f"제안 총액 ${total:,}은 현재 제안 가능액 ${int(session.get('max_total') or 0):,}을 초과합니다.",
             }
-        asking = context["asking_salary"]
         role = str(offer.get("role") or "")
         usage = str(offer.get("usage") or "")
+        allowed_usage = (session.get('usage_by_role') or {}).get(role)
+        if session.get('usage_by_role') and (allowed_usage is None or usage not in allowed_usage):
+            return {'status': 'countered', 'interest': session['interest'],
+                    'message': '제안한 투수 보직과 등판 계획이 맞지 않습니다. 선발은 선발 등판 계획, 불펜은 불펜 기용 계획을 선택해 주세요.'}
         role_values = {
-            "1선발": 70_000, "2선발": 55_000, "3선발": 42_000,
-            "4~5선발": 28_000, "마무리": 55_000, "필승조": 35_000,
-            "롱릴리프": 15_000, "중심타선(3~5번)": 55_000,
-            "상위타선(1~2번)": 45_000, "하위타선(6~9번)": 25_000,
-            "플래툰 기용": 12_000, "대타·수비 보강": 0,
+            "1선발": 70_000, "2선발": 55_000, "3선발": 42_000, "4~5선발": 28_000,
+            "마무리": 55_000, "필승조": 35_000, "롱릴리프": 15_000,
+            "중심타선(3~5번)": 55_000, "상위타선(1~2번)": 45_000,
+            "하위타선(6~9번)": 25_000, "플래툰 기용": 12_000, "대타·수비 보강": 0,
         }
         usage_values = {
-            "선발 30경기 이상": 35_000, "선발 25경기 이상": 25_000,
-            "선발 20경기 이상": 15_000, "등판 기회 보장 없음": 0,
-            "마무리 우선 기용": 30_000, "접전 8회 우선": 20_000,
-            "60경기 이상 등판": 20_000, "상황별 기용": 0,
+            "선발 30경기 이상": 35_000, "선발 25경기 이상": 25_000, "선발 20경기 이상": 15_000,
+            "마무리 우선 기용": 30_000, "접전 8회 우선": 20_000, "60경기 이상 등판": 20_000,
             "선발 출장 130경기 이상": 35_000, "선발 출장 110경기 이상": 25_000,
             "선발 출장 90경기 이상": 15_000, "상대 투수에 따른 기용": 5_000,
-            "출장 보장 없음": 0,
         }
-        role_value = role_values.get(role, 0)
-        usage_value = usage_values.get(usage, 0)
-        player_value = salary + bonus + round(incentive * 0.55) + role_value + usage_value
+        perceived = values["salary"] + values["bonus"] + round(values["incentive"] * 0.55)
+        perceived += role_values.get(role, 0) + usage_values.get(usage, 0)
         seed = int.from_bytes(hashlib.sha256(
-            f"{self.save_id}:{candidate_id}:negotiation".encode()
+            f"{self.save_id}:{candidate_id}:unified-negotiation".encode()
         ).digest()[:2], "big") % 9
-        required_value = round(asking * (0.92 + seed / 100))
-        interest = max(5, min(100, round(player_value / max(1, required_value) * 100)))
-        if player_value < required_value:
-            counter = min(context["max_total"], max(asking, required_value))
-            patience = max(0, 4 - int(round_number))
-            concerns = []
-            guaranteed = salary + bonus
-            if guaranteed < asking * 0.70:
-                concerns.append("기본 연봉과 계약금으로 구성된 보장액이 낮습니다")
-            if total and incentive > total * 0.35:
-                concerns.append("인센티브 비중이 높아 실질 보장 가치가 부족합니다")
-            if usage in ("출장 보장 없음", "등판 기회 보장 없음", "상황별 기용"):
-                concerns.append("구체적인 출장·등판 기회가 보장되지 않았습니다")
-            concern_text = " ".join(concerns[:2]) or "금액 조건을 조금 더 높여야 합니다"
+        required = round(session["asking_total"] * (0.92 + seed / 100))
+        interest = max(5, min(100, round(perceived / max(1, required) * 100)))
+        session["interest"] = interest
+        if perceived >= required:
+            session.update(status="accepted", agreed_offer={**values, "years": 1, "role": role, "usage": usage})
             return {
-                "accepted": False, "closed": patience == 0, "interest": interest,
-                "counter_total": counter,
-                "message": (
-                    f"'{role}' · '{usage}' 기용안은 확인했습니다. {concern_text} "
-                    f"총액 ${counter:,} 수준이면 협상을 진전시킬 수 있습니다. "
-                    f"남은 협상 기회 {patience}회."
-                ),
+                "status": "accepted", "interest": interest,
+                "message": "선수 측이 제안에 합의했습니다. 계약서를 검토한 뒤 별도로 서명해 주십시오.",
             }
+        guaranteed = values["salary"] + values["bonus"]
+        if perceived < required * 0.68:
+            session["lowballs"] += 1
+        if session["lowballs"] >= 2:
+            session["status"] = "withdrawn"
+            return {
+                "status": "withdrawn", "interest": interest,
+                "message": "선수 가치에 크게 못 미치는 제안이 반복되어 에이전트가 협상을 중단했습니다.",
+            }
+        counter = min(int(session["max_total"]), max(session["asking_total"], required))
+        session["asking_total"] = counter
+        session["asking_salary"] = round(counter * 0.75 / 10_000) * 10_000
+        session["asking_bonus"] = round(counter * 0.10 / 10_000) * 10_000
+        session["asking_incentive"] = max(0, counter - session["asking_salary"] - session["asking_bonus"])
+        session["status"] = "countered"
+        concern = (
+            "보장액이 부족합니다" if guaranteed < required * 0.70
+            else "보직 또는 기용 약속이 선수의 기대에 미치지 못합니다"
+        )
+        return {
+            "status": "countered", "interest": interest,
+            "message": f"{concern}. 총액 ${counter:,} 수준의 수정안을 제시합니다.",
+        }
+
+    def finalize_contract(self, candidate_id):
+        """합의된 조건을 최종 서명 시점에만 실제 선수 데이터에 반영한다."""
+        session = self._contract_sessions[str(candidate_id)]
+        if session.get("status") != "accepted":
+            return False, "아직 선수 측의 계약 동의를 얻지 못했습니다."
+        context = self.negotiation_context(candidate_id)
+        if not context.get("can_negotiate"):
+            return False, context.get("reason", "현재 계약을 체결할 수 없습니다.")
+        offer = session["agreed_offer"]
+        player = context["player"]
         if context["kind"] == "renew":
-            self._complete_renewal(
-                context["player"], salary, bonus, incentive, transfer_fee, role, usage
-            )
-            message = (
-                f"{context['player']['name']}과 총액 ${total:,}에 재계약했습니다.\n"
-                f"기용 합의: {role} · {usage}"
-            )
+            self._complete_renewal(player, offer["salary"], offer["bonus"], offer["incentive"],
+                                   offer["transfer_fee"], offer["role"], offer["usage"])
+            action = "재계약"
         else:
-            self._complete_signing(
-                context["player"], salary, bonus, incentive, transfer_fee, role, usage
-            )
-            message = (
-                f"{context['player']['name']}과 총액 ${total:,}에 계약했습니다.\n"
-                f"기용 합의: {role} · {usage}"
-            )
-        return {"accepted": True, "closed": True, "interest": 100, "message": message}
+            self._complete_signing(player, offer["salary"], offer["bonus"], offer["incentive"],
+                                   offer["transfer_fee"], offer["role"], offer["usage"])
+            action = "계약"
+        session["status"] = "signed"
+        total = sum(offer[key] for key in ("salary", "bonus", "incentive", "transfer_fee"))
+        return True, f"{player['name']}과 총액 ${total:,}에 {action}했습니다. 기용 합의: {offer['role']} · {offer['usage']}"
+
+    def contract_talk_ready(self, candidate_id):
+        session = self._contract_sessions.get(str(candidate_id))
+        return bool(session and session.get("status") in {"ready", "countered", "accepted", "signed"})
+
+    def submit_negotiation_offer(self, candidate_id, offer, round_number=1):
+        """이전 화면과의 호환용 별칭. 라운드 수는 더 이상 협상 종료 조건이 아니다."""
+        del round_number
+        if str(candidate_id) not in self._contract_sessions:
+            self.open_agent_talk(candidate_id)
+        session = self._contract_sessions[str(candidate_id)]
+        if not session.get("discussed_actions") and session.get("can_negotiate"):
+            self.agent_message(candidate_id, "terms")
+            self.agent_message(candidate_id, "invite")
+        result = self.submit_contract_offer(candidate_id, offer)
+        return {
+            **result,
+            "accepted": result.get("status") == "accepted",
+            "closed": result.get("status") in {"withdrawn", "signed"},
+        }
 
     def _complete_renewal(
         self, player, salary, bonus, incentive, transfer_fee=0, role="", usage=""

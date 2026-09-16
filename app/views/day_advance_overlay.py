@@ -102,26 +102,26 @@ class DayAdvanceOverlay(QWidget):
                 font-family: 'Malgun Gothic', 'Segoe UI';
             }}
             QLabel#AdvanceTitle {{
-                color: #aebbc7; font-size: 11px; font-weight: 800;
+                color: #aebbc7; font-size: 13px; font-weight: 800;
             }}
             QLabel#AdvanceBadge {{
                 color: {accent_light}; background: #1b2530;
                 border: 1px solid {accent}; padding: 3px 8px;
-                font-size: 9px; font-weight: 900;
+                font-size: 13px; font-weight: 900;
             }}
             QLabel#AdvanceDate {{
                 color: white; font-size: 21px; font-weight: 900;
             }}
             QLabel#AdvanceStatus {{
-                color: #c1cbd4; font-size: 11px; font-weight: 700;
+                color: #c1cbd4; font-size: 13px; font-weight: 700;
             }}
             QLabel#AdvanceSteps {{
-                color: #71808d; font-size: 9px;
+                color: #71808d; font-size: 13px;
             }}
             QLabel#TeamProgress {{
                 color: #7d8b98; background: #171f28;
                 border: 1px solid #2b3742; border-radius: 4px;
-                padding: 4px 8px; font-size: 10px; font-weight: 750;
+                padding: 4px 8px; font-size: 13px; font-weight: 750;
             }}
             QProgressBar {{
                 background: #27313b; border: none; border-radius: 2px;
@@ -208,7 +208,7 @@ class DayAdvanceOverlay(QWidget):
         label.setStyleSheet(
             f"color: {foreground}; background: {background}; "
             f"border: 1px solid {border}; border-radius: 4px; "
-            "padding: 4px 8px; font-size: 10px; font-weight: 750;"
+            "padding: 4px 8px; font-size: 13px; font-weight: 750;"
         )
 
     def complete(self, target_date, after_hidden=None):

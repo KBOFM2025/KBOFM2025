@@ -293,7 +293,7 @@ class ClubSquadPage(QWidget):
             QPushButton#BackButton:hover, QPushButton#RosterButton:hover, QPushButton#RosterButton:checked {{ background-color: {colors['accent']}; border-color: {colors['accent_light']}; }}
             QComboBox#PositionCombo {{ color: white; background-color: #202630; border: 1px solid #46515d; border-radius: 0; padding: 4px 25px 4px 8px; min-width: 92px; }}
             QComboBox#PositionCombo QAbstractItemView {{ color: white; background-color: #202630; selection-background-color: {colors['accent']}; }}
-            QPushButton#SectionActive, QPushButton#SectionButton {{ color: #c8d2dc; background-color: #1b2027; border: none; border-bottom: 2px solid #46515d; border-radius: 0; padding: 5px 18px; font-size: 12px; font-weight: 700; }}
+            QPushButton#SectionActive, QPushButton#SectionButton {{ color: #c8d2dc; background-color: #1b2027; border: none; border-bottom: 2px solid #46515d; border-radius: 0; padding: 5px 18px; font-size: 14px; font-weight: 700; }}
             QPushButton#SectionActive {{ color: white; border-bottom-color: {colors['accent_light']}; background-color: #252c35; }}
             QPushButton#SectionButton:hover {{ color: white; background-color: #252c35; border-bottom-color: {colors['accent']}; }}
             QTableWidget {{ background-color: #151a20; alternate-background-color: #1d232b; border: 1px solid #38424d; selection-background-color: {colors['accent']}; }}

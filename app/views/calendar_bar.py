@@ -64,7 +64,7 @@ class CalendarBar(QFrame):
         self._search_completer.setMaxVisibleItems(12)
         self._search_completer.popup().setStyleSheet(
             f"QAbstractItemView {{ color: #e5edf5; background: #171c22; "
-            f"border: 1px solid #4b5662; padding: 3px; font-size: 12px; "
+            f"border: 1px solid #4b5662; padding: 3px; font-size: 14px; "
             f"outline: 0; selection-color: white; "
             f"selection-background-color: {colors['accent']}; }}"
         )
@@ -97,15 +97,15 @@ class CalendarBar(QFrame):
                 border-bottom: 2px solid {colors['accent']};
             }}
             QLabel {{ color: {colors['text']}; font-family: 'Malgun Gothic', 'Segoe UI'; }}
-            QLabel#HeaderBrand {{ color: white; background-color: {colors['accent']}; border-radius: 1px; font-size: 14px; font-weight: 800; }}
-            QLabel#HeaderTitle {{ color: white; font-size: 14px; font-weight: 700; }}
-            QLabel#HeaderContext {{ color: #84909c; font-size: 10px; }}
-            QLabel#HeaderDate {{ color: #e2e7ec; font-size: 12px; padding: 0 7px; }}
+            QLabel#HeaderBrand {{ color: white; background-color: {colors['accent']}; border-radius: 1px; font-size: 15px; font-weight: 800; }}
+            QLabel#HeaderTitle {{ color: white; font-size: 15px; font-weight: 700; }}
+            QLabel#HeaderContext {{ color: #84909c; font-size: 13px; }}
+            QLabel#HeaderDate {{ color: #e2e7ec; font-size: 14px; padding: 0 7px; }}
             QLineEdit#GlobalSearch {{
                 color: #f8fafc; background-color: #0d1217;
                 placeholder-text-color: #7f8b98;
                 border: 1px solid #46515d; border-radius: 1px;
-                padding: 0 10px; font-size: 12px;
+                padding: 0 10px; font-size: 14px;
             }}
             QLineEdit#GlobalSearch:hover {{ border-color: #6b7784; }}
             QLineEdit#GlobalSearch:focus {{
@@ -115,7 +115,7 @@ class CalendarBar(QFrame):
             QPushButton#GlobalSearchButton {{
                 color: #e7ebef; background-color: #202832;
                 border: 1px solid #4a5662; border-radius: 1px;
-                padding: 0 14px; font-size: 12px; font-weight: 700;
+                padding: 0 14px; font-size: 14px; font-weight: 700;
             }}
             QPushButton#GlobalSearchButton:hover {{ background-color: {colors['accent']}; }}
             QPushButton#NextDateButton {{
@@ -126,7 +126,7 @@ class CalendarBar(QFrame):
                 min-height: 32px;
                 padding: 0 17px;
                 font-family: 'Malgun Gothic', 'Segoe UI';
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 700;
             }}
             QPushButton#NextDateButton:hover {{ background-color: {colors['accent_light']}; }}

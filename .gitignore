@@ -2,6 +2,8 @@ __pycache__/
 *.py[cod]
 .idea/
 .agents/
+tmp/
+release/
 venv/
 .venv/
 build/
@@ -13,6 +15,7 @@ data/players.before-*.db
 data/source/kbo_2025_salary_roster.xlsx
 image/players/local/*
 !image/players/local/.gitkeep
+scripts/player-photo-tools/node_modules/
 models/*.gguf
 models/*.bin
 models/*.safetensors
@@ -25,3 +28,10 @@ data/ai_logs/*.pid
 data/logs/
 *.sqlite-wal
 *.sqlite-shm
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.db-wal
+*.db-shm

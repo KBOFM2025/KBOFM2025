@@ -379,7 +379,7 @@ class SecondDraftPage(QWidget):
                 background-color: #1c242d; border: 1px solid #3c4854;
                 border-left: 3px solid {colors['accent_light']};
             }}
-            QLabel#CardLabel {{ color: #91a2b2; font-size: 11px; }}
+            QLabel#CardLabel {{ color: #91a2b2; font-size: 13px; }}
             QLabel#CardValue {{ color: white; }}
             QPushButton#BackButton {{
                 color: white; background-color: #222b35;

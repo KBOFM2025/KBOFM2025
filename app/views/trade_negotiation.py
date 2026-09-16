@@ -2,6 +2,8 @@
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QAbstractSpinBox,
+    QComboBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -9,6 +11,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QSpinBox,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -20,17 +23,10 @@ from app.views.player_meeting import MeetingBackdrop
 
 TRADE_TALKING_POINTS = (
     ("accept", "현재 조건 수락", "현재 제안 조건을 수락하고 트레이드를 최종 진행해 주세요."),
-    ("reject", "협상 최종 거절", "현재 조건으로는 트레이드를 진행하지 않겠습니다. 제안을 최종 거절해 주세요."),
     ("original", "1대1 원안 유지", "추가 조건 없이 현재 두 선수의 1대1 교환 원안으로 다시 제안해 주세요."),
-    ("request_cash", "현금 보상 요구", "우리 선수가 더 가치 있습니다. 가치 차이에 맞는 현금 보상을 추가해 달라고 전달해 주세요."),
     ("request_player", "추가 선수 요구", "현재 조건에는 부족함이 있습니다. 가치 차이에 맞는 추가 선수를 포함해 달라고 전달해 주세요."),
-    ("request_mixed", "선수+현금 요구", "추가 선수와 현금을 함께 받는 복합 보상 조건을 요청해 주세요."),
-    ("request_future", "추후 지명 요구", "상대 구단 후보군에서 30일 이내 한 명을 확정하는 추후 지명 선수를 요구해 주세요."),
-    ("reduce_cash", "상대 현금 요구 감액", "상대 구단이 요구한 현금 금액이 과합니다. 현금 부담을 낮춘 수정안을 요청해 주세요."),
-    ("remove_player", "상대 추가 선수 제외", "상대가 요구한 추가 선수는 포함할 수 없습니다. 추가 선수 없이 조건을 다시 조정해 주세요."),
-    ("salary_cash", "연봉 부담 보상", "우리가 인수할 연봉 부담까지 고려해 현금 보상을 추가해 달라고 요청해 주세요."),
-    ("protect_prospect", "유망주 보호·현금 전환", "유망주는 보호하겠습니다. 선수 보상 대신 현금 보상 방식으로 바꿔 달라고 요청해 주세요."),
     ("revalue", "가치 재검토 요청", "양 선수의 나이, 계약 기간, 연봉과 포지션 수요를 다시 계산해 조건을 재검토해 주세요."),
+    ("reject", "협상 최종 거절", "현재 조건으로는 트레이드를 진행하지 않겠습니다. 제안을 최종 거절해 주세요."),
 )
 
 
@@ -158,6 +154,36 @@ class TradeNegotiationPage(QWidget):
         state_row.addWidget(self.score_bar)
         action_layout.addLayout(state_row)
 
+        offer_editor = QFrame()
+        offer_editor.setObjectName("TradeOfferEditor")
+        offer_row = QHBoxLayout(offer_editor)
+        offer_row.setContentsMargins(12, 9, 12, 9)
+        offer_row.setSpacing(9)
+        offer_row.addWidget(QLabel("우리 수정안", objectName="OfferEditorTitle"))
+        offer_row.addWidget(QLabel("보장 현금", objectName="DealCaption"))
+        self.cash_offer = QSpinBox()
+        self.cash_offer.setRange(0, 50000)
+        self.cash_offer.setSingleStep(1000)
+        self.cash_offer.setSuffix("만원")
+        self.cash_offer.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.PlusMinus)
+        offer_row.addWidget(self.cash_offer)
+        offer_row.addWidget(QLabel("성과 옵션", objectName="DealCaption"))
+        self.conditional_offer = QSpinBox()
+        self.conditional_offer.setRange(0, 50000)
+        self.conditional_offer.setSingleStep(1000)
+        self.conditional_offer.setSuffix("만원")
+        self.conditional_offer.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.PlusMinus)
+        offer_row.addWidget(self.conditional_offer)
+        self.option_probability = QComboBox()
+        for probability in (30, 50, 70, 90):
+            self.option_probability.addItem(f"달성 가능성 {probability}%", probability)
+        self.option_probability.setCurrentIndex(1)
+        offer_row.addWidget(self.option_probability)
+        self.custom_offer_button = QPushButton("수정안 제시", objectName="TradeOfferButton")
+        self.custom_offer_button.clicked.connect(self._send_custom_offer)
+        offer_row.addWidget(self.custom_offer_button)
+        action_layout.addWidget(offer_editor)
+
         hint_row = QGridLayout()
         hint_row.setSpacing(7)
         self.hint_buttons = []
@@ -218,51 +244,51 @@ class TradeNegotiationPage(QWidget):
             QLabel#TradeBadge {{
                 color: {c['accent_light']}; background: rgba(10, 15, 21, 220);
                 border: 1px solid {c['accent']}; border-radius: 5px;
-                padding: 6px 10px; font-size: 10px; font-weight: 900;
+                padding: 6px 10px; font-size: 13px; font-weight: 900;
             }}
-            QLabel#TradeDate {{ color: #d1d9e0; font-size: 11px; }}
+            QLabel#TradeDate {{ color: #d1d9e0; font-size: 13px; }}
             QFrame#TradeDialogue {{
                 background: rgba(10, 15, 21, 235);
                 border: 1px solid rgba(133, 151, 166, 150);
                 border-left: 4px solid {c['accent_light']}; border-radius: 9px;
             }}
             QLabel#TradeCounterpart {{
-                color: {c['accent_light']}; font-size: 12px; font-weight: 900;
+                color: {c['accent_light']}; font-size: 14px; font-weight: 900;
             }}
             QTextEdit#TradeReply {{
                 color: white; background: transparent; border: none;
-                font-size: 14px; font-weight: 700; padding: 0;
+                font-size: 15px; font-weight: 700; padding: 0;
             }}
             QLabel#LastManager {{
                 color: #94a4b2; border-top: 1px solid rgba(110, 127, 141, 90);
-                padding-top: 7px; font-size: 11px;
+                padding-top: 7px; font-size: 13px;
             }}
             QFrame#DealCard {{
                 background: rgba(10, 15, 21, 238);
                 border: 1px solid rgba(133, 151, 166, 145); border-radius: 9px;
             }}
-            QLabel#DealTitle {{ color: #94a4b2; font-size: 11px; font-weight: 800; }}
+            QLabel#DealTitle {{ color: #94a4b2; font-size: 13px; font-weight: 800; }}
             QLabel#OtherTeam {{ color: white; font-size: 17px; font-weight: 900; padding-bottom: 5px; }}
-            QLabel#DealCaption {{ color: #7f909f; font-size: 10px; }}
+            QLabel#DealCaption {{ color: #7f909f; font-size: 13px; }}
             QLabel#ReceivePlayer {{ color: #78ddb0; font-size: 15px; font-weight: 900; }}
             QLabel#GivePlayer {{ color: #f0ad78; font-size: 15px; font-weight: 900; }}
-            QLabel#Compensation {{ color: #ffd074; font-size: 14px; font-weight: 900; }}
+            QLabel#Compensation {{ color: #ffd074; font-size: 15px; font-weight: 900; }}
             QLabel#OfferStatus {{
                 color: #b3c0cb; background: rgba(39, 49, 59, 180);
-                border-radius: 4px; padding: 5px 7px; font-size: 10px;
+                border-radius: 4px; padding: 5px 7px; font-size: 13px;
             }}
             QLabel#TradeArrow {{ color: {c['accent_light']}; font-size: 18px; }}
             QFrame#TradeAction {{
                 background: rgba(9, 14, 20, 244);
                 border: 1px solid rgba(133, 151, 166, 145); border-radius: 10px;
             }}
-            QLabel#ActionTitle {{ color: white; font-size: 14px; font-weight: 900; }}
-            QLabel#TradeRound {{ color: #8999a7; font-size: 11px; }}
-            QLabel#TradeStatus {{ color: #87d8b0; font-size: 11px; font-weight: 700; }}
+            QLabel#ActionTitle {{ color: white; font-size: 15px; font-weight: 900; }}
+            QLabel#TradeRound {{ color: #8999a7; font-size: 13px; }}
+            QLabel#TradeStatus {{ color: #87d8b0; font-size: 13px; font-weight: 700; }}
             QPushButton[tradeHint="true"] {{
                 color: #c5d0d9; background: rgba(31, 40, 50, 235);
                 border: 1px solid #3b4956; border-radius: 6px;
-                padding: 8px 10px; text-align: left; font-size: 10px;
+                padding: 8px 10px; text-align: left; font-size: 13px;
             }}
             QPushButton[tradeHint="true"]:hover {{
                 color: white; background: rgba(47, 61, 74, 245);
@@ -272,19 +298,32 @@ class TradeNegotiationPage(QWidget):
                 color: white; background: rgba(8, 12, 17, 245);
                 border: 1px solid #4b5b69; border-radius: 7px;
                 padding: 9px; selection-background-color: {c['accent']};
-                font-size: 12px;
+                font-size: 14px;
             }}
             QPushButton#TradeSend {{
                 color: white; background: {c['accent']};
                 border: 1px solid {c['accent_light']}; border-radius: 7px;
-                font-size: 12px; font-weight: 900;
+                font-size: 14px; font-weight: 900;
             }}
             QPushButton#TradeSend:hover {{ background: {c['accent_light']}; }}
+            QFrame#TradeOfferEditor {{
+                background: rgba(18, 28, 37, 245); border: 1px solid #3d5263;
+                border-radius: 7px;
+            }}
+            QLabel#OfferEditorTitle {{ color: {c['accent_light']}; font-weight: 900; }}
+            QSpinBox, QComboBox {{
+                color: white; background: #111a22; border: 1px solid #4a5d6d;
+                border-radius: 5px; min-height: 28px; padding: 2px 7px;
+            }}
+            QPushButton#TradeOfferButton {{
+                color: white; background: {c['accent']}; border: 1px solid {c['accent_light']};
+                border-radius: 6px; min-height: 30px; padding: 2px 16px; font-weight: 900;
+            }}
             QPushButton#TradeSend:disabled {{ background: #39434c; color: #7f8992; border-color: #4a545d; }}
             QProgressBar {{
                 color: white; background: rgba(5, 9, 13, 230);
                 border: 1px solid #4a5865; border-radius: 5px;
-                text-align: center; font-size: 10px; font-weight: 800;
+                text-align: center; font-size: 13px; font-weight: 800;
             }}
             QProgressBar::chunk {{ background: {c['accent_light']}; border-radius: 4px; }}
         """)
@@ -304,6 +343,8 @@ class TradeNegotiationPage(QWidget):
         self._render_state()
 
     def _render_state(self):
+        if not self.negotiation_data:
+            return
         data = self.negotiation_data
         state = data["negotiation"]
         transcript = state.get("transcript", [])
@@ -364,6 +405,11 @@ class TradeNegotiationPage(QWidget):
         self.send_button.setEnabled(active)
         for button in self.hint_buttons:
             button.setEnabled(active)
+        for control in (
+            self.cash_offer, self.conditional_offer,
+            self.option_probability, self.custom_offer_button,
+        ):
+            control.setEnabled(active)
         if data.get("resolved"):
             self.status_label.setText(data.get("result_text", "협상이 종료됐습니다."))
         elif state.get("status") == "accepted":
@@ -385,6 +431,7 @@ class TradeNegotiationPage(QWidget):
             ),
             dict(payload.get("trade_terms") or {}),
         )
+        self._latest_terms = latest_terms
         incoming_name = latest_terms.get(
             "incoming_name", payload.get("incoming_name", "-")
         )
@@ -447,6 +494,15 @@ class TradeNegotiationPage(QWidget):
         cash_from_user_label = str(
             latest_terms.get("cash_from_user_label") or "없음"
         )
+        conditional_cash = int(
+            latest_terms.get("conditional_cash_from_user_10k") or 0
+        )
+        conditional_label = str(
+            latest_terms.get("conditional_cash_label") or "없음"
+        )
+        condition_probability = int(
+            latest_terms.get("condition_probability") or 50
+        )
         future_pool_outgoing = list(
             latest_terms.get("future_player_pool_outgoing") or []
         )
@@ -486,8 +542,13 @@ class TradeNegotiationPage(QWidget):
             )
         elif additional_outgoing_name:
             compensation = f"상대 요구 선수 · {additional_outgoing_name}"
-        elif cash_from_user > 0:
+        elif cash_from_user > 0 or conditional_cash > 0:
             compensation = f"상대 요구 현금 · {cash_from_user_label}"
+            if conditional_cash:
+                compensation += (
+                    f"\n성과 옵션 · {conditional_label} "
+                    f"(달성 가능성 {condition_probability}%)"
+                )
         elif additional_name and cash_amount > 0:
             compensation = (
                 f"복합 보상 · {additional_name} + 현금 {cash_label}"
@@ -513,6 +574,14 @@ class TradeNegotiationPage(QWidget):
         self.offer_status_label.setText(
             f"{status_labels.get(status, '조건 검토 중')}\n{summary}"
         )
+        self.cash_offer.setValue(int(latest_terms.get("cash_from_user_10k") or 0))
+        self.conditional_offer.setValue(
+            int(latest_terms.get("conditional_cash_from_user_10k") or 0)
+        )
+        probability = int(latest_terms.get("condition_probability") or 50)
+        index = self.option_probability.findData(probability)
+        if index >= 0:
+            self.option_probability.setCurrentIndex(index)
 
     @staticmethod
     def _player_term_text(name, rating=0, salary=0, suffix=""):
@@ -558,6 +627,36 @@ class TradeNegotiationPage(QWidget):
         self.status_label.setText("선수 가치·연봉·보상 조건으로 상대 구단 답변을 판정했습니다.")
         self._receive_response(message, response)
 
+    def _send_custom_offer(self):
+        if not self.current_event or self.worker is not None:
+            return
+        guaranteed = self.cash_offer.value()
+        conditional = self.conditional_offer.value()
+        probability = int(self.option_probability.currentData() or 50)
+        message = (
+            f"보장 현금 {guaranteed:,}만원과 2026시즌 성과 조건부 "
+            f"{conditional:,}만원 옵션으로 수정 제안해 주세요. "
+            f"옵션 달성 가능성은 {probability}%로 평가합니다."
+        )
+        try:
+            response = self.event_service.rule_based_negotiation_response(
+                self.save_id,
+                int(self.current_event["id"]),
+                message,
+                {
+                    "action": "custom_offer",
+                    "cash_from_user_10k": guaranteed,
+                    "conditional_cash_10k": conditional,
+                    "condition_probability": probability,
+                    "condition_text": "2026시즌 성과 조건 충족",
+                },
+            )
+        except Exception as error:
+            QMessageBox.critical(self, "트레이드 수정안 오류", str(error))
+            return
+        self.status_label.setText("보장액과 조건부 옵션의 기대가치로 상대 구단이 수정안을 검토했습니다.")
+        self._receive_response(message, response)
+
     def _send_standard_choice(self, action, message):
         """정형화된 협상 행동을 선택 즉시 단장에게 전달한다."""
         if self.worker is not None or not self.current_event:
@@ -566,6 +665,8 @@ class TradeNegotiationPage(QWidget):
         self._send_message(action)
 
     def _receive_response(self, manager_message, response):
+        if not self.current_event:
+            return
         try:
             state = self.event_service.record_negotiation_turn(
                 self.save_id,
@@ -602,7 +703,7 @@ class TradeNegotiationPage(QWidget):
             self._render_state()
 
     def _withdraw(self):
-        if not self.current_event:
+        if not self.current_event or not self.negotiation_data:
             return
         answer = QMessageBox.question(
             self, "협상 철회", "이번 트레이드 협상을 최종 철회하시겠습니까?"

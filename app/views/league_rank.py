@@ -35,6 +35,7 @@ from app.ai.context_builder import governance_profile_for
 from app.player_ratings import overall_rating
 from app.services.fa_eligibility import fa_eligibility_report
 from app.services.negotiation_rules import LEVELS
+from app.services.second_draft import FA_APPROVED_2025
 from app.team_assets import team_logo_path
 from app.utils import resource_path
 from app.views.team_manage.player_profile import _player_photo_path
@@ -120,10 +121,10 @@ class LeagueStatRing(QWidget):
             -int(360 * 16 * min(1.0, self.value / self.maximum)),
         )
         painter.setPen(QColor("#f1f5f8"))
-        painter.setFont(QFont("Malgun Gothic", 9, QFont.Weight.Bold))
+        painter.setFont(QFont("Malgun Gothic", 10, QFont.Weight.Bold))
         painter.drawText(ring, Qt.AlignmentFlag.AlignCenter, self.display)
         painter.setPen(QColor("#8f9ca8"))
-        painter.setFont(QFont("Malgun Gothic", 7))
+        painter.setFont(QFont("Malgun Gothic", 10))
         painter.drawText(
             QRectF(0, self.width() - 5, self.width(), 22),
             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
@@ -511,7 +512,7 @@ class LeagueRankTab(QWidget):
         self.setStyleSheet(f"""
             QWidget {{ font-family: 'Malgun Gothic', 'Segoe UI'; }}
             QFrame#SectionNav {{ background-color: #171d24; border-bottom: 1px solid #35414f; }}
-            QPushButton#SectionItem, QPushButton#ActiveSection {{ color: #a9b4c1; background: transparent; border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 4px 12px; font-size: 12px; }}
+            QPushButton#SectionItem, QPushButton#ActiveSection {{ color: #a9b4c1; background: transparent; border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 4px 12px; font-size: 14px; }}
             QPushButton#SectionItem:hover {{ color: white; background: #202831; border-bottom-color: #586675; }}
             QPushButton#ActiveSection {{ color: white; border-bottom-color: {c['accent']}; font-weight: 700; }}
             QFrame#InboxPanel, QFrame#MessagePanel {{ background-color: #151a20; border: 1px solid #39434e; border-radius: 0; }}
@@ -523,23 +524,23 @@ class LeagueRankTab(QWidget):
             QScrollArea#MessageDetailScroll QScrollBar::add-line:vertical, QScrollArea#MessageDetailScroll QScrollBar::sub-line:vertical {{ height: 0; }}
             QScrollArea#MessageDetailScroll QScrollBar::add-page:vertical, QScrollArea#MessageDetailScroll QScrollBar::sub-page:vertical {{ background: transparent; }}
             QFrame#InboxHeader {{ background-color: #20262d; border-bottom: 1px solid #39434e; }}
-            QLabel#InboxFilter {{ color: #e8eef5; font-size: 12px; font-weight: 600; }}
+            QLabel#InboxFilter {{ color: #e8eef5; font-size: 14px; font-weight: 600; }}
             QLabel#InboxCount {{ color: white; background-color: {c['accent']}; border-radius: 1px; padding: 1px 7px; font-weight: 700; }}
-            QLabel#InboxDay {{ color: #aeb9c5; background-color: #10151a; padding: 6px 10px; font-size: 11px; font-weight: 600; }}
-            QListWidget#InboxList {{ color: #dce4ec; background-color: #151a20; border: none; outline: none; font-size: 12px; }}
+            QLabel#InboxDay {{ color: #aeb9c5; background-color: #10151a; padding: 6px 10px; font-size: 13px; font-weight: 600; }}
+            QListWidget#InboxList {{ color: #dce4ec; background-color: #151a20; border: none; outline: none; font-size: 14px; }}
             QListWidget#InboxList::item {{ border-bottom: 1px solid #303943; padding: 7px 10px; }}
             QListWidget#InboxList::item:hover {{ background-color: #242b33; }}
             QListWidget#InboxList::item:selected {{ background-color: {c['tab_selected']}; border-left: 4px solid {c['accent_light']}; }}
-            QLabel#SenderBadge {{ color: white; background-color: {c['accent']}; border-radius: 1px; font-size: 11px; font-weight: 800; }}
-            QLabel#Sender {{ color: #f4f7fb; font-size: 13px; font-weight: 700; }}
-            QLabel#MessageCategory, QLabel#MessageTime {{ color: #8492a1; font-size: 11px; }}
+            QLabel#SenderBadge {{ color: white; background-color: {c['accent']}; border-radius: 1px; font-size: 13px; font-weight: 800; }}
+            QLabel#Sender {{ color: #f4f7fb; font-size: 15px; font-weight: 700; }}
+            QLabel#MessageCategory, QLabel#MessageTime {{ color: #8492a1; font-size: 13px; }}
             QLabel#MessageHeadline {{ color: white; border-top: 1px solid #37414c; padding-top: 9px; font-size: 18px; font-weight: 700; }}
-            QLabel#MessageBody {{ color: #c8d1da; padding: 2px 0 7px 0; font-size: 12px; }}
+            QLabel#MessageBody {{ color: #c8d1da; padding: 2px 0 7px 0; font-size: 14px; }}
             QFrame#DataCard {{ background-color: #1b2128; border: 1px solid #343e49; border-radius: 0; }}
             QFrame#OperationsStrip {{ background-color: #11161b; border: 1px solid #343e49; }}
-            QLabel#OperationMetric {{ color: #dbe3eb; background-color: #1a2027; border-right: 1px solid #343e49; padding: 6px 9px; font-size: 11px; }}
-            QLabel#AgendaText {{ color: #c8d1da; padding: 1px 2px 4px 2px; font-size: 11px; }}
-            QLabel#DataTitle {{ color: {c['accent_light']}; padding: 2px 2px 5px 2px; font-size: 12px; font-weight: 700; }}
+            QLabel#OperationMetric {{ color: #dbe3eb; background-color: #1a2027; border-right: 1px solid #343e49; padding: 6px 9px; font-size: 13px; }}
+            QLabel#AgendaText {{ color: #c8d1da; padding: 1px 2px 4px 2px; font-size: 13px; }}
+            QLabel#DataTitle {{ color: {c['accent_light']}; padding: 2px 2px 5px 2px; font-size: 14px; font-weight: 700; }}
             QFrame#NewsVisual {{ background-color: #171d24; border: 1px solid #39434e; }}
             QFrame#NewsVisual[context="trade"] {{ background-color: #101a26; border-color: #31577d; }}
             QFrame#NewsVisual[context="fa"] {{ background-color: #111e19; border-color: #347151; }}
@@ -557,194 +558,194 @@ class LeagueRankTab(QWidget):
             QFrame#NewsVisual[context="league_news"] {{ background-color: #15191e; border-color: #576879; }}
             QFrame#NewsVisual[context="second_draft"] {{ background-color: #1d1910; border-color: #8b7438; }}
             QFrame#VisualHero {{ background-color: #10151b; border: 1px solid #3b4652; border-left: 5px solid {c['accent']}; }}
-            QLabel#VisualKicker {{ color: {c['accent_light']}; font-size: 10px; font-weight: 800; }}
+            QLabel#VisualKicker {{ color: {c['accent_light']}; font-size: 13px; font-weight: 800; }}
             QLabel#VisualTitle {{ color: white; font-size: 22px; font-weight: 800; }}
-            QLabel#VisualSummary {{ color: #b8c4cf; font-size: 12px; }}
+            QLabel#VisualSummary {{ color: #b8c4cf; font-size: 14px; }}
             QFrame#VisualTile {{ background-color: #202731; border: 1px solid #3a4652; border-radius: 2px; }}
-            QLabel#VisualTileLabel {{ color: #8493a2; font-size: 10px; font-weight: 700; }}
+            QLabel#VisualTileLabel {{ color: #8493a2; font-size: 13px; font-weight: 700; }}
             QLabel#VisualTileValue {{ color: white; font-size: 16px; font-weight: 800; }}
-            QLabel#VisualTileNote {{ color: #aeb9c4; font-size: 10px; }}
+            QLabel#VisualTileNote {{ color: #aeb9c4; font-size: 13px; }}
             QLabel#TradeArrow {{ color: {c['accent_light']}; font-size: 30px; font-weight: 900; }}
-            QLabel#DialogueBubble {{ color: #e7edf3; background-color: #242c35; border: 1px solid #465361; border-radius: 4px; padding: 14px; font-size: 13px; }}
+            QLabel#DialogueBubble {{ color: #e7edf3; background-color: #242c35; border: 1px solid #465361; border-radius: 4px; padding: 14px; font-size: 15px; }}
             QFrame#PlayerPortraitCard {{ background-color: #151b22; border: 1px solid #3b4856; border-radius: 5px; }}
             QLabel#PlayerPortrait {{ color: #e8eef5; background-color: #242d37; border: 1px solid #526170; border-radius: 4px; font-size: 30px; font-weight: 900; }}
             QLabel#PortraitName {{ color: white; font-size: 17px; font-weight: 900; }}
-            QLabel#PortraitMeta {{ color: #9baaba; font-size: 11px; }}
-            QLabel#ArticleEyebrow, QLabel#MeetingStamp {{ color: {c['accent_light']}; font-size: 10px; font-weight: 900; letter-spacing: 1px; }}
+            QLabel#PortraitMeta {{ color: #9baaba; font-size: 13px; }}
+            QLabel#ArticleEyebrow, QLabel#MeetingStamp {{ color: {c['accent_light']}; font-size: 13px; font-weight: 900; letter-spacing: 1px; }}
             QLabel#ArticleHeadline {{ color: white; font-size: 23px; font-weight: 900; padding: 3px 0; }}
-            QLabel#ArticleByline {{ color: #7f8c99; font-size: 10px; padding-bottom: 6px; }}
-            QLabel#ArticleLead {{ color: #d6dee6; font-size: 13px; padding: 7px 1px; }}
+            QLabel#ArticleByline {{ color: #7f8c99; font-size: 13px; padding-bottom: 6px; }}
+            QLabel#ArticleLead {{ color: #d6dee6; font-size: 15px; padding: 7px 1px; }}
             QLabel#ArticleSubhead {{ color: white; font-size: 15px; font-weight: 800; }}
-            QLabel#ArticleQuote {{ color: #d6dee6; background-color: #202831; border-left: 4px solid {c['accent_light']}; padding: 11px; font-size: 12px; }}
+            QLabel#ArticleQuote {{ color: #d6dee6; background-color: #202831; border-left: 4px solid {c['accent_light']}; padding: 11px; font-size: 14px; }}
             QFrame#TradeDirection {{ background-color: #172638; border: 1px solid #31577d; border-radius: 4px; }}
-            QLabel#TradeReply {{ color: #b9c8d7; font-size: 12px; padding-top: 4px; }}
+            QLabel#TradeReply {{ color: #b9c8d7; font-size: 14px; padding-top: 4px; }}
             QFrame#MeetingLetter {{ background-color: #eee9df; border: 1px solid #c8bfae; border-radius: 4px; }}
             QLabel#MeetingStamp {{ color: #775495; }}
             QLabel#MeetingHeadline {{ color: #1c2025; font-size: 21px; font-weight: 900; }}
-            QLabel#MeetingBody {{ color: #343b43; font-size: 13px; }}
-            QLabel#MeetingQuote {{ color: #22272d; background-color: #ddd6c9; border-left: 4px solid #775495; padding: 13px; font-size: 13px; }}
-            QLabel#MeetingAgenda {{ color: #675d50; border-top: 1px solid #bdb3a3; padding-top: 8px; font-size: 11px; font-weight: 700; }}
+            QLabel#MeetingBody {{ color: #343b43; font-size: 15px; }}
+            QLabel#MeetingQuote {{ color: #22272d; background-color: #ddd6c9; border-left: 4px solid #775495; padding: 13px; font-size: 15px; }}
+            QLabel#MeetingAgenda {{ color: #675d50; border-top: 1px solid #bdb3a3; padding-top: 8px; font-size: 13px; font-weight: 700; }}
             QLabel#BigNumber {{ color: white; font-size: 38px; font-weight: 900; }}
-            QLabel#BigCaption {{ color: #99a8b6; font-size: 11px; font-weight: 700; }}
+            QLabel#BigCaption {{ color: #99a8b6; font-size: 13px; font-weight: 700; }}
             QLabel#FlowArrow {{ color: #7f91a2; font-size: 25px; font-weight: 900; }}
             QLabel#NewsMasthead {{ color: white; border-bottom: 3px solid {c['accent']}; padding-bottom: 7px; font-size: 27px; font-weight: 900; }}
-            QLabel#NewsDeck {{ color: #aebac5; font-size: 13px; line-height: 1.4; }}
+            QLabel#NewsDeck {{ color: #aebac5; font-size: 15px; line-height: 1.4; }}
             QFrame#LeagueArticle {{ background-color: #15191e; border: none; }}
-            QLabel#LeagueArticleKicker {{ color: #d4ad52; font-size: 10px; font-weight: 900; }}
-            QLabel#NewsSummary {{ color: #9fb1bf; background-color: #1c252d; border-left: 3px solid #4b9ed1; padding: 8px 10px; font-size: 10px; font-weight: 700; }}
+            QLabel#LeagueArticleKicker {{ color: #d4ad52; font-size: 13px; font-weight: 900; }}
+            QLabel#NewsSummary {{ color: #9fb1bf; background-color: #1c252d; border-left: 3px solid #4b9ed1; padding: 8px 10px; font-size: 13px; font-weight: 700; }}
             QFrame#AssistantDeliveryPortrait {{ background-color: #090d12; border: 2px solid #465563; border-radius: 3px; }}
-            QLabel#AssistantDeliveryPhoto {{ color: #8fa0ad; background-color: #202b35; border: none; font-size: 12px; font-weight: 800; }}
+            QLabel#AssistantDeliveryPhoto {{ color: #8fa0ad; background-color: #202b35; border: none; font-size: 14px; font-weight: 800; }}
             QFrame#AssistantDeliveryCopy {{ background-color: #151c23; border: 1px solid #35434f; border-radius: 3px; }}
-            QLabel#AssistantDeliveryKicker {{ color: #62aede; font-size: 10px; font-weight: 900; }}
+            QLabel#AssistantDeliveryKicker {{ color: #62aede; font-size: 13px; font-weight: 900; }}
             QLabel#AssistantDeliveryTitle {{ color: white; font-size: 22px; font-weight: 900; }}
-            QLabel#AssistantDeliverySummary {{ color: #bbc6cf; font-size: 12px; }}
-            QLabel#AssistantDeliveryNote {{ color: #8fa0ad; background-color: #1d2730; border-left: 3px solid #4b9ed1; padding: 8px; font-size: 10px; }}
+            QLabel#AssistantDeliverySummary {{ color: #bbc6cf; font-size: 14px; }}
+            QLabel#AssistantDeliveryNote {{ color: #8fa0ad; background-color: #1d2730; border-left: 3px solid #4b9ed1; padding: 8px; font-size: 13px; }}
             QLabel#ClubNoticeLogo {{ background-color: transparent; border: none; }}
-            QLabel#ClubSecretaryName {{ color: #d8e2ea; font-size: 11px; font-weight: 800; }}
-            QLabel#ClubNoticeMeta {{ color: {c['accent_light']}; font-size: 10px; font-weight: 800; }}
+            QLabel#ClubSecretaryName {{ color: #d8e2ea; font-size: 13px; font-weight: 800; }}
+            QLabel#ClubNoticeMeta {{ color: {c['accent_light']}; font-size: 13px; font-weight: 800; }}
             QLabel#ClubNoticeHeadline {{ color: white; font-size: 23px; font-weight: 900; }}
             QFrame#ClubNoticeRule {{ color: #3c4650; background-color: #3c4650; max-height: 1px; }}
-            QLabel#ClubNoticeLead {{ color: #e2e8ed; font-size: 13px; font-weight: 700; padding: 7px 2px; }}
-            QLabel#ClubNoticeBody {{ color: #c1cad2; font-size: 12px; padding: 6px 2px; }}
-            QLabel#ClubNoticeFooter {{ color: #7f8e9b; background-color: #11161b; border-top: 1px solid #343e47; padding: 9px; font-size: 9px; }}
+            QLabel#ClubNoticeLead {{ color: #e2e8ed; font-size: 15px; font-weight: 700; padding: 7px 2px; }}
+            QLabel#ClubNoticeBody {{ color: #c1cad2; font-size: 14px; padding: 6px 2px; }}
+            QLabel#ClubNoticeFooter {{ color: #7f8e9b; background-color: #11161b; border-top: 1px solid #343e47; padding: 9px; font-size: 13px; }}
             QLabel#LeagueArticleHeadline {{ color: white; font-size: 25px; font-weight: 900; padding: 3px 0 2px 0; }}
-            QLabel#LeagueArticleDeck {{ color: #c5ced7; font-size: 13px; font-weight: 700; padding-bottom: 4px; }}
+            QLabel#LeagueArticleDeck {{ color: #c5ced7; font-size: 15px; font-weight: 700; padding-bottom: 4px; }}
             QFrame#LeagueArticleRule {{ color: #3b4651; background-color: #3b4651; max-height: 1px; }}
-            QLabel#LeagueArticleParagraph {{ color: #c0c8d0; font-size: 12px; padding: 5px 0; }}
-            QLabel#LeagueArticleSubhead {{ color: white; border-bottom: 1px solid #38434d; padding: 10px 0 5px 0; font-size: 14px; font-weight: 900; }}
-            QLabel#LeagueArticleQuote {{ color: #e4e9ee; background-color: #1e252c; border-left: 4px solid #d1aa4f; padding: 12px 14px; font-size: 12px; font-weight: 700; }}
-            QLabel#LeagueArticleClosing {{ color: #8493a0; background-color: #11161b; border-top: 1px solid #36414b; padding: 10px; font-size: 9px; }}
+            QLabel#LeagueArticleParagraph {{ color: #c0c8d0; font-size: 14px; padding: 5px 0; }}
+            QLabel#LeagueArticleSubhead {{ color: white; border-bottom: 1px solid #38434d; padding: 10px 0 5px 0; font-size: 15px; font-weight: 900; }}
+            QLabel#LeagueArticleQuote {{ color: #e4e9ee; background-color: #1e252c; border-left: 4px solid #d1aa4f; padding: 12px 14px; font-size: 14px; font-weight: 700; }}
+            QLabel#LeagueArticleClosing {{ color: #8493a0; background-color: #11161b; border-top: 1px solid #36414b; padding: 10px; font-size: 13px; }}
             QFrame#LeagueNewsGraphic {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #263746, stop:0.55 #19242e, stop:1 #10171d); border: 1px solid #435362; border-radius: 5px; }}
-            QLabel#LeagueSideEyebrow {{ color: #78b9df; font-size: 9px; font-weight: 900; }}
+            QLabel#LeagueSideEyebrow {{ color: #78b9df; font-size: 13px; font-weight: 900; }}
             QLabel#LeagueGraphicTitle {{ color: white; font-size: 22px; font-weight: 900; }}
-            QLabel#LeagueGraphicPhase {{ color: #d4ad52; font-size: 13px; font-weight: 800; padding-bottom: 4px; }}
+            QLabel#LeagueGraphicPhase {{ color: #d4ad52; font-size: 15px; font-weight: 800; padding-bottom: 4px; }}
             QLabel#LeagueTeamLogo {{ background-color: rgba(9, 14, 19, 170); border: 1px solid #3b4b59; border-radius: 3px; }}
             QLabel#LeagueGraphicTeamName {{ color: white; font-size: 15px; font-weight: 900; padding-top: 2px; }}
             QFrame#LeagueSideCard {{ background-color: #20252b; border: 1px solid #383f47; border-radius: 5px; }}
-            QLabel#LeagueSideTitle {{ color: #dce3e9; font-size: 11px; font-weight: 900; padding-bottom: 3px; }}
-            QLabel#LeaguePointBadge {{ color: #11171d; background-color: #d4ad52; border-radius: 11px; font-size: 9px; font-weight: 900; }}
-            QLabel#LeaguePointText {{ color: #b6c0c9; font-size: 10px; }}
-            QLabel#LeagueNoteLabel {{ color: #d4ad52; font-size: 9px; font-weight: 900; padding-top: 4px; }}
-            QLabel#LeagueNoteText {{ color: #aeb9c3; font-size: 10px; padding-bottom: 5px; }}
+            QLabel#LeagueSideTitle {{ color: #dce3e9; font-size: 13px; font-weight: 900; padding-bottom: 3px; }}
+            QLabel#LeaguePointBadge {{ color: #11171d; background-color: #d4ad52; border-radius: 11px; font-size: 13px; font-weight: 900; }}
+            QLabel#LeaguePointText {{ color: #b6c0c9; font-size: 13px; }}
+            QLabel#LeagueNoteLabel {{ color: #d4ad52; font-size: 13px; font-weight: 900; padding-top: 4px; }}
+            QLabel#LeagueNoteText {{ color: #aeb9c3; font-size: 13px; padding-bottom: 5px; }}
             QLabel#TimelineDate {{ color: white; background-color: #24616c; border-radius: 3px; padding: 12px; font-size: 20px; font-weight: 900; }}
             QFrame#TimelineRail {{ background-color: #17282d; border: none; border-left: 4px solid #3d8b99; }}
             QFrame#RosterAuditCallout {{ background-color: #1b272d; border: 1px solid #3b5964; border-left: 4px solid #d0a84e; }}
-            QLabel#RosterAuditCalloutLabel {{ color: #f0c35f; font-size: 10px; font-weight: 900; padding-right: 8px; }}
-            QLabel#RosterAuditCalloutText {{ color: #d3dde4; font-size: 11px; font-weight: 700; }}
-            QTableWidget#RosterAuditPreview {{ color: #dce5eb; background-color: #10171c; alternate-background-color: #182128; border: 1px solid #394955; gridline-color: transparent; selection-background-color: #28506a; font-size: 10px; outline: none; }}
+            QLabel#RosterAuditCalloutLabel {{ color: #f0c35f; font-size: 13px; font-weight: 900; padding-right: 8px; }}
+            QLabel#RosterAuditCalloutText {{ color: #d3dde4; font-size: 13px; font-weight: 700; }}
+            QTableWidget#RosterAuditPreview {{ color: #dce5eb; background-color: #10171c; alternate-background-color: #182128; border: 1px solid #394955; gridline-color: transparent; selection-background-color: #28506a; font-size: 13px; outline: none; }}
             QTableWidget#RosterAuditPreview::item {{ border-bottom: 1px solid #2d3942; padding: 0 8px; }}
             QFrame#ProfilePanel {{ background-color: #172b21; border: 1px solid #356b4e; border-radius: 3px; }}
             QLabel#ProfileInitial {{ color: #d9f4e5; background-color: #285a40; border-radius: 42px; font-size: 31px; font-weight: 900; }}
             QFrame#StatusPanel {{ background-color: #2b171a; border: 1px solid #743b43; border-radius: 3px; }}
             QFrame#MedicalFeature {{ background-color: #090c10; border: 1px solid #39434d; border-radius: 5px; }}
             QFrame#MedicalChart {{ background-color: #111820; border: 1px solid #40505d; border-radius: 5px; }}
-            QLabel#MedicalSeverity {{ color: white; background-color: #a53f48; border-radius: 3px; padding: 5px 10px; font-size: 10px; font-weight: 900; }}
+            QLabel#MedicalSeverity {{ color: white; background-color: #a53f48; border-radius: 3px; padding: 5px 10px; font-size: 13px; font-weight: 900; }}
             QLabel#MedicalSeverity[level="clear"] {{ background-color: #287453; }}
             QLabel#MedicalSeverity[level="minor"] {{ background-color: #59717f; }}
             QLabel#MedicalSeverity[level="care"] {{ background-color: #a06b27; }}
             QLabel#MedicalSeverity[level="major"] {{ background-color: #a53f48; }}
             QLabel#MedicalChartTitle {{ color: white; font-size: 16px; font-weight: 900; }}
-            QLabel#MedicalChartDate {{ color: #8796a4; font-size: 10px; }}
-            QLabel#MedicalIntro {{ color: #e4e8ec; font-size: 13px; font-weight: 700; }}
-            QLabel#MedicalIntroSub {{ color: #aeb7c0; font-size: 11px; padding-bottom: 3px; }}
+            QLabel#MedicalChartDate {{ color: #8796a4; font-size: 13px; }}
+            QLabel#MedicalIntro {{ color: #e4e8ec; font-size: 15px; font-weight: 700; }}
+            QLabel#MedicalIntroSub {{ color: #aeb7c0; font-size: 13px; padding-bottom: 3px; }}
             QFrame#MedicalProfile {{ background-color: #18232d; border: 1px solid #344654; border-radius: 4px; }}
             QLabel#MedicalPlayerPhoto {{ color: white; background-color: #243440; border: 1px solid #4a5d6b; border-radius: 3px; font-size: 28px; font-weight: 900; }}
             QLabel#MedicalPlayerName {{ color: white; font-size: 17px; font-weight: 900; }}
-            QLabel#MedicalPlayerMeta {{ color: #c0c8d0; font-size: 11px; }}
-            QLabel#MedicalPlayerTeam {{ color: #8795a3; font-size: 10px; }}
+            QLabel#MedicalPlayerMeta {{ color: #c0c8d0; font-size: 13px; }}
+            QLabel#MedicalPlayerTeam {{ color: #8795a3; font-size: 13px; }}
             QFrame#MedicalDiagnosisCard, QFrame#MedicalTimeline {{ background-color: #172029; border: 1px solid #33434f; border-radius: 4px; }}
-            QLabel#MedicalCardKicker {{ color: #69b4df; font-size: 9px; font-weight: 900; }}
+            QLabel#MedicalCardKicker {{ color: #69b4df; font-size: 13px; font-weight: 900; }}
             QLabel#MedicalDiagnosisName {{ color: white; font-size: 20px; font-weight: 900; padding: 3px 0; }}
-            QLabel#MedicalCardBody {{ color: #aebbc5; font-size: 11px; }}
-            QLabel#MedicalTreatmentLine {{ color: #f0c56a; background-color: #202a33; border-left: 3px solid #d2a23d; padding: 8px 10px; font-size: 10px; font-weight: 700; }}
+            QLabel#MedicalCardBody {{ color: #aebbc5; font-size: 13px; }}
+            QLabel#MedicalTreatmentLine {{ color: #f0c56a; background-color: #202a33; border-left: 3px solid #d2a23d; padding: 8px 10px; font-size: 13px; font-weight: 700; }}
             QLabel#MedicalTimelineTitle {{ color: white; font-size: 17px; font-weight: 900; padding-bottom: 3px; }}
             QFrame#MedicalTimelineStep {{ background-color: #111820; border: none; border-left: 3px solid #526b7d; }}
-            QLabel#MedicalTimelineLabel {{ color: #7f91a0; font-size: 9px; font-weight: 800; }}
-            QLabel#MedicalTimelineValue {{ color: #dbe3ea; font-size: 10px; font-weight: 700; }}
+            QLabel#MedicalTimelineLabel {{ color: #7f91a0; font-size: 13px; font-weight: 800; }}
+            QLabel#MedicalTimelineValue {{ color: #dbe3ea; font-size: 13px; font-weight: 700; }}
             QFrame#MedicalDecision {{ background-color: #1c252d; border: 1px solid #4a3f2a; border-left: 4px solid #d2a23d; }}
             QLabel#MedicalDecisionIcon {{ color: #17130a; background-color: #e0ad3f; border-radius: 15px; min-width: 30px; max-width: 30px; min-height: 30px; max-height: 30px; qproperty-alignment: AlignCenter; font-size: 20px; font-weight: 900; }}
-            QLabel#MedicalDecisionTitle {{ color: #f1c767; font-size: 10px; font-weight: 900; }}
-            QLabel#MedicalDecisionBody {{ color: #d6dee5; font-size: 11px; }}
+            QLabel#MedicalDecisionTitle {{ color: #f1c767; font-size: 13px; font-weight: 900; }}
+            QLabel#MedicalDecisionBody {{ color: #d6dee5; font-size: 13px; }}
             QFrame#MedicalAlert {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #8c2729, stop:1 #5e181c); border: 1px solid #a43b3e; border-radius: 4px; }}
             QLabel#MedicalCross {{ color: #29200c; background-color: #f0b52f; border-radius: 21px; font-size: 31px; font-weight: 900; }}
-            QLabel#MedicalReportTitle {{ color: #f4b9b9; font-size: 10px; font-weight: 900; }}
-            QLabel#MedicalTreatment {{ color: white; font-size: 14px; font-weight: 900; }}
-            QLabel#MedicalReportMeta {{ color: #e7b4b5; font-size: 11px; }}
+            QLabel#MedicalReportTitle {{ color: #f4b9b9; font-size: 13px; font-weight: 900; }}
+            QLabel#MedicalTreatment {{ color: white; font-size: 15px; font-weight: 900; }}
+            QLabel#MedicalReportMeta {{ color: #e7b4b5; font-size: 13px; }}
             QFrame#InjurySummary {{ background-color: rgba(9, 12, 16, 210); border: none; border-top: 1px solid #3b4148; }}
-            QLabel#InjuryCurrentLabel {{ color: #da5558; font-size: 10px; font-weight: 900; }}
-            QLabel#InjuryName {{ color: #ef5f61; font-size: 14px; font-weight: 900; }}
-            QLabel#InjuryCause {{ color: #9da8b2; font-size: 10px; }}
+            QLabel#InjuryCurrentLabel {{ color: #da5558; font-size: 13px; font-weight: 900; }}
+            QLabel#InjuryName {{ color: #ef5f61; font-size: 15px; font-weight: 900; }}
+            QLabel#InjuryCause {{ color: #9da8b2; font-size: 13px; }}
             QFrame#InjuryFacts {{ background-color: rgba(9, 12, 16, 210); border: none; border-top: 1px solid #3b4148; }}
-            QLabel#InjuryFactLabel {{ color: #7f8b96; font-size: 9px; }}
-            QLabel#InjuryFactValue {{ color: #e0e5ea; font-size: 10px; font-weight: 700; }}
+            QLabel#InjuryFactLabel {{ color: #7f8b96; font-size: 13px; }}
+            QLabel#InjuryFactValue {{ color: #e0e5ea; font-size: 13px; font-weight: 700; }}
             QFrame#InjuryHistory {{ background-color: rgba(18, 22, 27, 225); border-top: 1px solid #353d45; }}
-            QLabel#InjuryHistoryTitle {{ color: #8d99a4; font-size: 9px; font-weight: 900; }}
-            QLabel#InjuryHistoryPlayer {{ color: white; font-size: 10px; font-weight: 800; }}
-            QLabel#InjuryHistoryValue {{ color: #b4bec7; font-size: 9px; }}
-            QLabel#MedicalFanReaction {{ color: #b7c0c9; background-color: #171d24; border-left: 4px solid #a63c3f; padding: 10px 12px; font-size: 11px; }}
-            QLabel#ConditionSectionTitle {{ color: white; font-size: 14px; font-weight: 900; padding: 5px 1px 2px 1px; }}
+            QLabel#InjuryHistoryTitle {{ color: #8d99a4; font-size: 13px; font-weight: 900; }}
+            QLabel#InjuryHistoryPlayer {{ color: white; font-size: 13px; font-weight: 800; }}
+            QLabel#InjuryHistoryValue {{ color: #b4bec7; font-size: 13px; }}
+            QLabel#MedicalFanReaction {{ color: #b7c0c9; background-color: #171d24; border-left: 4px solid #a63c3f; padding: 10px 12px; font-size: 13px; }}
+            QLabel#ConditionSectionTitle {{ color: white; font-size: 15px; font-weight: 900; padding: 5px 1px 2px 1px; }}
             QFrame#WeeklyTeamStatus {{ background-color: #17212a; border: 1px solid #354653; border-radius: 3px; }}
             QFrame#WeeklyTeamStatus[changed="true"] {{ background-color: #192633; border-color: #47789b; }}
             QLabel#WeeklyTeamLogo {{ background-color: #10171e; border: 1px solid #334554; border-radius: 3px; }}
-            QLabel#WeeklyTeamName {{ color: #f4f7fa; font-size: 13px; font-weight: 800; }}
-            QLabel#WeeklyTeamChange {{ color: #b7c5d1; font-size: 11px; }}
+            QLabel#WeeklyTeamName {{ color: #f4f7fa; font-size: 15px; font-weight: 800; }}
+            QLabel#WeeklyTeamChange {{ color: #b7c5d1; font-size: 13px; }}
             QLabel#WeeklyTeamChange[changed="false"] {{ color: #74818d; }}
             QFrame#ConditionStarCard {{ background-color: #17232d; border: 1px solid #344b5c; border-radius: 5px; }}
-            QLabel#ConditionRank {{ color: #6eaed5; font-size: 9px; font-weight: 900; }}
+            QLabel#ConditionRank {{ color: #6eaed5; font-size: 13px; font-weight: 900; }}
             QLabel#ConditionPlayerPhoto {{ color: white; background-color: #243440; border: 1px solid #496171; border-radius: 3px; font-size: 23px; font-weight: 900; }}
             QLabel#ConditionPlayerName {{ color: white; font-size: 16px; font-weight: 900; }}
-            QLabel#ConditionPlayerMeta {{ color: #91a3b1; font-size: 10px; }}
-            QLabel#ConditionFieldLabel {{ color: #9aabb8; font-size: 10px; font-weight: 700; }}
-            QLabel#ConditionValue {{ color: white; font-size: 13px; font-weight: 900; }}
-            QLabel#ConditionCardFooter {{ color: #8193a1; font-size: 9px; }}
+            QLabel#ConditionPlayerMeta {{ color: #91a3b1; font-size: 13px; }}
+            QLabel#ConditionFieldLabel {{ color: #9aabb8; font-size: 13px; font-weight: 700; }}
+            QLabel#ConditionValue {{ color: white; font-size: 15px; font-weight: 900; }}
+            QLabel#ConditionCardFooter {{ color: #8193a1; font-size: 13px; }}
             QProgressBar#ConditionBar {{ background-color: #0b1218; border: none; border-radius: 3px; min-height: 7px; max-height: 7px; }}
             QProgressBar#ConditionBar::chunk {{ background-color: #63aee8; border-radius: 3px; }}
             QProgressBar#ConditionBar[level="good"]::chunk {{ background-color: #52c991; }}
             QProgressBar#ConditionBar[level="care"]::chunk {{ background-color: #e16868; }}
             QFrame#SquadConditionPanel {{ background-color: #172029; border: 1px solid #34434f; border-radius: 5px; }}
             QLabel#SquadConditionTitle {{ color: white; font-size: 16px; font-weight: 900; }}
-            QLabel#SquadConditionCount {{ color: #98a9b7; background-color: #25323c; border-radius: 8px; padding: 2px 8px; font-size: 10px; font-weight: 800; }}
+            QLabel#SquadConditionCount {{ color: #98a9b7; background-color: #25323c; border-radius: 8px; padding: 2px 8px; font-size: 13px; font-weight: 800; }}
             QLabel#SquadConditionAverage {{ color: white; font-size: 35px; font-weight: 900; }}
-            QLabel#SquadConditionAverageLabel {{ color: #8495a3; font-size: 9px; }}
-            QProgressBar#SquadConditionBar {{ color: white; background-color: #0c1319; border: 1px solid #34444f; border-radius: 3px; min-height: 17px; text-align: center; font-size: 9px; font-weight: 800; }}
+            QLabel#SquadConditionAverageLabel {{ color: #8495a3; font-size: 13px; }}
+            QProgressBar#SquadConditionBar {{ color: white; background-color: #0c1319; border: 1px solid #34444f; border-radius: 3px; min-height: 17px; text-align: center; font-size: 13px; font-weight: 800; }}
             QProgressBar#SquadConditionBar::chunk {{ background-color: #438f75; }}
             QFrame#ConditionStat {{ background-color: #101820; border: 1px solid #2b3944; border-radius: 3px; }}
             QLabel#ConditionStatValue {{ font-size: 17px; font-weight: 900; }}
-            QLabel#ConditionStatLabel {{ color: #8394a1; font-size: 8px; }}
-            QLabel#ConditionEmpty {{ color: #8fa0ad; background-color: #121a21; border: 1px dashed #3a4b58; padding: 28px; font-size: 12px; }}
+            QLabel#ConditionStatLabel {{ color: #8394a1; font-size: 13px; }}
+            QLabel#ConditionEmpty {{ color: #8fa0ad; background-color: #121a21; border: 1px dashed #3a4b58; padding: 28px; font-size: 14px; }}
             QFrame#BoardGoal {{ background-color: #292414; border: 1px solid #6f5d2d; border-radius: 3px; }}
             QFrame#BoardroomHero {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #172331, stop:0.62 #101820, stop:1 #15140f); border: 1px solid #4d5863; border-left: 5px solid #c2a35b; border-radius: 3px; }}
             QLabel#BoardroomLogo {{ color: white; background-color: rgba(7, 12, 18, 190); border: 1px solid #465462; border-radius: 3px; font-size: 28px; font-weight: 900; }}
-            QLabel#BoardroomEyebrow {{ color: #c8aa62; font-size: 9px; font-weight: 900; letter-spacing: 1px; }}
+            QLabel#BoardroomEyebrow {{ color: #c8aa62; font-size: 13px; font-weight: 900; letter-spacing: 1px; }}
             QLabel#BoardroomTitle {{ color: white; font-size: 23px; font-weight: 900; }}
-            QLabel#BoardroomDeck {{ color: #afbbc6; font-size: 11px; }}
+            QLabel#BoardroomDeck {{ color: #afbbc6; font-size: 13px; }}
             QFrame#BoardroomStatus {{ background-color: #241f14; border: 1px solid #705f35; border-radius: 3px; min-width: 150px; }}
             QFrame#BoardroomStatus[resolved="true"] {{ background-color: #14241d; border-color: #3c7358; }}
-            QLabel#BoardroomStatusLabel {{ color: #9b8a62; font-size: 8px; font-weight: 900; }}
+            QLabel#BoardroomStatusLabel {{ color: #9b8a62; font-size: 13px; font-weight: 900; }}
             QLabel#BoardroomStatusValue {{ color: #f2d27d; font-size: 15px; font-weight: 900; }}
             QFrame#BoardroomStatus[resolved="true"] QLabel#BoardroomStatusValue {{ color: #75d39c; }}
-            QLabel#BoardroomStatusNote {{ color: #9ba5ae; font-size: 9px; }}
+            QLabel#BoardroomStatusNote {{ color: #9ba5ae; font-size: 13px; }}
             QFrame#BoardAgendaPanel {{ background-color: #11171d; border: 1px solid #3a4651; border-radius: 3px; }}
             QLabel#BoardSectionTitle {{ color: white; font-size: 15px; font-weight: 900; }}
-            QLabel#BoardSectionGuide {{ color: #8594a1; border-bottom: 1px solid #303b45; padding-bottom: 7px; font-size: 10px; }}
+            QLabel#BoardSectionGuide {{ color: #8594a1; border-bottom: 1px solid #303b45; padding-bottom: 7px; font-size: 13px; }}
             QFrame#BoardAgendaRow {{ background-color: #192129; border: 1px solid #35424e; border-radius: 3px; }}
             QFrame#BoardAgendaRow:hover {{ background-color: #1d2832; border-color: #536474; }}
             QFrame#BoardAgendaRow[required="true"] {{ border-left: 4px solid #d9b455; }}
-            QLabel#BoardAgendaMarker {{ color: #d8b65e; background-color: #292514; border: 1px solid #746332; border-radius: 14px; font-size: 13px; font-weight: 900; }}
-            QLabel#BoardAgendaTitle {{ color: #f2f5f7; font-size: 12px; font-weight: 800; }}
-            QLabel#BoardAgendaDescription {{ color: #92a1ae; font-size: 9px; }}
-            QLabel#BoardAgendaProposal {{ color: #f0d27d; background-color: #292414; border: 1px solid #6f5d2d; border-radius: 2px; padding: 4px 7px; font-size: 9px; font-weight: 800; min-width: 72px; }}
-            QLabel#BoardAgendaPeriod {{ color: #748491; font-size: 8px; }}
+            QLabel#BoardAgendaMarker {{ color: #d8b65e; background-color: #292514; border: 1px solid #746332; border-radius: 14px; font-size: 15px; font-weight: 900; }}
+            QLabel#BoardAgendaTitle {{ color: #f2f5f7; font-size: 14px; font-weight: 800; }}
+            QLabel#BoardAgendaDescription {{ color: #92a1ae; font-size: 13px; }}
+            QLabel#BoardAgendaProposal {{ color: #f0d27d; background-color: #292414; border: 1px solid #6f5d2d; border-radius: 2px; padding: 4px 7px; font-size: 13px; font-weight: 800; min-width: 72px; }}
+            QLabel#BoardAgendaPeriod {{ color: #748491; font-size: 13px; }}
             QFrame#BoardInformationCard {{ background-color: #17202a; border: 1px solid #354451; border-radius: 3px; }}
-            QLabel#BoardInfoKicker {{ color: #c5a85f; font-size: 8px; font-weight: 900; letter-spacing: 1px; }}
-            QLabel#BoardInfoTitle {{ color: white; font-size: 14px; font-weight: 900; }}
-            QLabel#BoardInfoBody {{ color: #9eabb7; font-size: 10px; }}
+            QLabel#BoardInfoKicker {{ color: #c5a85f; font-size: 13px; font-weight: 900; letter-spacing: 1px; }}
+            QLabel#BoardInfoTitle {{ color: white; font-size: 15px; font-weight: 900; }}
+            QLabel#BoardInfoBody {{ color: #9eabb7; font-size: 13px; }}
             QFrame#BoardInfoDivider {{ background-color: #34414c; border: none; }}
-            QLabel#BoardInfoSubhead {{ color: #dce3e8; font-size: 11px; font-weight: 800; }}
+            QLabel#BoardInfoSubhead {{ color: #dce3e8; font-size: 13px; font-weight: 800; }}
             QFrame#BoardroomCallout {{ background-color: #19232c; border: 1px solid #3c4b57; border-left: 4px solid #c4a45a; border-radius: 2px; }}
-            QLabel#BoardCalloutBadge {{ color: #11161b; background-color: #c7a85d; border-radius: 2px; padding: 5px 8px; font-size: 8px; font-weight: 900; }}
-            QLabel#BoardCalloutTitle {{ color: white; font-size: 12px; font-weight: 900; }}
-            QLabel#BoardCalloutText {{ color: #91a0ac; font-size: 9px; }}
+            QLabel#BoardCalloutBadge {{ color: #11161b; background-color: #c7a85d; border-radius: 2px; padding: 5px 8px; font-size: 13px; font-weight: 900; }}
+            QLabel#BoardCalloutTitle {{ color: white; font-size: 14px; font-weight: 900; }}
+            QLabel#BoardCalloutText {{ color: #91a0ac; font-size: 13px; }}
             QProgressBar#ContextProgress {{ color: white; background-color: #0f1419; border: 1px solid #3a4652; border-radius: 2px; text-align: center; min-height: 18px; }}
             QProgressBar#ContextProgress::chunk {{ background-color: {c['accent']}; }}
             QFrame#NewsVisual[context="fa"] QProgressBar#ContextProgress::chunk {{ background-color: #4fae78; }}
@@ -752,8 +753,8 @@ class LeagueRankTab(QWidget):
             QFrame#NewsVisual[context="meeting"] QProgressBar#ContextProgress::chunk {{ background-color: #9a71d0; }}
             QFrame#NewsVisual[context="analysis"] QProgressBar#ContextProgress::chunk {{ background-color: #6c8fe0; }}
             QFrame#NewsVisual[context="squad"] QProgressBar#ContextProgress::chunk {{ background-color: #6f8fd0; }}
-            QTableWidget {{ color: #e2e8ef; background-color: #1b2026; alternate-background-color: #23292f; border: none; font-size: 12px; }}
-            QHeaderView::section {{ color: #9eacba; background-color: #151a1f; border: none; border-bottom: 1px solid #39434e; padding: 5px; font-size: 11px; font-weight: 600; }}
+            QTableWidget {{ color: #e2e8ef; background-color: #1b2026; alternate-background-color: #23292f; border: none; font-size: 14px; }}
+            QHeaderView::section {{ color: #9eacba; background-color: #151a1f; border: none; border-bottom: 1px solid #39434e; padding: 5px; font-size: 13px; font-weight: 600; }}
             QPushButton#PrimaryAction {{ color: white; background-color: {c['accent']}; border-color: {c['accent_light']}; }}
             QPushButton#SecondaryAction {{ color: {c['accent_light']}; background-color: transparent; border-color: {c['accent']}; }}
         """)
@@ -927,7 +928,7 @@ class LeagueRankTab(QWidget):
             "color: white;"
             f"background-color: {badge_color};"
             "border-radius: 2px;"
-            "font-size: 10px;"
+            "font-size: 13px;"
             "font-weight: 900;"
         )
         self.sender_badge.setToolTip("")
@@ -1016,6 +1017,8 @@ class LeagueRankTab(QWidget):
             self._render_entry_context(message)
         elif event_type == "board_review" or category == "이사회":
             self._render_board_context(message)
+        elif "FA 승인 선수" in text or "FA 승인" in text and "공시" in text:
+            self._render_fa_approved_context(message)
         elif event_type == "schedule" or category == "경기 일정":
             self._render_schedule_context(message)
         elif category == "전력 분석":
@@ -1162,7 +1165,7 @@ class LeagueRankTab(QWidget):
         kicker_label = QLabel(kicker_text)
         kicker_label.setObjectName("VisualKicker")
         kicker_label.setStyleSheet(
-            f"color: {accent}; font-size: 10px; font-weight: 800;"
+            f"color: {accent}; font-size: 13px; font-weight: 800;"
         )
         layout.addWidget(kicker_label)
         title_label = QLabel(str(title))
@@ -1689,6 +1692,21 @@ class LeagueRankTab(QWidget):
                 "보직과 계약 기간은 에이전트 협상에서 확정",
             )
         )
+        cap = dict(payload.get("salary_cap") or {})
+        if cap:
+            projected = int(cap.get("projected") or 0)
+            limit = int(cap.get("limit") or 0)
+            excess = int(cap.get("excess") or 0)
+            contract_layout.addWidget(self._visual_tile(
+                "2026 경쟁균형세 전망",
+                f"{projected:,}만원 / {limit:,}만원",
+                (
+                    f"상한 {excess:,}만원 초과 · 1회 기준 발전기금 "
+                    f"{int(cap.get('first_excess_levy') or 0):,}만원"
+                    if excess else
+                    f"계약 후 잔여 한도 {int(cap.get('projected_room') or 0):,}만원"
+                ),
+            ))
         dossier.addWidget(contract, 6)
         self.news_visual_layout.addLayout(dossier)
         report = QLabel(body)
@@ -1701,6 +1719,7 @@ class LeagueRankTab(QWidget):
             ("후보", player or "-"),
             ("내부 평가", rating or "-"),
             ("예상 연봉", f"{offer:,}만원" if offer else "-"),
+            ("캡 여유", f"{int(cap.get('projected_room') or 0):,}만원" if cap else "-"),
         )
 
     def _condition_roster(self):
@@ -2702,6 +2721,88 @@ class LeagueRankTab(QWidget):
             ("분류", message.get("category") or "경기 일정"),
             ("중요도", message.get("priority") or "일반"),
             ("업무", "확인 필요"),
+        )
+
+    def _render_fa_approved_context(self, message):
+        """KBO FA 승인 공시에 전체 명단과 핵심 선수를 함께 표시한다."""
+        self._prepare_visual_only("fa")
+        players_by_key = {}
+        try:
+            connection = sqlite3.connect(self.db_path)
+            connection.row_factory = sqlite3.Row
+            for team, name in FA_APPROVED_2025:
+                row = connection.execute(
+                    "SELECT * FROM players WHERE team=? AND name=? LIMIT 1",
+                    (team, name),
+                ).fetchone()
+                if row:
+                    players_by_key[(team, name)] = dict(row)
+        except sqlite3.Error:
+            pass
+        finally:
+            if "connection" in locals():
+                connection.close()
+
+        rows = []
+        for team, name in sorted(FA_APPROVED_2025):
+            player = players_by_key.get((team, name), {})
+            rating = float(overall_rating(player)) if player else 0.0
+            rows.append((team, name, player, rating))
+        major_names = {
+            (team, name) for team, name, _player, _rating in
+            sorted(rows, key=lambda item: item[3], reverse=True)[:7]
+        }
+
+        self._clear_news_visual()
+        self.news_visual.setVisible(True)
+        title = QLabel("2026 FA 승인 선수 21명 · 전체 공시 명단")
+        title.setObjectName("VisualTitle")
+        self.news_visual_layout.addWidget(title)
+        summary = QLabel(
+            "KBO가 승인한 FA 선수 전원을 구단별로 표시합니다. "
+            "★는 선수 DB 종합 평가 기준으로 분류한 주요 영입 대상입니다."
+        )
+        summary.setObjectName("VisualSummary")
+        summary.setWordWrap(True)
+        self.news_visual_layout.addWidget(summary)
+
+        table = QTableWidget(len(rows), 7)
+        table.setObjectName("RosterAuditPreview")
+        table.setHorizontalHeaderLabels(
+            ("주요", "원소속팀", "선수", "포지션", "나이", "종합", "연봉")
+        )
+        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        table.setAlternatingRowColors(True)
+        table.verticalHeader().setVisible(False)
+        table.verticalHeader().setDefaultSectionSize(29)
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        table.setMinimumHeight(min(680, 34 + len(rows) * 29))
+        for row_index, (team, name, player, rating) in enumerate(rows):
+            is_major = (team, name) in major_names
+            values = (
+                "★" if is_major else "",
+                team,
+                name,
+                player.get("position") or player.get("pos") or "-",
+                player.get("age") or "-",
+                f"{rating:.1f}" if player else "-",
+                f"{int(player.get('salary') or 0):,}" if player else "-",
+            )
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(str(value))
+                if column in (0, 4, 5, 6):
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                if is_major:
+                    item.setForeground(QColor("#ffd166"))
+                table.setItem(row_index, column, item)
+        self.news_visual_layout.addWidget(table)
+        self._set_context_metrics(
+            ("공시일", self._message_date_key(message).replace("-", ".")),
+            ("승인 선수", f"{len(rows)}명"),
+            ("주요 선수", f"{len(major_names)}명"),
+            ("업무", "후보군 검토"),
         )
 
     def _render_roster_audit_context(self, message):

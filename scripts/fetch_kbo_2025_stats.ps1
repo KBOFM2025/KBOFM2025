@@ -1,4 +1,5 @@
 param(
+    [ValidateRange(2000, 2100)][int]$Season = 2025,
     [string]$RosterPath = "data/source/kbo_2025_final_roster.csv",
     [string]$HitterOutputPath = "data/source/kbo_2025_first_team_hitting.csv",
     [string]$PitcherOutputPath = "data/source/kbo_2025_first_team_pitching.csv",
@@ -38,7 +39,7 @@ function Read-SeasonRows {
             [regex]::Matches($rowMatch.Groups[1].Value, '<t[dh][^>]*>(.*?)</t[dh]>', 'Singleline,IgnoreCase') |
                 ForEach-Object { ConvertFrom-HtmlCell $_.Groups[1].Value }
         )
-        if ($cells.Count -ne ($Columns.Count + 2) -or $cells[0] -ne "2025") { continue }
+        if ($cells.Count -ne ($Columns.Count + 2) -or $cells[0] -ne [string]$Season) { continue }
         $record = [ordered]@{ record_team = $cells[1] }
         for ($index = 0; $index -lt $Columns.Count; $index++) {
             $record[$Columns[$index]] = $cells[$index + 2]
@@ -66,7 +67,7 @@ function Convert-InningsToOuts {
 function New-BaseRecord {
     param([object]$Player, [string]$SourceUrl, [int]$HasRecord, [string]$RecordTeam)
     return [ordered]@{
-        season = "2025"
+        season = [string]$Season
         kbo_player_id = $Player.kbo_player_id
         player_uid = $Player.player_uid
         snapshot_team = $Player.team

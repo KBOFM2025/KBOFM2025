@@ -159,7 +159,7 @@ class AbilitySliderControl(QWidget):
         description_label = QLabel(description)
         description_label.setWordWrap(True)
         description_label.setMinimumHeight(42)
-        description_label.setStyleSheet("color: #aebfd0; font-size: 13px;")
+        description_label.setStyleSheet("color: #aebfd0; font-size: 15px;")
         layout.addWidget(description_label)
 
         self.slider = QSlider(Qt.Orientation.Horizontal)
