@@ -7,8 +7,20 @@ import csv
 from datetime import datetime
 from pathlib import Path
 
-from .league_simulation_repository import SIMULATION_SCHEMA
+from .league_simulation_repository import (
+    SIMULATION_SCHEMA, ensure_simulation_migrations,
+)
 from .paths import DATA_DIR, PLAYERS_DB_PATH, SAVES_DB_PATH
+
+
+class _ClosingConnection(sqlite3.Connection):
+    """`with` 블록 종료 시 Windows 파일 핸들도 함께 닫는 연결."""
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            return super().__exit__(exc_type, exc_value, traceback)
+        finally:
+            self.close()
 
 
 MANAGER_COLUMNS = {
@@ -33,6 +45,7 @@ SAVE_COLUMNS = {
     "start_point": "TEXT NOT NULL DEFAULT 'camp1_before'",
     "current_date": "TEXT NOT NULL DEFAULT '2025-11-01'",
     "player_db_path": "TEXT",
+    "is_debug": "INTEGER NOT NULL DEFAULT 0",
 }
 
 DAILY_NEWS_TABLE_SQL = """
@@ -183,7 +196,7 @@ class SaveDatabase:
         self.initialize()
 
     def connect(self):
-        connection = sqlite3.connect(self.db_path)
+        connection = sqlite3.connect(self.db_path, factory=_ClosingConnection)
         connection.row_factory = sqlite3.Row
         return connection
 
@@ -217,6 +230,7 @@ class SaveDatabase:
                     manager_fitness INTEGER NOT NULL DEFAULT 5,
                     manager_leadership INTEGER NOT NULL DEFAULT 5,
                     manager_ability_scale INTEGER NOT NULL DEFAULT 20,
+                    is_debug INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 )
@@ -231,6 +245,7 @@ class SaveDatabase:
             connection.execute(APPOINTMENT_PRESS_CONFERENCE_SQL)
             for statement in SIMULATION_SCHEMA:
                 connection.execute(statement)
+            ensure_simulation_migrations(connection)
             tactic_columns = {
                 row["name"]
                 for row in connection.execute(
@@ -601,6 +616,7 @@ class SaveDatabase:
         manager=None,
         start_point="camp1_before",
         current_date="2025-11-01",
+        is_debug=False,
     ):
         manager = manager or {}
         now = datetime.now().isoformat(timespec="seconds")
@@ -615,9 +631,10 @@ class SaveDatabase:
                     manager_pitching_change, manager_pinch_hitting,
                     manager_data_analysis, manager_development,
                     manager_fitness, manager_leadership,
+                    is_debug,
                     created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     club_name,
@@ -638,6 +655,7 @@ class SaveDatabase:
                     manager.get("development", 10),
                     manager.get("fitness", 10),
                     manager.get("leadership", 10),
+                    int(bool(is_debug)),
                     now,
                     now,
                 ),
@@ -646,15 +664,28 @@ class SaveDatabase:
             self._seed_incoming_rookies(connection, save_id)
             return save_id
 
-    def list_saves(self):
+    def list_saves(self, include_debug=False):
         with self.connect() as connection:
             rows = connection.execute(
-                """
+                f"""
                 SELECT * FROM game_saves
+                {'' if include_debug else 'WHERE COALESCE(is_debug, 0) = 0'}
                 ORDER BY updated_at DESC, id DESC
                 """
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def get_debug_save(self):
+        """Return the single persistent QA save, if it has been created."""
+        with self.connect() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM game_saves
+                WHERE COALESCE(is_debug, 0) = 1
+                ORDER BY id DESC LIMIT 1
+                """
+            ).fetchone()
+        return dict(row) if row else None
 
     def get_save(self, save_id):
         with self.connect() as connection:
@@ -681,7 +712,44 @@ class SaveDatabase:
                 "DELETE FROM opponent_players WHERE save_id = ?",
                 (save_id,),
             )
+            connection.execute(
+                """
+                DELETE FROM practice_game_live_states
+                WHERE game_id IN (
+                    SELECT id FROM practice_games WHERE save_id = ?
+                )
+                """,
+                (save_id,),
+            )
+            connection.execute(
+                """
+                DELETE FROM practice_game_plays
+                WHERE game_id IN (
+                    SELECT id FROM practice_games WHERE save_id = ?
+                )
+                """,
+                (save_id,),
+            )
+            connection.execute(
+                """
+                DELETE FROM practice_game_player_stats
+                WHERE game_id IN (
+                    SELECT id FROM practice_games WHERE save_id = ?
+                )
+                """,
+                (save_id,),
+            )
+            connection.execute(
+                """
+                DELETE FROM practice_game_roster
+                WHERE game_id IN (
+                    SELECT id FROM practice_games WHERE save_id = ?
+                )
+                """,
+                (save_id,),
+            )
             for table_name in (
+                "practice_games",
                 "manager_events",
                 "trade_future_player_obligations",
                 "club_finance_transactions",

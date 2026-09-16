@@ -1,0 +1,37 @@
+{
+  "formula_version": "kbo-player-abilities-2024-2025-v1",
+  "season_weights": {
+    "2024": 0.38,
+    "2025": 0.62
+  },
+  "players": 682,
+  "hitters": 335,
+  "pitchers": 347,
+  "sources": {
+    "FUTURES_2024_2025": 34,
+    "KBO_2024_2025": 599,
+    "SCOUTING_PRIOR": 49
+  },
+  "hitter_core_average": 11.116,
+  "pitcher_core_average": 10.81,
+  "ability_to_record_correlations": {
+    "qualified_hitters": 187,
+    "contact_to_average": 0.9084,
+    "power_to_iso": 0.9046,
+    "discipline_to_walk_rate": 0.8643,
+    "qualified_pitchers": 212,
+    "stuff_to_strikeout_rate": 0.8251,
+    "command_to_inverse_walk_rate": 0.8439,
+    "movement_to_inverse_home_run_rate": 0.7941,
+    "stamina_to_innings_per_game": 0.9428
+  },
+  "ability_csv": "data\\source\\kbo_2024_2025_player_abilities.csv",
+  "change_csv": "data\\source\\kbo_2024_2025_player_ability_changes.csv",
+  "applied": true,
+  "databases": {
+    "C:\\Users\\CVLAB\\Project\\data\\players.db": 682,
+    "C:\\Users\\CVLAB\\Project\\data\\saves\\22\\Test_db.sqlite": 682,
+    "C:\\Users\\CVLAB\\Project\\data\\saves\\24\\Test_db.sqlite": 682,
+    "C:\\Users\\CVLAB\\Project\\data\\saves\\25\\DEBUG_감독_db.sqlite": 682
+  }
+}

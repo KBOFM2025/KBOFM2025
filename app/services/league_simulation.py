@@ -3,10 +3,16 @@
 import hashlib
 import json
 import math
+import sqlite3
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 
 from app.config import TEAM_INFO
+from app.config.national_team_2025 import (
+    CALLUP_SOURCE_URL, CALLUP_START, NATIONAL_TEAM_ROSTER_2025,
+    RELEASE_DATE, SERIES_ID, TOKYO_DEPARTURE_DATE, WITHDRAWN_PLAYERS,
+    join_date_for,
+)
 from app.config.season_schedule import SEASON_EVENTS, phase_for
 from app.services.team_lineup_engine import (
     TeamLineupEngine,
@@ -14,6 +20,7 @@ from app.services.team_lineup_engine import (
     player_ability_score,
 )
 from app.services.manager_events import ManagerEventService
+from app.services.training import TrainingService
 from database.league_simulation_repository import LeagueSimulationRepository
 
 
@@ -29,6 +36,23 @@ INJURIES = (
     ("가벼운 근육통", 3, 6), ("허리 통증", 5, 10), ("발목 염좌", 7, 14),
     ("어깨 피로", 8, 16), ("팔꿈치 염증", 12, 24),
 )
+
+# 일정에 이름이 명시된 선수의 대표팀 출전·공식 수상은 단순 뉴스로 끝내지
+# 않고 세이브의 컨디션에도 반영한다. 수치는 오프시즌 일일 훈련 부하보다
+# 약간 큰 수준으로 제한해 한 경기나 시상식이 능력치를 직접 바꾸지는 않는다.
+SCHEDULE_PLAYER_EFFECTS = {
+    "korea_japan_one": (
+        ("안현민", 7, 4, 2),
+        ("송성문", 7, 4, 2),
+    ),
+    "korea_japan_two": (
+        ("김주원", 8, 5, 3),
+    ),
+    "kbo_awards": (
+        ("폰세", 0, 0, 6),
+        ("안현민", 0, 0, 5),
+    ),
+}
 
 
 def _stable_number(*parts, modulo):
@@ -271,13 +295,34 @@ class LeagueSimulationService:
             activated_rookies = self._activate_incoming_rookies(
                 connection, simulation_date
             )
+            settled_trade_options = self._settle_trade_options(
+                connection, simulation_date
+            )
             players = [dict(r) for r in connection.execute("SELECT * FROM playerdb.players ORDER BY team, id")]
+            from app.services.player_potential import ensure_saved_potential
+            if simulation_date.month == 11 and simulation_date.day == 1:
+                from app.services.potential_evidence import records
+                from app.services.potential_lifecycle import coverage_index, career_index, verified_careers
+                records.cache_clear()
+                coverage_index.cache_clear()
+                career_index.cache_clear()
+                verified_careers.cache_clear()
+            for player in players:
+                ensure_saved_potential(connection, self.save_id, player, simulation_date)
             _sim_log(f"선수 DB 로드 완료 · {len(players)}명")
             objectives = self._load_objectives(connection)
             profiles = self._seed_profiles(connection, objectives)
             _sim_log(f"구단 운영 성향 로드 완료 · {len(profiles)}개 구단")
+            from app.services.training_planner import apply_delegated_training
+            apply_delegated_training(connection, self.save_id, players, simulation_date)
             injury_events, recovery_events = self._advance_player_states(connection, players, simulation_date)
             injury_count, recovery_count = len(injury_events), len(recovery_events)
+            national_team_callup_count = self._process_national_team_schedule(
+                connection, players, simulation_date,
+            )
+            schedule_player_effect_count = self._apply_schedule_player_effects(
+                connection, SEASON_EVENTS.get(simulation_date, ()), day,
+            )
             _sim_log(f"선수 상태 진행 완료 · 신규 부상 {injury_count}명 · 복귀 {recovery_count}명")
             self._add_medical_news(connection, simulation_date, injury_events, recovery_events)
             states = self._load_states(connection)
@@ -397,12 +442,228 @@ class LeagueSimulationService:
                 "ai_queue_count": queued_count, "changed_teams": sorted({d["team"] for d in decisions}),
                 "season_phase": phase_name, "schedule_event_count": len(events),
                 "activated_rookie_count": activated_rookies,
+                "settled_trade_option_count": settled_trade_options,
+                "schedule_player_effect_count": schedule_player_effect_count,
+                "national_team_callup_count": national_team_callup_count,
             }
             if weekly_report_due:
                 self._add_weekly_report(connection, summary, simulation_date)
             self.repository.complete_run(connection, self.save_id, day, summary)
             _sim_log(f"{day} 트랜잭션 저장 완료 · 엔트리 이동 {len(decisions)}건 · 전체 편성 {lineup_count}건")
             return summary
+
+    def _process_national_team_schedule(
+        self, connection, players, simulation_date,
+    ):
+        """대표팀 선발·합류·원정·복귀를 선수 상태와 함께 진행한다."""
+        if simulation_date < CALLUP_START:
+            return 0
+        day = simulation_date.isoformat()
+        players_by_key = {
+            (str(player["team"]), str(player["name"])): player
+            for player in players
+        }
+        players_by_name = {
+            str(player["name"]): player for player in players
+        }
+        if simulation_date == CALLUP_START:
+            injury_lengths = {
+                "최승용": 10, "김영규": 10,
+                "문성주": 14, "구자욱": 18,
+            }
+            for club, name, reason, _replacement in WITHDRAWN_PLAYERS:
+                player = players_by_key.get((club, name)) or players_by_name.get(name)
+                if player is None:
+                    continue
+                expected_days = injury_lengths.get(name, 10)
+                connection.execute(
+                    """
+                    UPDATE player_simulation_states
+                    SET injury_days=MAX(injury_days,?), injury_type=?,
+                        condition=MIN(condition,62), squad_group='재활조'
+                    WHERE save_id=? AND player_id=?
+                    """,
+                    (expected_days, reason, self.save_id, int(player["id"])),
+                )
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO player_injury_events (
+                        save_id,event_date,team,player_id,player_name,
+                        injury_type,expected_days,status
+                    ) VALUES (?,?,?,?,?,?,?,'active')
+                    """,
+                    (
+                        self.save_id, day, str(player["team"]), int(player["id"]),
+                        name, reason, expected_days,
+                    ),
+                )
+        for club, name, position in NATIONAL_TEAM_ROSTER_2025:
+            player = players_by_key.get((club, name)) or players_by_name.get(name)
+            joined = join_date_for(club)
+            status = (
+                "returned" if simulation_date >= RELEASE_DATE else
+                "active" if simulation_date >= joined else "selected"
+            )
+            connection.execute(
+                """
+                INSERT INTO national_team_callups (
+                    save_id,series_id,player_id,player_name,club_team,
+                    position_group,join_date,release_date,status,source_url
+                ) VALUES (?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(save_id,series_id,player_name,club_team) DO UPDATE SET
+                    player_id=excluded.player_id,
+                    position_group=excluded.position_group,
+                    join_date=excluded.join_date,
+                    release_date=excluded.release_date,
+                    status=excluded.status,
+                    source_url=excluded.source_url,
+                    updated_at=CURRENT_TIMESTAMP
+                """,
+                (
+                    self.save_id, SERIES_ID,
+                    int(player["id"]) if player else None,
+                    name, club, position, joined.isoformat(),
+                    RELEASE_DATE.isoformat(), status, CALLUP_SOURCE_URL,
+                ),
+            )
+            if player is None:
+                continue
+            player_id = int(player["id"])
+            if status == "active":
+                connection.execute(
+                    """
+                    UPDATE player_simulation_states
+                    SET squad_group='국가대표'
+                    WHERE save_id=? AND player_id=?
+                    """,
+                    (self.save_id, player_id),
+                )
+                if simulation_date == TOKYO_DEPARTURE_DATE:
+                    connection.execute(
+                        """
+                        UPDATE player_simulation_states
+                        SET fatigue=MIN(100,fatigue+3),
+                            condition=MAX(45,condition-2)
+                        WHERE save_id=? AND player_id=?
+                        """,
+                        (self.save_id, player_id),
+                    )
+                if simulation_date in {
+                    date(2025, 11, 8), date(2025, 11, 9),
+                    date(2025, 11, 15), date(2025, 11, 16),
+                }:
+                    game_load = 3 if position == "P" else 4
+                    connection.execute(
+                        """
+                        UPDATE player_simulation_states
+                        SET fatigue=MIN(100,fatigue+?),
+                            condition=MAX(45,condition-2),
+                            match_sharpness=MIN(100,match_sharpness+2)
+                        WHERE save_id=? AND player_id=?
+                        """,
+                        (game_load, self.save_id, player_id),
+                    )
+            elif status == "returned":
+                squad = "1군" if int(player.get("status") or 0) else "2군"
+                connection.execute(
+                    """
+                    UPDATE player_simulation_states
+                    SET squad_group=? WHERE save_id=? AND player_id=?
+                    """,
+                    (squad, self.save_id, player_id),
+                )
+        return int(connection.execute(
+            """
+            SELECT COUNT(*) FROM national_team_callups
+            WHERE save_id=? AND series_id=? AND status='active'
+              AND player_id IS NOT NULL
+            """,
+            (self.save_id, SERIES_ID),
+        ).fetchone()[0])
+
+    def _apply_schedule_player_effects(self, connection, events, day):
+        """대표팀 경기와 공식 수상의 실제 선수 상태 효과를 반영한다."""
+        applied = []
+        for event in events:
+            event_id = str(event.get("event_id") or "")
+            for name, fatigue, sharpness, morale in SCHEDULE_PLAYER_EFFECTS.get(
+                event_id, ()
+            ):
+                player = connection.execute(
+                    "SELECT id,team,name FROM playerdb.players WHERE name=? "
+                    "ORDER BY status DESC,id LIMIT 1",
+                    (name,),
+                ).fetchone()
+                if player is None:
+                    continue
+                connection.execute(
+                    """
+                    UPDATE player_simulation_states
+                    SET fatigue=MIN(100,fatigue+?),
+                        condition=MAX(45,condition-?),
+                        match_sharpness=MIN(100,match_sharpness+?),
+                        morale=MIN(100,morale+?)
+                    WHERE save_id=? AND player_id=?
+                    """,
+                    (
+                        fatigue, max(0, fatigue // 2), sharpness, morale,
+                        self.save_id, int(player["id"]),
+                    ),
+                )
+                applied.append((str(player["team"]), name, event_id))
+        managed = [name for team, name, _event_id in applied if team == self.managed_team]
+        if managed:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO daily_news
+                (save_id,news_date,category,headline,body,created_at)
+                VALUES (?,?,'국가대표·수상',?,?,CURRENT_TIMESTAMP)
+                """,
+                (
+                    self.save_id, day,
+                    f"대표팀·공식 일정 선수 상태 반영 · {', '.join(managed)}",
+                    "공식 일정에 출전하거나 수상한 우리 구단 선수의 피로, "
+                    "경기 감각과 사기가 선수 상태에 반영됐습니다.",
+                ),
+            )
+        return len(applied)
+
+    def _settle_trade_options(self, connection, simulation_date):
+        """기한이 된 트레이드 조건부 현금을 결정론적으로 정산한다."""
+        rows = connection.execute(
+            """
+            SELECT * FROM trade_conditional_cash_obligations
+            WHERE save_id=? AND status='pending' AND due_date<=?
+            ORDER BY id
+            """,
+            (self.save_id, simulation_date.isoformat()),
+        ).fetchall()
+        for row in rows:
+            achieved = _stable_number(
+                self.save_id, row["id"], row["condition_text"], "trade-option",
+                modulo=100,
+            ) < int(row["probability"])
+            if achieved:
+                details = (
+                    f"트레이드 조건부 지급 · {row['condition_text']} · "
+                    f"{row['receiving_team']} 수령"
+                )
+                connection.executemany(
+                    """
+                    INSERT INTO club_finance_transactions (
+                        save_id,team,amount_10k,category,details
+                    ) VALUES (?,?,?,'트레이드 옵션',?)
+                    """,
+                    (
+                        (self.save_id, row["paying_team"], -int(row["amount_10k"]), details),
+                        (self.save_id, row["receiving_team"], int(row["amount_10k"]), details),
+                    ),
+                )
+            connection.execute(
+                "UPDATE trade_conditional_cash_obligations SET status=? WHERE id=?",
+                ("paid" if achieved else "expired", int(row["id"])),
+            )
+        return len(rows)
 
     def _activate_incoming_rookies(self, connection, simulation_date):
         """입단 예정일이 되면 공식 지명 신인을 각 구단 2군에 합류시킨다."""
@@ -616,6 +877,22 @@ class LeagueSimulationService:
 
     def _seed_profiles(self, connection, objectives):
         now, profiles = datetime.now().isoformat(timespec="seconds"), {}
+        try:
+            strategy_rows = connection.execute(
+                """
+                SELECT team, event_id, decision
+                FROM offseason_strategy_decisions
+                WHERE save_id=?
+                """,
+                (self.save_id,),
+            ).fetchall()
+            strategies = {
+                (row["team"], row["event_id"]): row["decision"]
+                for row in strategy_rows
+            }
+        except sqlite3.OperationalError:
+            # 기존 세이브는 첫 오프시즌 결정을 하기 전까지 테이블이 없다.
+            strategies = {}
         for team in TEAM_INFO:
             values = objectives.get(team, {})
             profile = {
@@ -636,6 +913,48 @@ class LeagueSimulationService:
                 profile["stability"] += 1
             if "효율" in style or "재정" in style or "가치" in style:
                 profile["risk_tolerance"] -= 1
+            offseason_strategy = strategies.get((team, "offseason_open"))
+            if offseason_strategy == "win_now":
+                profile["win_now"] += 2
+                profile["roster_aggression"] += 1
+                profile["development"] -= 1
+            elif offseason_strategy == "development":
+                profile["development"] += 2
+                profile["stability"] += 1
+                profile["roster_aggression"] -= 1
+            fa_strategy = strategies.get((team, "fa_market_open"))
+            if fa_strategy == "aggressive":
+                profile["roster_aggression"] += 2
+                profile["risk_tolerance"] += 1
+            elif fa_strategy == "value":
+                profile["risk_tolerance"] -= 1
+                profile["stability"] += 1
+            elif fa_strategy == "internal_first":
+                profile["stability"] += 2
+                profile["roster_aggression"] -= 1
+            retention = strategies.get((team, "fa_eligible"))
+            if retention == "retain_all":
+                profile["stability"] += 2
+                profile["risk_tolerance"] -= 1
+            elif retention == "retain_core":
+                profile["stability"] += 1
+                profile["win_now"] += 1
+            elif retention == "market_test":
+                profile["roster_aggression"] += 1
+            target_policy = strategies.get((team, "fa_approved"))
+            if target_policy == "star_targets":
+                profile["win_now"] += 1
+                profile["roster_aggression"] += 1
+            elif target_policy == "value_targets":
+                profile["risk_tolerance"] -= 1
+            elif target_policy == "internal_targets":
+                profile["stability"] += 1
+            november_priority = strategies.get((team, "november_review"))
+            if november_priority in {"pitching_need", "batting_need"}:
+                profile["roster_aggression"] += 1
+            elif november_priority == "budget_hold":
+                profile["risk_tolerance"] -= 1
+                profile["stability"] += 1
             profile = {
                 key: max(1, min(5, int(value)))
                 for key, value in profile.items()
@@ -708,11 +1027,39 @@ class LeagueSimulationService:
                 injury_type = ""
                 connection.execute("UPDATE player_injury_events SET status='recovered' WHERE save_id=? AND player_id=? AND status='active'", (self.save_id, player["id"]))
             variation = _stable_number(self.save_id, player["id"], day, "daily", modulo=5) - 2
-            training_gain = max(1, intensity - int(state["fatigue"]) // 35)
-            fatigue = _clamp(int(state["fatigue"]) + intensity - 2 + max(0, -variation))
-            condition = _clamp(int(state["condition"]) + variation + (intensity <= 2) - fatigue // 45, 45, 100)
+            if state.get("squad_group") == "국가대표":
+                training = {
+                    "training_gain": 0,
+                    "fatigue_load": 1,
+                    "condition_bonus": 0,
+                    "risk_bonus": 0,
+                    "attribute": None,
+                }
+            else:
+                training = TrainingService.daily_effect(
+                    connection, self.save_id, player, state, intensity,
+                    simulation_date,
+                )
+            training_gain = max(
+                0,
+                int(training["training_gain"]) - int(state["fatigue"]) // 35,
+            )
+            fatigue = _clamp(
+                int(state["fatigue"]) + int(training["fatigue_load"])
+                + max(0, -variation)
+            )
+            condition = _clamp(
+                int(state["condition"]) + variation
+                + int(training["condition_bonus"]) - fatigue // 45,
+                45, 100,
+            )
             sharpness = _clamp(int(state["match_sharpness"]) + (2 if phase in ("1차 캠프", "2차 캠프") else 0) + (simulation_date.day % 3 == 0), 25, 100)
-            risk = _clamp(3 + fatigue // 12 + (3 if int(player.get("age") or 0) >= 35 else 0), 1, 30)
+            risk = _clamp(
+                3 + fatigue // 12
+                + (3 if int(player.get("age") or 0) >= 35 else 0)
+                + int(training["risk_bonus"]),
+                1, 30,
+            )
             morale = _clamp(int(state["morale"]) + (1 if condition >= 88 else -1 if condition < 65 else 0), 40, 100)
             injury_roll = _stable_number(self.save_id, player["id"], day, "injury", modulo=10000)
             if old_days == 0 and injury_days == 0 and injury_roll < risk * intensity:
@@ -742,6 +1089,10 @@ class LeagueSimulationService:
                 (condition, fatigue, training_gain, injury_days, sharpness, morale, risk, injury_type,
                  day, self.save_id, player["id"]),
             )
+            from app.services.player_development import apply_daily_development
+            apply_daily_development(connection, self.save_id, player, state, simulation_date, training)
+            from app.services.training_ratings import record_training_rating
+            record_training_rating(connection, self.save_id, player, state, simulation_date, training)
         return injuries, recoveries
 
     def _add_medical_news(self, connection, simulation_date, injuries, recoveries):
@@ -807,6 +1158,8 @@ class LeagueSimulationService:
             state = states[player["id"]]
             if state["injury_days"] > 0:
                 group = "재활조"
+            elif state["squad_group"] == "국가대표":
+                group = "국가대표"
             elif phase in ("1차 캠프", "2차 캠프"):
                 group = phase if player.get("status") else "잔류조"
             else:
@@ -818,8 +1171,17 @@ class LeagueSimulationService:
     def _save_training_plan(self, connection, day, team, phase, profile):
         focus, base = {"1차 캠프": ("체력·기본기", 4), "2차 캠프": ("실전·전술", 5),
                        "캠프 준비": ("개인 컨디셔닝", 3)}.get(phase, ("회복·기술 유지", 2))
-        intensity = _clamp(base + (profile["win_now"] >= 4) - (profile["stability"] >= 4), 1, 5)
-        note = f"{phase} · 육성 {profile['development']} · 즉시전력 {profile['win_now']}"
+        setting = connection.execute(
+            "SELECT focus,intensity,rest_policy FROM team_training_settings WHERE save_id=? AND team=?",
+            (self.save_id, team),
+        ).fetchone()
+        if setting:
+            focus = str(setting["focus"])
+            intensity = _clamp(int(setting["intensity"]), 1, 5)
+            note = f"감독 설정 · 휴식 {setting['rest_policy']} · {phase}"
+        else:
+            intensity = _clamp(base + (profile["win_now"] >= 4) - (profile["stability"] >= 4), 1, 5)
+            note = f"{phase} · 육성 {profile['development']} · 즉시전력 {profile['win_now']}"
         connection.execute(
             """INSERT INTO team_training_plans VALUES (?,?,?,?,?,?,?)
             ON CONFLICT(save_id,plan_date,team) DO UPDATE SET season_phase=excluded.season_phase,

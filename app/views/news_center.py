@@ -33,12 +33,12 @@ class NewsCard(QFrame):
         meta = QHBoxLayout()
         category_label = QLabel(category)
         category_label.setStyleSheet(
-            f"color: {'#ff7676' if is_medical else colors['accent_light']}; font-size: 13px; font-weight: 700;"
+            f"color: {'#ff7676' if is_medical else colors['accent_light']}; font-size: 15px; font-weight: 700;"
         )
         meta.addWidget(category_label)
         meta.addStretch()
         date_label = QLabel(published_at)
-        date_label.setStyleSheet("color: #8292a3; font-size: 13px;")
+        date_label.setStyleSheet("color: #8292a3; font-size: 15px;")
         meta.addWidget(date_label)
         layout.addLayout(meta)
 
@@ -49,7 +49,7 @@ class NewsCard(QFrame):
 
         body_label = QLabel(body)
         body_label.setWordWrap(True)
-        body_label.setStyleSheet("color: #b9c8d7; font-size: 14px;")
+        body_label.setStyleSheet("color: #b9c8d7; font-size: 15px;")
         layout.addWidget(body_label)
 
         self.setStyleSheet(f"""
@@ -136,7 +136,7 @@ class NewsFeedPage(QWidget):
         header.addWidget(self.read_all_button)
         layout.addLayout(header)
         subtitle = QLabel("구단 공식 발표와 리그 주요 소식을 시간순으로 확인합니다.")
-        subtitle.setStyleSheet("color: #8f9ba7; font-size: 11px;")
+        subtitle.setStyleSheet("color: #8f9ba7; font-size: 13px;")
         layout.addWidget(subtitle)
 
         filters = QHBoxLayout()
@@ -207,15 +207,15 @@ class NewsFeedPage(QWidget):
             QPushButton#NewsReadAll {{ color: white; background: {colors['accent']}; border: 1px solid {colors['accent_light']}; border-radius: 0; padding: 4px 12px; font-weight: 700; }}
             QPushButton#NewsArticleAction {{ color: white; background: {colors['accent']}; border: 1px solid {colors['accent_light']}; border-radius: 0; padding: 8px 18px; font-weight: 800; }}
             QPushButton#NewsArticleAction:hover {{ background: {colors['accent_light']}; }}
-            QListWidget#NewsList {{ color: #dce4ec; background: #151a20; border: 1px solid #39434e; outline: none; font-size: 12px; }}
+            QListWidget#NewsList {{ color: #dce4ec; background: #151a20; border: 1px solid #39434e; outline: none; font-size: 14px; }}
             QListWidget#NewsList::item {{ min-height: 48px; padding: 7px 10px; border-bottom: 1px solid #303943; }}
             QListWidget#NewsList::item:hover {{ background: #202831; }}
             QListWidget#NewsList::item:selected {{ color: white; background: #252d36; border-left: 3px solid {colors['accent_light']}; }}
             QFrame#NewsDetail {{ background: #151a20; border: 1px solid #39434e; }}
-            QLabel#NewsDetailCategory {{ color: {colors['accent_light']}; font-size: 11px; font-weight: 700; }}
-            QLabel#NewsDetailDate {{ color: #7f8b97; font-size: 11px; }}
+            QLabel#NewsDetailCategory {{ color: {colors['accent_light']}; font-size: 13px; font-weight: 700; }}
+            QLabel#NewsDetailDate {{ color: #7f8b97; font-size: 13px; }}
             QLabel#NewsDetailHeadline {{ color: white; border-top: 1px solid #39434e; padding-top: 11px; font-size: 20px; font-weight: 700; }}
-            QLabel#NewsDetailBody {{ color: #c2ccd5; font-size: 13px; padding-top: 6px; }}
+            QLabel#NewsDetailBody {{ color: #c2ccd5; font-size: 15px; padding-top: 6px; }}
         """)
         self.refresh_news()
 
@@ -395,15 +395,15 @@ class DailyNewsCard(QFrame):
         meta = QHBoxLayout()
         category = QLabel(news["category"])
         category.setStyleSheet(
-            f"color: {colors['accent_light']}; font-size: 13px; font-weight: 700;"
+            f"color: {colors['accent_light']}; font-size: 15px; font-weight: 700;"
         )
         meta.addWidget(category)
         meta.addStretch()
         status = QLabel("확인함" if is_read else "● 미확인")
         status.setStyleSheet(
-            "color: #8292a3; font-size: 13px;"
+            "color: #8292a3; font-size: 15px;"
             if is_read
-            else "color: #fbbf24; font-size: 13px; font-weight: 700;"
+            else "color: #fbbf24; font-size: 15px; font-weight: 700;"
         )
         meta.addWidget(status)
         layout.addLayout(meta)
@@ -415,12 +415,12 @@ class DailyNewsCard(QFrame):
 
         body = QLabel(news["body"])
         body.setWordWrap(True)
-        body.setStyleSheet("color: #b9c8d7; font-size: 14px;")
+        body.setStyleSheet("color: #b9c8d7; font-size: 15px;")
         layout.addWidget(body)
 
         footer = QHBoxLayout()
         published = QLabel(news["news_date"].replace("-", "."))
-        published.setStyleSheet("color: #8292a3; font-size: 12px;")
+        published.setStyleSheet("color: #8292a3; font-size: 14px;")
         footer.addWidget(published)
         footer.addStretch()
         if not is_read:

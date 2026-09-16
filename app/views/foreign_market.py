@@ -11,16 +11,19 @@ from PySide6.QtWidgets import (
 from app.services.foreign_players import (
     FOREIGN_CAP_SOURCE, NEW_FOREIGN_CAP_USD, TEAM_FOREIGN_CAP_USD,
 )
+from app.views.agent_consultation import AgentConsultationDialog
 
 
 class ForeignPlayerMarketPage(QWidget):
     roster_changed = Signal()
     player_requested = Signal(dict)
+    domestic_contract_requested = Signal(dict)
 
-    def __init__(self, colors, service, parent=None):
+    def __init__(self, colors, service, domestic_fa_service=None, parent=None):
         super().__init__(parent)
         self.colors = colors
         self.service = service
+        self.domestic_fa_service = domestic_fa_service
         root = QVBoxLayout(self)
         root.setContentsMargins(18, 14, 18, 18)
         root.setSpacing(10)
@@ -32,13 +35,16 @@ class ForeignPlayerMarketPage(QWidget):
         copy = QVBoxLayout()
         eyebrow = QLabel("KBO FOREIGN PLAYER CENTRE")
         eyebrow.setObjectName("ForeignEyebrow")
-        title = QLabel("외국인 선수 운영")
+        title = QLabel("이적 및 FA 센터")
         title.setObjectName("ForeignTitle")
         copy.addWidget(eyebrow)
         copy.addWidget(title)
         copy.addWidget(QLabel(
-            "기존 선수 재계약과 세이브마다 새롭게 생성되는 외국인 FA 영입을 관리합니다."
+            "KBO 국내 FA 에이전트 협상과 외국인 선수 계약을 한 화면에서 관리합니다."
         ))
+        self.domestic_status_label = QLabel()
+        self.domestic_status_label.setObjectName("MarketStatus")
+        copy.addWidget(self.domestic_status_label)
         row.addLayout(copy)
         row.addStretch()
         self.slot_label = QLabel()
@@ -68,6 +74,12 @@ class ForeignPlayerMarketPage(QWidget):
         self.league_budget_table = self._table(
             ("구단", "외국인", "KBO 한도", "현재 지출", "사용 가능", "계약 내역")
         )
+        self.domestic_fa_table = self._table((
+            "선수", "원소속팀", "포지션", "나이", "종합", "FA 등급",
+            "전년도 연봉", "보상 부담", "희망 위상", "에이전트 협상",
+        ))
+        if self.domestic_fa_service is not None:
+            self.tabs.addTab(self.domestic_fa_table, "KBO 국내 FA")
         self.tabs.addTab(self.current_table, "보유 외국인 · 재계약/방출")
         self.tabs.addTab(self.market_table, "외국인 FA 시장")
         self.tabs.addTab(self.league_budget_table, "10개 구단 외인 예산")
@@ -150,6 +162,20 @@ class ForeignPlayerMarketPage(QWidget):
         return table
 
     def refresh(self):
+        if self.domestic_fa_service is not None:
+            market_status = self.domestic_fa_service.market_status()
+            self.domestic_status_label.setText(
+                "KBO 국내 FA · " + market_status["label"]
+            )
+            self.domestic_status_label.setProperty(
+                "open", market_status["open"]
+            )
+            self.domestic_status_label.style().unpolish(
+                self.domestic_status_label
+            )
+            self.domestic_status_label.style().polish(
+                self.domestic_status_label
+            )
         total, pitchers = self.service.slot_state()
         self.slot_label.setText(f"외국인 슬롯  {total}/3  ·  투수 {pitchers}/2")
         self.current_players = self.service.current_players()
@@ -181,6 +207,56 @@ class ForeignPlayerMarketPage(QWidget):
             card[2].setValue(percent)
             card[3].setText(caption)
         self._populate_league_budgets(self.service.league_budget_rows())
+        if self.domestic_fa_service is not None:
+            self.domestic_fa_players = self.domestic_fa_service.market_players()
+            self._populate_domestic_fa(self.domestic_fa_players)
+
+    def _populate_domestic_fa(self, players):
+        service = self.domestic_fa_service
+        if service is None:
+            self.domestic_fa_table.setRowCount(0)
+            return
+        self.domestic_fa_table.setRowCount(len(players))
+        for row, player in enumerate(players):
+            compensation = f"{int(player['compensation']):,}만원"
+            if player.get("player_compensation"):
+                compensation += " + 보상선수"
+            values = (
+                player["name"], player["team"], self._position_text(player),
+                player.get("age", "-"), player.get("overall", "-"),
+                player.get("fa_grade", "-"), f"{int(player.get('salary') or 0):,}만원",
+                compensation, player.get("desired_role", "-"),
+            )
+            for column, value in enumerate(values):
+                self._item(self.domestic_fa_table, row, column, value, column in (3, 4, 5))
+            ready = service.contract_talk_ready(player["id"])
+            market_open = service.market_is_open()
+            button = QPushButton(
+                "계약 협상" if ready else
+                "에이전트 접촉" if market_open else "11/09 개장"
+            )
+            button.setObjectName("OfferButton")
+            button.setEnabled(bool(player.get("available")))
+            if not market_open:
+                button.setToolTip("KBO 국내 FA 협상은 11월 9일부터 가능합니다.")
+            button.clicked.connect(
+                lambda _checked=False, p=player: self._open_domestic_fa(p)
+            )
+            self.domestic_fa_table.setCellWidget(row, 9, button)
+
+    def _open_domestic_fa(self, player):
+        service = self.domestic_fa_service
+        if service is None:
+            return
+        if not service.contract_talk_ready(player["id"]):
+            consultation = AgentConsultationDialog(
+                service, dict(player), self
+            )
+            consultation.exec()
+            self.refresh()
+            if not service.contract_talk_ready(player["id"]):
+                return
+        self.domestic_contract_requested.emit(dict(player))
 
     def _populate_current(self, players):
         self.current_table.setRowCount(len(players))
@@ -208,7 +284,11 @@ class ForeignPlayerMarketPage(QWidget):
                 done.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 layout.addWidget(done)
             else:
-                renew = QPushButton("상세·협상")
+                renew = QPushButton(
+                    "계약 협상"
+                    if self.service.contract_talk_ready(player["id"])
+                    else "에이전트 접촉"
+                )
                 renew.setObjectName("OfferButton")
                 renew.clicked.connect(
                     lambda _checked=False, p=player: self.player_requested.emit(dict(p))
@@ -242,7 +322,11 @@ class ForeignPlayerMarketPage(QWidget):
                 self._item(self.market_table, row, column, value, column in (4, 5))
             self.market_table.item(row, 8).setToolTip(values[8])
             if player["status"] == "available":
-                button = QPushButton("상세·협상")
+                button = QPushButton(
+                    "계약 협상"
+                    if self.service.contract_talk_ready(player["id"])
+                    else "에이전트 접촉"
+                )
                 button.setObjectName("OfferButton")
                 button.clicked.connect(
                     lambda _checked=False, p=player: self.player_requested.emit(dict(p))
@@ -335,14 +419,16 @@ class ForeignPlayerMarketPage(QWidget):
         QFrame#BudgetCard[kind="cap"] {{ border-top:3px solid #559dca; }}
         QFrame#BudgetCard[kind="spent"] {{ border-top:3px solid #e2aa57; }}
         QFrame#BudgetCard[kind="available"] {{ border-top:3px solid #58c998; }}
-        QLabel#BudgetTitle {{ color:#8e9ca7; font-size:11px; }}
+        QLabel#BudgetTitle {{ color:#8e9ca7; font-size:13px; }}
         QLabel#BudgetValue {{ color:#edf5f8; font-size:22px; font-weight:850; }}
-        QLabel#BudgetCaption {{ color:#778995; font-size:10px; }}
+        QLabel#BudgetCaption {{ color:#778995; font-size:13px; }}
         QProgressBar#BudgetBar {{ min-height:6px; max-height:6px; background:#26323a;
             border:0; border-radius:3px; }}
         QProgressBar#BudgetBar::chunk {{ background:#58c998; border-radius:3px; }}
         QLabel {{ color:#dbe5eb; font-family:'Malgun Gothic'; }}
-        QLabel#ForeignEyebrow {{ color:#68b9ea; font-size:9px; font-weight:850; }}
+        QLabel#ForeignEyebrow {{ color:#68b9ea; font-size:13px; font-weight:850; }}
+        QLabel#MarketStatus {{ color:#e7b85b; font-size:13px; font-weight:800; }}
+        QLabel#MarketStatus[open="true"] {{ color:#78d3a6; }}
         QLabel#ForeignTitle {{ color:white; font-size:21px; font-weight:850; }}
         QLabel#SlotBadge {{ color:#7fe0b3; background:#17372d; border:1px solid #2e7259;
             border-radius:10px; padding:7px 13px; font-weight:800; }}

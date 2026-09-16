@@ -23,8 +23,64 @@ class SeasonScheduleTests(unittest.TestCase):
         ids = [event["event_id"] for event in events]
         self.assertEqual(len(ids), len(set(ids)))
         required = {"event_id", "category", "title", "detail", "task",
-                    "importance", "event_type", "inbox", "requires_action"}
+                    "importance", "event_type", "inbox", "requires_action",
+                    "workflow", "choices"}
         self.assertTrue(all(required <= set(event) for event in events))
+
+    def test_every_november_milestone_has_an_implementation_workflow(self):
+        november_events = [
+            event for day, events in SEASON_EVENTS.items()
+            if day.year == 2025 and day.month == 11
+            for event in events
+        ]
+        self.assertTrue(november_events)
+        self.assertTrue(all(event["workflow"] != "notice" for event in november_events))
+        self.assertEqual(
+            {
+                "offseason_open", "coaching_staff_review",
+                "national_team_roster", "national_team_callup",
+                "roster_audit", "offseason_training_plan",
+                "national_team_late_join", "fa_eligible", "fa_approved",
+                "fa_market_open", "korea_czech_one", "korea_czech_two",
+                "second_draft_protect", "national_team_departure",
+                "korea_japan_one", "korea_japan_two", "national_team_return",
+                "second_draft", "draft_integration", "kbo_awards",
+                "reserve_submit", "november_review", "reserve_publication",
+            },
+            {event["event_id"] for event in november_events},
+        )
+
+    def test_required_november_tasks_have_real_decision_paths(self):
+        panel_workflows = {
+            "roster_audit", "second_draft_protection", "reserve_submission",
+            "second_draft_results",
+        }
+        for day, events in SEASON_EVENTS.items():
+            if day.year != 2025 or day.month != 11:
+                continue
+            for event in events:
+                if not event["requires_action"]:
+                    continue
+                self.assertTrue(
+                    event["choices"] or event["workflow"] in panel_workflows,
+                    event["event_id"],
+                )
+
+        required_ids = {
+            event["event_id"]
+            for day, events in SEASON_EVENTS.items()
+            if day.year == 2025 and day.month == 11
+            for event in events if event["requires_action"]
+        }
+        self.assertEqual(
+            {
+                "offseason_open", "coaching_staff_review", "roster_audit",
+                "offseason_training_plan", "fa_eligible", "fa_approved",
+                "fa_market_open", "second_draft_protect", "second_draft",
+                "draft_integration", "reserve_submit", "november_review",
+            },
+            required_ids,
+        )
 
     def test_official_milestones_match_2025_26_calendar(self):
         expected = {

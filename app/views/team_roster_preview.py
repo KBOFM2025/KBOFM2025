@@ -83,7 +83,7 @@ class TeamRosterPreviewWidget(QFrame):
         self.title_label.setFont(QFont("Malgun Gothic", 21, QFont.Bold))
         title_column.addWidget(self.title_label)
         subtitle = QLabel("2025년 10월 31일 기준 · 생년월일은 KBO 공식 프로필 기준")
-        subtitle.setStyleSheet("color: #9fb0c2; font-size: 13px;")
+        subtitle.setStyleSheet("color: #9fb0c2; font-size: 15px;")
         title_column.addWidget(subtitle)
         heading.addLayout(title_column)
         heading.addStretch()
@@ -99,7 +99,7 @@ class TeamRosterPreviewWidget(QFrame):
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet(
                 "color: #dbe7f3; background-color: #101f31; "
-                "border: 1px solid #2b4056; border-radius: 8px; padding: 10px; font-size: 14px; font-weight: 600;"
+                "border: 1px solid #2b4056; border-radius: 8px; padding: 10px; font-size: 15px; font-weight: 600;"
             )
             self.position_count_labels[code] = label
             summary.addWidget(label)
@@ -113,7 +113,7 @@ class TeamRosterPreviewWidget(QFrame):
         layout.addWidget(self.tabs)
 
         guide = QLabel("신인 · 외국인 선수는 이름 옆 배지로 표시됩니다.")
-        guide.setStyleSheet("color: #8495a8; font-size: 12px;")
+        guide.setStyleSheet("color: #8495a8; font-size: 14px;")
         layout.addWidget(guide)
 
         self.view_stack.addWidget(self.roster_page)
@@ -131,7 +131,7 @@ class TeamRosterPreviewWidget(QFrame):
         self.total_label.setText(f"총 {len(players)}명")
         self.total_label.setStyleSheet(
             f"color: white; background-color: {colors['accent']}; "
-            "border-radius: 12px; padding: 8px 15px; font-size: 14px; font-weight: 700;"
+            "border-radius: 12px; padding: 8px 15px; font-size: 15px; font-weight: 700;"
         )
 
         for code, label in self.position_count_labels.items():
@@ -246,18 +246,18 @@ class TeamRosterPreviewWidget(QFrame):
             QTabBar::tab {{
                 color: #9fb2c7; background-color: #101f31;
                 border: 1px solid #30445a; padding: 11px 20px;
-                font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 14px; font-weight: 600;
+                font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 15px; font-weight: 600;
             }}
             QTabBar::tab:selected {{ color: white; background-color: {colors['accent']}; }}
             QTableWidget {{
                 color: #dbe7f3; background-color: #0d1b2a;
                 alternate-background-color: #101f31; border: none;
                 selection-background-color: {colors['accent']};
-                font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 14px;
+                font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 15px;
             }}
             QHeaderView::section {{
                 color: #dbe7f3; background-color: #162a40; border: none;
                 border-bottom: 1px solid #30445c; padding: 9px;
-                font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 13px; font-weight: 600;
+                font-family: 'Malgun Gothic', 'Segoe UI'; font-size: 15px; font-weight: 600;
             }}
         """

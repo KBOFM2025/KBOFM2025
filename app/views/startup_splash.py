@@ -119,16 +119,16 @@ class StartupSplash(QWidget):
             }
             QLabel#LeagueMark {
                 color: white; background: #1679c8;
-                padding: 5px 9px; font-size: 11px; font-weight: 900;
+                padding: 5px 9px; font-size: 13px; font-weight: 900;
             }
             QLabel#Edition {
-                color: #9baab7; font-size: 10px; font-weight: 800;
+                color: #9baab7; font-size: 13px; font-weight: 800;
             }
             QLabel#Build, QLabel#Tip {
-                color: #667685; font-size: 9px; font-weight: 700;
+                color: #667685; font-size: 13px; font-weight: 700;
             }
             QLabel#Kicker {
-                color: #5bb6ff; font-size: 12px; font-weight: 900;
+                color: #5bb6ff; font-size: 14px; font-weight: 900;
             }
             QLabel#GameTitle {
                 color: white; font-size: 64px; font-weight: 900;
@@ -141,13 +141,13 @@ class StartupSplash(QWidget):
                 padding-top: 25px;
             }
             QLabel#Subtitle {
-                color: #aab7c2; font-size: 14px; font-weight: 650;
+                color: #aab7c2; font-size: 15px; font-weight: 650;
             }
             QLabel#StartupStatus {
-                color: #dce5ec; font-size: 11px; font-weight: 750;
+                color: #dce5ec; font-size: 13px; font-weight: 750;
             }
             QLabel#Percent {
-                color: #57b5ff; font-size: 10px; font-weight: 900;
+                color: #57b5ff; font-size: 13px; font-weight: 900;
             }
             QProgressBar#StartupProgress {
                 background: #27333e; border: none; border-radius: 3px;

@@ -357,27 +357,27 @@ class AppointmentPressConferencePage(QWidget):
             QWidget#PressPage {{ background: #080b0e; }}
             QLabel {{ color: #dfe7ee; font-family: 'Malgun Gothic', 'Segoe UI'; }}
             QFrame#TopBar {{ background: rgba(10, 13, 16, 238); border: 1px solid rgba(91, 101, 110, 170); }}
-            QLabel#Kicker {{ color: #9aa5ae; font-size: 9px; font-weight: 700; }}
+            QLabel#Kicker {{ color: #9aa5ae; font-size: 13px; font-weight: 700; }}
             QLabel#Title {{ color: white; font-size: 15px; font-weight: 900; }}
-            QLabel#MoodTitle {{ color: #8b959d; font-size: 8px; }}
-            QLabel#Mood {{ color: white; background: rgba(108, 110, 108, 205); border-radius: 13px; padding: 5px 50px; font-size: 11px; font-weight: 800; }}
-            QLabel#Progress {{ color: #d9e3ec; background: rgba(20, 25, 30, 220); border: 1px solid #45515c; padding: 8px 13px; font-size: 10px; font-weight: 800; }}
+            QLabel#MoodTitle {{ color: #8b959d; font-size: 13px; }}
+            QLabel#Mood {{ color: white; background: rgba(108, 110, 108, 205); border-radius: 13px; padding: 5px 50px; font-size: 13px; font-weight: 800; }}
+            QLabel#Progress {{ color: #d9e3ec; background: rgba(20, 25, 30, 220); border: 1px solid #45515c; padding: 8px 13px; font-size: 13px; font-weight: 800; }}
             QFrame#ReporterPanel {{ background: rgba(10, 13, 16, 176); border: 1px solid rgba(74, 82, 89, 145); }}
-            QLabel[reporter="true"] {{ color: #9aa3aa; background: rgba(32, 35, 37, 205); border: 1px solid rgba(82, 88, 91, 180); border-radius: 3px; padding: 8px 10px; font-size: 10px; }}
+            QLabel[reporter="true"] {{ color: #9aa3aa; background: rgba(32, 35, 37, 205); border: 1px solid rgba(82, 88, 91, 180); border-radius: 3px; padding: 8px 10px; font-size: 13px; }}
             QLabel[reporter="true"][active="true"] {{ color: white; background: rgba(87, 91, 76, 225); border: 1px solid {c['accent_light']}; font-weight: 800; }}
             QLabel[reporter="true"][done="true"] {{ color: #a7c2ad; background: rgba(35, 55, 43, 215); border-color: #537a5e; }}
             QFrame#QuestionBox {{ background: rgba(23, 25, 27, 235); border: 1px solid rgba(101, 106, 109, 210); border-radius: 3px; }}
-            QLabel#Outlet {{ color: {c['accent_light']}; font-size: 10px; font-weight: 900; }}
+            QLabel#Outlet {{ color: {c['accent_light']}; font-size: 13px; font-weight: 900; }}
             QLabel#Question {{ color: white; font-size: 17px; font-weight: 800; }}
             QFrame#AnswerPanel {{ background: rgba(24, 25, 27, 242); border: 1px solid rgba(83, 87, 90, 210); border-radius: 5px; }}
-            QLabel#ChoiceTitle {{ color: white; font-size: 12px; font-weight: 900; }}
-            QLabel#Tone {{ color: #aab2b9; font-size: 10px; }}
-            QPushButton[answer="true"] {{ color: #e7e9eb; background: rgba(45, 46, 48, 242); border: 1px solid #424548; border-top: 3px solid #707477; border-radius: 3px; padding: 10px 12px; text-align: left; font-size: 10px; font-weight: 600; }}
+            QLabel#ChoiceTitle {{ color: white; font-size: 14px; font-weight: 900; }}
+            QLabel#Tone {{ color: #aab2b9; font-size: 13px; }}
+            QPushButton[answer="true"] {{ color: #e7e9eb; background: rgba(45, 46, 48, 242); border: 1px solid #424548; border-top: 3px solid #707477; border-radius: 3px; padding: 10px 12px; text-align: left; font-size: 13px; font-weight: 600; }}
             QPushButton[answer="true"][choice="1"] {{ border-top-color: #5fa66f; }}
             QPushButton[answer="true"][choice="2"] {{ border-top-color: #80906a; }}
             QPushButton[answer="true"][choice="3"] {{ border-top-color: #c79c4a; }}
             QPushButton[answer="true"][choice="4"] {{ border-top-color: #a35b5b; }}
             QPushButton[answer="true"]:hover {{ color: white; background: rgba(63, 66, 69, 248); border: 1px solid {c['accent_light']}; border-top: 3px solid {c['accent_light']}; }}
-            QPushButton#Finish {{ color: white; background: {c['accent']}; border: 1px solid {c['accent_light']}; padding: 9px 16px; font-size: 11px; font-weight: 800; }}
+            QPushButton#Finish {{ color: white; background: {c['accent']}; border: 1px solid {c['accent_light']}; padding: 9px 16px; font-size: 13px; font-weight: 800; }}
             QPushButton#Finish:hover {{ background: {c['accent_light']}; }}
         """)

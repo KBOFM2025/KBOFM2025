@@ -2,11 +2,13 @@
 
 UI_FONT_FAMILY = "Malgun Gothic"
 NUMERIC_FONT_FAMILY = "Malgun Gothic"
+# 본문 15px, 표·입력·버튼 14px, 보조 설명 최소 13px.
+# 직접 그리는 경기/라인업 화면은 최소 10pt (약 13px)를 사용한다.
 
 GLOBAL_STYLE = """
     QWidget {
         font-family: 'Malgun Gothic', 'Segoe UI';
-        font-size: 13px;
+        font-size: 15px;
     }
     QToolTip {
         color: #eef2f6;
@@ -14,10 +16,10 @@ GLOBAL_STYLE = """
         border: 1px solid #4a5561;
         border-radius: 1px;
         padding: 5px 8px;
-        font-size: 12px;
+        font-size: 14px;
     }
     QTableWidget, QTableView {
-        font-size: 12px;
+        font-size: 14px;
         selection-color: white;
         outline: none;
     }
@@ -25,13 +27,13 @@ GLOBAL_STYLE = """
     QHeaderView::section {
         min-height: 27px;
         padding: 4px 7px;
-        font-size: 12px;
+        font-size: 14px;
         font-weight: 600;
     }
     QComboBox {
         min-height: 30px;
         padding: 0 9px;
-        font-size: 12px;
+        font-size: 14px;
         border-radius: 1px;
     }
     QPushButton {
@@ -41,7 +43,7 @@ GLOBAL_STYLE = """
         background-color: #1a2129;
         border: 1px solid #38424d;
         border-radius: 1px;
-        font-size: 12px;
+        font-size: 14px;
         font-weight: 600;
     }
     QPushButton:hover { background-color: #242d36; border-color: #647180; }
@@ -55,8 +57,8 @@ GLOBAL_STYLE = """
         selection-color: white;
         selection-background-color: #4b5968;
     }
-    QMessageBox QLabel { min-width: 280px; font-size: 13px; }
-    QMessageBox QPushButton { min-width: 86px; min-height: 31px; font-size: 12px; }
+    QMessageBox QLabel { min-width: 280px; font-size: 15px; }
+    QMessageBox QPushButton { min-width: 86px; min-height: 31px; font-size: 14px; }
     QScrollBar:vertical {
         width: 8px;
         background: #11161c;
